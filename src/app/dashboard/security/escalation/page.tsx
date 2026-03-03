@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import SecurityLockdownEditor from "@/components/possum/SecurityLockdownEditor";
 
 export default function EscalationPage() {

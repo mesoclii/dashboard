@@ -1,0 +1,33 @@
+{
+  "active": true,
+  "panel": {
+    "channelId": "",
+    "categoryId": "",
+    "transcriptChannelId": "",
+    "staffRoleIds": [],
+    "openButtonLabel": "Open Ticket",
+    "claimButtonLabel": "Claim",
+    "closeButtonLabel": "Close",
+    "deleteButtonLabel": "Delete",
+    "welcomeMessageTemplate": "Ticket opened by <@{{userId}}>.",
+    "closeMessageTemplate": "Ticket closed by <@{{actorId}}>.",
+    "pingStaffOnOpen": true,
+    "lockOnClose": true,
+    "allowUserClose": true,
+    "requireReasonOnClose": false
+  },
+  "permissions": {
+    "canClaimRoles": [],
+    "canCloseRoles": [],
+    "canDeleteRoles": [],
+    "canTranscriptRoles": [],
+    "userCanAddMembers": false,
+    "userCanRenameTicket": false
+  },
+  "limits": {
+    "maxOpenPerUser": 1,
+    "cooldownSeconds": 0,
+    "staleAutoArchiveHours": 24
+  },
+  "notes": ""
+}

@@ -1,0 +1,16 @@
+{
+  "1431799056211906582": {
+    "preOnboardingEnabled": true,
+    "onboardingEnabled": true,
+    "verificationEnabled": true,
+    "lockdownEnabled": true,
+    "raidEnabled": true,
+    "moderatorEnabled": true,
+    "automationStudioEnabled": true,
+    "commandCenterEnabled": true,
+    "welcomeGoodbyeEnabled": true,
+    "profilesEnabled": true,
+    "notes": "",
+    "active": true
+  }
+}

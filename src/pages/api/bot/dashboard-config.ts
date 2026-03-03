@@ -1,4 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import {
+  readGuildIdFromRequest,
+  isWriteBlockedForGuild,
+  stockLockError,
+} from "@/lib/guildPolicy";
 
 const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
 const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
@@ -12,14 +17,18 @@ function authHeaders(json = false): Record<string, string> {
 
 async function readJsonSafe(r: Response) {
   const text = await r.text();
-  try { return text ? JSON.parse(text) : {}; }
-  catch { return { success: false, error: text || "Invalid upstream response" }; }
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return { success: false, error: text || "Invalid upstream response" };
+  }
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    const guildId = readGuildIdFromRequest(req);
+
     if (req.method === "GET") {
-      const guildId = String(req.query.guildId || "").trim();
       if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
 
       const upstream = await fetch(
@@ -31,10 +40,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (req.method === "POST") {
+      if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
+      if (isWriteBlockedForGuild(guildId)) {
+        return res.status(403).json(stockLockError(guildId));
+      }
+
+      const body = { ...(req.body || {}), guildId };
       const upstream = await fetch(`${BOT_API}/dashboard-config`, {
         method: "POST",
         headers: authHeaders(true),
-        body: JSON.stringify(req.body || {})
+        body: JSON.stringify(body),
       });
       const data = await readJsonSafe(upstream);
       return res.status(upstream.status).json(data);

@@ -1,0 +1,33 @@
+{
+  "1431799056211906582": {
+    "active": true,
+    "panel": {
+      "enabled": true,
+      "channelId": "",
+      "title": "Server Store",
+      "description": "Spend coins on roles, perks, and items.",
+      "buttonLabel": "Open Store",
+      "embedColor": "#ff3b3b",
+      "imageUrl": ""
+    },
+    "policies": {
+      "maxItemsPerPurchase": 1,
+      "allowRoleStacking": false,
+      "requireStaffApproval": false,
+      "logChannelId": ""
+    },
+    "items": [
+      {
+        "id": "vip-trial",
+        "name": "VIP Trial",
+        "description": "Temporary VIP access",
+        "type": "role",
+        "roleId": "",
+        "priceCoins": 5000,
+        "stock": -1,
+        "oneTime": true,
+        "enabled": true
+      }
+    ]
+  }
+}

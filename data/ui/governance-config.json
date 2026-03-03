@@ -1,0 +1,54 @@
+{
+  "1431799056211906582": {
+    "active": true,
+    "crew": {
+      "enabled": true,
+      "maxCrews": 25,
+      "creationCost": 10000,
+      "maxCrewSize": 25,
+      "allowPublicRecruitment": true,
+      "recruitChannelId": "",
+      "crewRolePrefix": "Crew"
+    },
+    "contracts": {
+      "enabled": true,
+      "dailyCap": 5,
+      "weeklyCap": 20,
+      "baseRewardCoins": 250,
+      "xpReward": 50,
+      "allowStacking": false,
+      "logChannelId": ""
+    },
+    "dominion": {
+      "enabled": true,
+      "seasonsEnabled": false,
+      "seasonLengthDays": 30,
+      "raidWindows": [
+        "Fri 20:00-22:00",
+        "Sat 20:00-22:00"
+      ],
+      "basePayout": 500,
+      "territoryDecayHours": 48,
+      "announceChannelId": ""
+    },
+    "treasury": {
+      "enabled": true,
+      "taxPercent": 5,
+      "withdrawRoleIds": [],
+      "minWithdrawAmount": 1000,
+      "maxWithdrawAmount": 100000,
+      "auditChannelId": ""
+    },
+    "raidWarfare": {
+      "enabled": true,
+      "preparationMinutes": 15,
+      "activeRaidMinutes": 45,
+      "cooldownMinutes": 180,
+      "defenderBonusPercent": 10,
+      "attackerBonusPercent": 5,
+      "warManagerRoleIds": [],
+      "warLogChannelId": ""
+    },
+    "notes": ""
+  }
+}

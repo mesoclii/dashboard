@@ -1,0 +1,179 @@
+import type { NextApiRequest, NextApiResponse } from "next";
+import {
+  PRIMARY_BASELINE_GUILD_ID,  parseDashboardGuildIds,
+  STOCK_LOCK_NON_PRIMARY,
+} from "@/lib/guildPolicy";
+
+const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
+const TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
+
+function h(json = false) {
+  const headers: Record<string, string> = {};
+  if (json) headers["Content-Type"] = "application/json";
+  if (TOKEN) headers["x-dashboard-token"] = TOKEN;
+  return headers;
+}
+
+async function readJsonSafe(r: Response) {
+  const t = await r.text();
+  try {
+    return t ? JSON.parse(t) : {};
+  } catch {
+    return { success: false, error: t || "Invalid JSON" };
+  }
+}
+
+const ALL_FEATURES_ON_BASE = {
+  onboardingEnabled: true,
+  verificationEnabled: true,
+  heistEnabled: true,
+  rareDropEnabled: true,
+  pokemonEnabled: false,
+  aiEnabled: true,
+  ttsEnabled: true,
+  birthdayEnabled: true,
+  economyEnabled: true,
+  governanceEnabled: true,
+};
+
+const BLANK = {
+  features: {
+    onboardingEnabled: false,
+    verificationEnabled: false,
+    heistEnabled: false,
+    rareDropEnabled: false,
+    pokemonEnabled: false,
+    aiEnabled: false,
+    birthdayEnabled: false,
+    economyEnabled: false,
+    governanceEnabled: false,
+    ttsEnabled: false,
+  },
+  persona: { guildNickname: "", webhookName: "", webhookAvatarUrl: "", useWebhookPersona: false },
+  security: {
+    preOnboarding: { autoBanOnBlacklistRejoin: false, autoBanOnRefusalRole: false, refusalRoleId: null, enforcementChannelId: null, contactUser: "", banDmTemplate: "" },
+    onboarding: {
+      welcomeChannelId: null, mainChatChannelId: null, rulesChannelId: null, idChannelId: null, ticketCategoryId: null,
+      transcriptChannelId: null, logChannelId: null, verifiedRoleId: null, declineRoleId: null,
+      staffRoleIds: [], removeOnVerifyRoleIds: [], idTimeoutMinutes: 30,
+      dmTemplate: "", panelTitle: "", panelDescription: "", panelFooter: "", gateAnnouncementTemplate: "",
+      idPanelTitle: "", idPanelDescription: "", idPanelContent: "", postVerifyTemplate: "",
+    },
+    verification: { autoKickOnDecline: false, autoKickOnTimeout: false, declineKickReason: "", timeoutKickReason: "", declineReplyTemplate: "" },
+    lockdown: { enabled: false, joinThresholdPerMinute: 10, mentionThresholdPerMinute: 20, autoEscalation: false, exemptRoleIds: [], exemptChannelIds: [] },
+    raid: { enabled: false, joinBurstThreshold: 6, windowSeconds: 30, actionPreset: "contain", exemptRoleIds: [], exemptChannelIds: [], autoEscalate: false },
+  },
+};
+
+async function enforcePrimary(guildId: string) {
+  const steps: Array<Record<string, any>> = [];
+
+  const curRes = await fetch(`${BOT_API}/guild-features?guildId=${encodeURIComponent(guildId)}`, {
+    headers: h(false),
+  });
+  const curJson = await readJsonSafe(curRes);
+  const privateGuild = Boolean(curJson?.privateGuild);
+
+  const allOn = {
+    ...ALL_FEATURES_ON_BASE,
+    pokemonEnabled: privateGuild,
+  };
+
+  const fRes = await fetch(`${BOT_API}/guild-features`, {
+    method: "POST",
+    headers: h(true),
+    body: JSON.stringify({ guildId, features: allOn }),
+  });
+  const fJson = await readJsonSafe(fRes);
+  steps.push({ step: "guild-features", success: fRes.ok && fJson?.success !== false, status: fRes.status, error: fRes.ok ? null : fJson?.error || "failed", privateGuild, allOn });
+
+  const tRes = await fetch(`${BOT_API}/engine-config`, {
+    method: "POST",
+    headers: h(true),
+    body: JSON.stringify({ guildId, engine: "tts", config: { enabled: true } }),
+  });
+  const tJson = await readJsonSafe(tRes);
+  steps.push({ step: "tts-engine", success: tRes.ok && tJson?.success !== false, status: tRes.status, error: tRes.ok ? null : tJson?.error || "failed" });
+
+  return {
+    guildId,
+    action: "primary_all_features_on",
+    success: steps.every((s) => s.success),
+    steps,
+  };
+}
+
+async function enforceStock(guildId: string) {
+  const up = await fetch(`${BOT_API}/dashboard-config`, {
+    method: "POST",
+    headers: h(true),
+    body: JSON.stringify({ guildId, patch: BLANK }),
+  });
+  const data = await readJsonSafe(up);
+  return {
+    guildId,
+    action: "reset_to_stock",
+    success: up.ok && data?.success !== false,
+    status: up.status,
+    error: up.ok ? null : data?.error || "reset failed",
+  };
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ success: false, error: "Method not allowed" });
+  }
+
+  const dryRun = String(req.query.dryRun || req.body?.dryRun || "").trim().toLowerCase() === "true";
+  const guildIds = parseDashboardGuildIds();
+
+  if (!guildIds.length) {
+    return res.status(200).json({
+      success: true,
+      dryRun,
+      primaryGuildId: PRIMARY_BASELINE_GUILD_ID,
+      stockLockNonPrimary: STOCK_LOCK_NON_PRIMARY,
+      results: [],
+      message: "No guild IDs configured",
+    });
+  }
+
+  const results: Array<Record<string, any>> = [];
+
+  for (const guildId of guildIds) {
+    if (dryRun) {
+      results.push({
+        guildId,
+        action: guildId === PRIMARY_BASELINE_GUILD_ID ? "primary_all_features_on" : "reset_to_stock",
+        success: true,
+        skipped: true,
+      });
+      continue;
+    }
+
+    try {
+      if (guildId === PRIMARY_BASELINE_GUILD_ID) {
+        results.push(await enforcePrimary(guildId));
+      } else {
+        results.push(await enforceStock(guildId));
+      }
+    } catch (e: any) {
+      results.push({
+        guildId,
+        action: guildId === PRIMARY_BASELINE_GUILD_ID ? "primary_all_features_on" : "reset_to_stock",
+        success: false,
+        error: e?.message || "policy step failed",
+      });
+    }
+  }
+
+  const failed = results.filter((r) => r.success === false);
+
+  return res.status(failed.length ? 207 : 200).json({
+    success: failed.length === 0,
+    dryRun,
+    primaryGuildId: PRIMARY_BASELINE_GUILD_ID,
+      stockLockNonPrimary: STOCK_LOCK_NON_PRIMARY,
+    results,
+  });
+}

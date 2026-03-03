@@ -1,0 +1,55 @@
+{
+  "active": true,
+  "publicEnabled": false,
+  "vanitySlug": "",
+  "pointsName": "Invites",
+  "leaderboardType": "invites",
+  "rewardsEnabled": true,
+  "rewardTiers": [
+    {
+      "invites": 5,
+      "roleId": "",
+      "coins": 0,
+      "label": "",
+      "prize": "",
+      "oneTime": true,
+      "stackable": false
+    },
+    {
+      "invites": 10,
+      "roleId": "",
+      "coins": 250,
+      "label": "",
+      "prize": "",
+      "oneTime": true,
+      "stackable": false
+    },
+    {
+      "invites": 25,
+      "roleId": "",
+      "coins": 1000,
+      "label": "",
+      "prize": "",
+      "oneTime": true,
+      "stackable": false
+    }
+  ],
+  "payoutMode": "manual",
+  "payoutIntervalHours": 24,
+  "minimumInvitesForReward": 1,
+  "announceRewards": true,
+  "announceChannelId": "",
+  "commands": {
+    "invite": true,
+    "invites": true,
+    "leaderboard": true
+  },
+  "fraud": {
+    "requireAccountAgeDays": 0,
+    "minServerDays": 0,
+    "ignoreBotInvites": true,
+    "lockSelfInvites": true
+  },
+  "notes": "",
+  "lastSavedAt": "2026-03-02T03:29:14.954Z"
+}

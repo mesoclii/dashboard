@@ -1,4 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import {
+  PRIMARY_BASELINE_GUILD_ID,
+  STOCK_LOCK_NON_PRIMARY,
+  readGuildIdFromRequest,
+} from "@/lib/guildPolicy";
 
 const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
 const TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
@@ -11,7 +16,11 @@ function h(json = false) {
 }
 async function readJsonSafe(r: Response) {
   const t = await r.text();
-  try { return t ? JSON.parse(t) : {}; } catch { return { success: false, error: t || "Invalid JSON" }; }
+  try {
+    return t ? JSON.parse(t) : {};
+  } catch {
+    return { success: false, error: t || "Invalid JSON" };
+  }
 }
 
 const BLANK = {
@@ -25,7 +34,7 @@ const BLANK = {
     birthdayEnabled: false,
     economyEnabled: false,
     governanceEnabled: false,
-    ttsEnabled: false
+    ttsEnabled: false,
   },
   persona: { guildNickname: "", webhookName: "", webhookAvatarUrl: "", useWebhookPersona: false },
   security: {
@@ -35,24 +44,33 @@ const BLANK = {
       transcriptChannelId: null, logChannelId: null, verifiedRoleId: null, declineRoleId: null,
       staffRoleIds: [], removeOnVerifyRoleIds: [], idTimeoutMinutes: 30,
       dmTemplate: "", panelTitle: "", panelDescription: "", panelFooter: "", gateAnnouncementTemplate: "",
-      idPanelTitle: "", idPanelDescription: "", idPanelContent: "", postVerifyTemplate: ""
+      idPanelTitle: "", idPanelDescription: "", idPanelContent: "", postVerifyTemplate: "",
     },
     verification: { autoKickOnDecline: false, autoKickOnTimeout: false, declineKickReason: "", timeoutKickReason: "", declineReplyTemplate: "" },
     lockdown: { enabled: false, joinThresholdPerMinute: 10, mentionThresholdPerMinute: 20, autoEscalation: false, exemptRoleIds: [], exemptChannelIds: [] },
-    raid: { enabled: false, joinBurstThreshold: 6, windowSeconds: 30, actionPreset: "contain", exemptRoleIds: [], exemptChannelIds: [], autoEscalate: false }
-  }
+    raid: { enabled: false, joinBurstThreshold: 6, windowSeconds: 30, actionPreset: "contain", exemptRoleIds: [], exemptChannelIds: [], autoEscalate: false },
+  },
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ success: false, error: "Method not allowed" });
-  const guildId = String(req.body?.guildId || req.query?.guildId || "").trim();
+  const guildId = readGuildIdFromRequest(req);
   if (!/^\d{16,20}$/.test(guildId)) return res.status(400).json({ success: false, error: "guildId is required" });
+
+  if (STOCK_LOCK_NON_PRIMARY && guildId === PRIMARY_BASELINE_GUILD_ID) {
+    return res.status(403).json({
+      success: false,
+      error: "Primary baseline guild cannot be reset to blank while stock lock is enabled.",
+      guildId,
+      primaryGuildId: PRIMARY_BASELINE_GUILD_ID,
+    });
+  }
 
   try {
     const up = await fetch(`${BOT_API}/dashboard-config`, {
       method: "POST",
       headers: h(true),
-      body: JSON.stringify({ guildId, patch: BLANK })
+      body: JSON.stringify({ guildId, patch: BLANK }),
     });
     const data = await readJsonSafe(up);
     return res.status(up.status).json(data);

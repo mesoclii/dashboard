@@ -1,4 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import {
+  readGuildIdFromRequest,
+  isWriteBlockedForGuild,
+  stockLockError,
+} from "@/lib/guildPolicy";
 
 const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
 const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
@@ -21,8 +26,9 @@ async function readJsonSafe(response: Response) {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    const guildId = readGuildIdFromRequest(req);
+
     if (req.method === "GET") {
-      const guildId = String(req.query.guildId || "").trim();
       if (!guildId) {
         return res.status(400).json({ success: false, error: "guildId is required" });
       }
@@ -37,10 +43,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (req.method === "POST") {
+      if (!guildId) {
+        return res.status(400).json({ success: false, error: "guildId is required" });
+      }
+      if (isWriteBlockedForGuild(guildId)) {
+        return res.status(403).json(stockLockError(guildId));
+      }
+
+      const body = { ...(req.body || {}), guildId };
       const upstream = await fetch(`${BOT_API}/guild-features`, {
         method: "POST",
         headers: headersWithAuth(true),
-        body: JSON.stringify(req.body || {}),
+        body: JSON.stringify(body),
       });
 
       const data = await readJsonSafe(upstream);

@@ -1,14 +1,17 @@
-"use client";
+import { Suspense } from "react";
+import ToneClient from "./ToneClient";
 
-import { useEffect } from "react";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-export default function AiToneRedirectPage() {
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const gid = params.get("guildId") || localStorage.getItem("activeGuildId") || "";
-    const next = `/dashboard/ai${gid ? `?guildId=${encodeURIComponent(gid)}` : ""}`;
-    window.location.replace(next);
-  }, []);
+function Loading() {
+  return <div style={{ color: "#ff4444", padding: 16 }}>Loading...</div>;
+}
 
-  return <div style={{ color: "#ff6b6b", padding: 24 }}>Redirecting to AI Personas…</div>;
+export default function Page() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <ToneClient />
+    </Suspense>
+  );
 }

@@ -1,0 +1,57 @@
+{
+  "1431799056211906582": {
+    "active": false,
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "nsfwAllowed": false,
+    "allowedChannelIds": [],
+    "blockedChannelIds": [],
+    "allowedRoleIds": [],
+    "blockedRoleIds": [],
+    "maxMessagesPerUserPerDay": 40,
+    "maxTokensPerReply": 500,
+    "systemPrompt": "",
+    "monetization": {
+      "enabled": false,
+      "currency": "USD",
+      "checkoutUrl": "",
+      "plans": [
+        {
+          "id": "bronze",
+          "name": "Bronze",
+          "price": "",
+          "cycle": "monthly",
+          "messageLimit": 50,
+          "imageLimit": 20,
+          "backstoryLimit": 20,
+          "enabled": true,
+          "badge": ""
+        },
+        {
+          "id": "silver",
+          "name": "Silver",
+          "price": "",
+          "cycle": "monthly",
+          "messageLimit": 120,
+          "imageLimit": 50,
+          "backstoryLimit": 50,
+          "enabled": true,
+          "badge": ""
+        },
+        {
+          "id": "gold",
+          "name": "Gold",
+          "price": "",
+          "cycle": "monthly",
+          "messageLimit": 300,
+          "imageLimit": 150,
+          "backstoryLimit": 150,
+          "enabled": true,
+          "badge": ""
+        }
+      ],
+      "notes": ""
+    },
+    "notes": ""
+  }
+}

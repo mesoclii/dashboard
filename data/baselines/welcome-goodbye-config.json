@@ -1,0 +1,21 @@
+{
+  "1431799056211906582": {
+    "active": true,
+    "welcomeEnabled": true,
+    "goodbyeEnabled": false,
+    "welcomeChannelId": "",
+    "goodbyeChannelId": "",
+    "welcomeMessage": "Welcome {user} to {guild}.",
+    "goodbyeMessage": "{userTag} left {guild}.",
+    "sendWelcomeDm": false,
+    "welcomeDmMessage": "Welcome to {guild}. Read the rules and complete onboarding.",
+    "pingOnWelcome": true,
+    "cardEnabled": true,
+    "cardBackgroundUrl": "",
+    "cardAccentColor": "#ff3b3b",
+    "autoDeleteWelcomeSeconds": 0,
+    "autoDeleteGoodbyeSeconds": 0,
+    "allowedChannelIds": [],
+    "notes": ""
+  }
+}

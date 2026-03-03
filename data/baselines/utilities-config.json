@@ -1,0 +1,100 @@
+{
+  "1431799056211906582": {
+    "store": {
+      "enabled": false,
+      "panelChannelId": "",
+      "currencyName": "Coins",
+      "featuredItemIds": [],
+      "maxItemsPerPage": 10,
+      "purchaseCooldownSeconds": 3,
+      "refundWindowMinutes": 30,
+      "logsChannelId": "",
+      "notes": ""
+    },
+    "ticketsPolicy": {
+      "enabled": true,
+      "requireReasonOnOpen": false,
+      "requireReasonOnClose": false,
+      "maxOpenPerUser": 1,
+      "cooldownSeconds": 0,
+      "autoCloseHours": 72,
+      "autoArchiveHours": 24,
+      "transcriptRetentionDays": 30,
+      "denyRoleIds": [],
+      "priorityRoleIds": [],
+      "notes": ""
+    },
+    "selfroles": {
+      "enabled": false,
+      "panelChannelId": "",
+      "panelMessageId": "",
+      "maxRolesPerUser": 5,
+      "allowedRoleIds": [],
+      "blockedRoleIds": [],
+      "logsChannelId": "",
+      "notes": ""
+    },
+    "persona": {
+      "enabled": false,
+      "useWebhookPersona": false,
+      "webhookName": "",
+      "webhookAvatarUrl": "",
+      "guildNickname": "",
+      "allowedChannelIds": [],
+      "blockedChannelIds": [],
+      "cooldownSeconds": 5,
+      "notes": ""
+    },
+    "tts": {
+      "enabled": false,
+      "voiceDefault": "en-US",
+      "maxCharsPerMessage": 300,
+      "cooldownSeconds": 5,
+      "allowedChannelIds": [],
+      "blockedChannelIds": [],
+      "logsChannelId": "",
+      "notes": ""
+    },
+    "radio": {
+      "enabled": false,
+      "birthdayRewardsEnabled": true,
+      "birthdayRewardCoins": 100,
+      "birthdayRoleId": "",
+      "announcementChannelId": "",
+      "dailyBonusEnabled": false,
+      "dailyBonusCoins": 10,
+      "notes": ""
+    },
+    "loyalty": {
+      "enabled": false,
+      "autoAssignRoles": true,
+      "backfillOnEnable": false,
+      "announceChannelId": "",
+      "tiers": [
+        {
+          "name": "30 Days",
+          "days": 30,
+          "roleId": "",
+          "rewardCoins": 50,
+          "enabled": true
+        },
+        {
+          "name": "90 Days",
+          "days": 90,
+          "roleId": "",
+          "rewardCoins": 200,
+          "enabled": true
+        },
+        {
+          "name": "365 Days",
+          "days": 365,
+          "roleId": "",
+          "rewardCoins": 1000,
+          "enabled": true
+        }
+      ],
+      "notes": ""
+    },
+    "notes": ""
+  }
+}

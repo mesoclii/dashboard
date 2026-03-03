@@ -1,10 +1,17 @@
-import SecurityLockdownEditor from "@/components/possum/SecurityLockdownEditor";
+import { Suspense } from "react";
+import LockdownClient from "./LockdownClient";
 
-export default function LockdownPage() {
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function Loading() {
+  return <div style={{ color: "#ff4444", padding: 16 }}>Loading...</div>;
+}
+
+export default function Page() {
   return (
-    <SecurityLockdownEditor
-      title="Lockdown Config"
-      description="Threshold policy, exemptions, and escalation behavior."
-    />
+    <Suspense fallback={<Loading />}>
+      <LockdownClient />
+    </Suspense>
   );
 }

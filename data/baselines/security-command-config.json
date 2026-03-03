@@ -1,0 +1,165 @@
+{
+  "1431799056211906582": {
+    "active": true,
+    "slashEnabled": true,
+    "prefixEnabled": true,
+    "onlyAdminsByDefault": false,
+    "allowStaffOverride": true,
+    "restrictChannelIds": [],
+    "notes": "",
+    "commands": {
+      "ban": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "kick": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "mute": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "unmute": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "warn": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "clear": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "lock": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "unlock": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "slowmode": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "timeout": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "untimeout": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "nickname": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "role_add": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "role_remove": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "audit": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "purge_links": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "purge_invites": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "quarantine": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      },
+      "release": {
+        "enabled": true,
+        "requiredRoleIds": [],
+        "cooldownSec": 0,
+        "logUsage": true,
+        "replyOnDeny": true,
+        "denyMessage": "You do not have permission to use this command."
+      }
+    }
+  }
+}

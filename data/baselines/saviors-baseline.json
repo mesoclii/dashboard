@@ -1,0 +1,236 @@
+{
+  "createdAt": "2026-02-28T11:52:13.166Z",
+  "guildId": "1431799056211906582",
+  "dashboardConfig": {
+    "success": true,
+    "guildId": "1431799056211906582",
+    "config": {
+      "features": {
+        "onboardingEnabled": false,
+        "verificationEnabled": false,
+        "heistEnabled": false,
+        "rareDropEnabled": false,
+        "pokemonEnabled": false,
+        "aiEnabled": false,
+        "ttsEnabled": true,
+        "birthdayEnabled": false,
+        "economyEnabled": false,
+        "governanceEnabled": false,
+        "pokemonPrivateOnly": true
+      },
+      "persona": {
+        "guildNickname": "Possum Bot",
+        "webhookName": "Possum Bot",
+        "webhookAvatarUrl": "",
+        "useWebhookPersona": false
+      },
+      "security": {
+        "preOnboarding": {
+          "autoBanOnBlacklistRejoin": true,
+          "autoBanOnRefusalRole": true,
+          "refusalRoleId": "1474969977453936761",
+          "enforcementChannelId": "1474976671500210328",
+          "contactUser": "Still_meso",
+          "banDmTemplate": "You were removed from the server.\n\nReason: **{{reason}}**\nTrigger: **{{type}}**\n\nContact: **{{contactUser}}**"
+        },
+        "onboarding": {
+          "welcomeChannelId": "1431799057440968870",
+          "mainChatChannelId": "1431799057440968873",
+          "rulesChannelId": "1431799057440968868",
+          "idChannelId": "1471075304834334902",
+          "ticketCategoryId": "1473608439145037876",
+          "transcriptChannelId": "1475316353303969887",
+          "logChannelId": "1471140487024083011",
+          "verifiedRoleId": "1470282616379936951",
+          "declineRoleId": "1471139111363412030",
+          "staffRoleIds": [
+            "1431799056744579112",
+            "1431799056744579115"
+          ],
+          "removeOnVerifyRoleIds": [
+            "1471138986461368320",
+            "1471117393026875557",
+            "1471004052224606279"
+          ],
+          "idTimeoutMinutes": 30,
+          "hostingLegacyChannelId": "1470209580326715493",
+          "hostingEnhancedChannelId": "1470209702104269034",
+          "staffIntroChannelId": "1431807304394739826",
+          "selfRolesChannelId": "1431799057939959970",
+          "botGuideChannelId": "1471281349209096312",
+          "updatesChannelId": "1431799057440968869",
+          "funChannelId": "1431799068291764300",
+          "subscriptionChannelId": "1431799067612283081",
+          "dmTemplate": "Welcome to {{guildName}}.\n\nStart onboarding in <#{{welcomeChannelId}}>.",
+          "panelTitle": "Welcome to {{guildName}}",
+          "panelDescription": "Read the rules in <#{{rulesChannelId}}> and confirm below to continue.",
+          "panelFooter": "Complete onboarding to unlock the server.",
+          "gateAnnouncementTemplate": "Survivor <@{{userId}}> has reached the gates.",
+          "idPanelTitle": "ID Verification - Final Gate",
+          "idPanelDescription": "<@{{userId}}> choose how you proceed.\n\nThose who refuse will be removed.",
+          "idPanelContent": "Survivor <@{{userId}}>",
+          "postVerifyTemplate": "<@{{userId}}> is now verified. Welcome to {{guildName}}."
+        },
+        "verification": {
+          "autoKickOnDecline": true,
+          "autoKickOnTimeout": true,
+          "declineKickReason": "Declined ID verification",
+          "timeoutKickReason": "ID submission timeout",
+          "declineReplyTemplate": "You declined ID verification."
+        },
+        "lockdown": {
+          "enabled": false,
+          "joinThresholdPerMinute": 10,
+          "mentionThresholdPerMinute": 20,
+          "autoEscalation": false,
+          "exemptRoleIds": [],
+          "exemptChannelIds": []
+        },
+        "raid": {
+          "enabled": true,
+          "joinBurstThreshold": 6,
+          "windowSeconds": 30,
+          "actionPreset": "contain",
+          "exemptRoleIds": [],
+          "exemptChannelIds": [],
+          "autoEscalate": true
+        }
+      },
+      "giveaways": {
+        "channelId": "1431799057939959971",
+        "ticketChannelId": "1471140487024083011",
+        "defaultImageUrl": ""
+      }
+    }
+  },
+  "engineConfig": {
+    "success": true,
+    "guildId": "1431799056211906582",
+    "config": {
+      "preOnboarding": {
+        "autoBanOnBlacklistRejoin": true,
+        "autoBanOnRefusalRole": true,
+        "refusalRoleId": "1474969977453936761",
+        "enforcementChannelId": "1474976671500210328",
+        "contactUser": "Still_meso",
+        "banDmTemplate": "You were removed from the server.\n\nReason: **{{reason}}**\nTrigger: **{{type}}**\n\nContact: **{{contactUser}}**"
+      },
+      "onboarding": {
+        "welcomeChannelId": "1431799057440968870",
+        "mainChatChannelId": "1431799057440968873",
+        "rulesChannelId": "1431799057440968868",
+        "idChannelId": "1471075304834334902",
+        "ticketCategoryId": "1473608439145037876",
+        "transcriptChannelId": "1475316353303969887",
+        "logChannelId": "1471140487024083011",
+        "verifiedRoleId": "1470282616379936951",
+        "declineRoleId": "1471139111363412030",
+        "staffRoleIds": [
+          "1431799056744579112",
+          "1431799056744579115"
+        ],
+        "removeOnVerifyRoleIds": [
+          "1471138986461368320",
+          "1471117393026875557",
+          "1471004052224606279"
+        ],
+        "idTimeoutMinutes": 30,
+        "hostingLegacyChannelId": "1470209580326715493",
+        "hostingEnhancedChannelId": "1470209702104269034",
+        "staffIntroChannelId": "1431807304394739826",
+        "selfRolesChannelId": "1431799057939959970",
+        "botGuideChannelId": "1471281349209096312",
+        "updatesChannelId": "1431799057440968869",
+        "funChannelId": "1431799068291764300",
+        "subscriptionChannelId": "1431799067612283081",
+        "dmTemplate": "Welcome to {{guildName}}.\n\nStart onboarding in <#{{welcomeChannelId}}>.",
+        "panelTitle": "Welcome to {{guildName}}",
+        "panelDescription": "Read the rules in <#{{rulesChannelId}}> and confirm below to continue.",
+        "panelFooter": "Complete onboarding to unlock the server.",
+        "gateAnnouncementTemplate": "Survivor <@{{userId}}> has reached the gates.",
+        "idPanelTitle": "ID Verification - Final Gate",
+        "idPanelDescription": "<@{{userId}}> choose how you proceed.\n\nThose who refuse will be removed.",
+        "idPanelContent": "Survivor <@{{userId}}>",
+        "postVerifyTemplate": "<@{{userId}}> is now verified. Welcome to {{guildName}}."
+      },
+      "verification": {
+        "autoKickOnDecline": true,
+        "autoKickOnTimeout": true,
+        "declineKickReason": "Declined ID verification",
+        "timeoutKickReason": "ID submission timeout",
+        "declineReplyTemplate": "You declined ID verification."
+      },
+      "lockdown": {
+        "enabled": false,
+        "joinThresholdPerMinute": 10,
+        "mentionThresholdPerMinute": 20,
+        "autoEscalation": false,
+        "exemptRoleIds": [],
+        "exemptChannelIds": []
+      },
+      "raid": {
+        "enabled": true,
+        "joinBurstThreshold": 6,
+        "windowSeconds": 30,
+        "actionPreset": "contain",
+        "exemptRoleIds": [],
+        "exemptChannelIds": [],
+        "autoEscalate": true
+      },
+      "persona": {
+        "guildNickname": "Possum Bot",
+        "webhookName": "Possum Bot",
+        "webhookAvatarUrl": "",
+        "useWebhookPersona": false
+      },
+      "giveaways": {
+        "channelId": "1431799057939959971",
+        "ticketChannelId": "1471140487024083011",
+        "defaultImageUrl": ""
+      },
+      "tts": {
+        "enabled": true
+      }
+    },
+    "engines": [
+      "preOnboarding",
+      "onboarding",
+      "verification",
+      "lockdown",
+      "raid",
+      "persona",
+      "giveaways",
+      "tts"
+    ],
+    "legacyGuildId": "1431799056211906582"
+  },
+  "featureConfig": {
+    "success": true,
+    "guildId": "1431799056211906582",
+    "features": {
+      "onboardingEnabled": false,
+      "verificationEnabled": false,
+      "heistEnabled": false,
+      "rareDropEnabled": false,
+      "pokemonEnabled": false,
+      "aiEnabled": false,
+      "ttsEnabled": false,
+      "birthdayEnabled": false,
+      "economyEnabled": false,
+      "governanceEnabled": false
+    },
+    "keys": [
+      "onboardingEnabled",
+      "verificationEnabled",
+      "heistEnabled",
+      "rareDropEnabled",
+      "pokemonEnabled",
+      "aiEnabled",
+      "ttsEnabled",
+      "birthdayEnabled",
+      "economyEnabled",
+      "governanceEnabled"
+    ],
+    "privateGuild": true
+  }
+}

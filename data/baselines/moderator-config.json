@@ -1,0 +1,44 @@
+{
+  "1431799056211906582": {
+    "active": true,
+    "adminRoleIds": [],
+    "immunityRoleIds": [],
+    "logging": {
+      "logChannelId": "",
+      "memberMuted": true,
+      "memberUnmuted": true,
+      "moderationBan": true,
+      "moderationWarn": true,
+      "messageUpdated": true,
+      "messageDeleted": true,
+      "invitePosted": true,
+      "memberRoleChanged": true,
+      "memberJoined": true,
+      "memberLeft": true,
+      "channelCreated": true,
+      "channelUpdated": true,
+      "channelDeleted": true,
+      "serverUpdated": true,
+      "ignoreChannelIds": [],
+      "dontLogBotActions": true,
+      "dontDisplayThumbnails": false
+    },
+    "automod": {
+      "enabled": false,
+      "badWordsAction": "Delete Message + Warn Member",
+      "spamAction": "Delete Message",
+      "capsAction": "Delete Message",
+      "linksAction": "Disabled",
+      "mentionAction": "Delete Message",
+      "zalgoAction": "Disabled",
+      "spamThreshold": 5,
+      "capsThreshold": 70,
+      "mentionThreshold": 5,
+      "blockedWords": [],
+      "restrictedChannelIds": [],
+      "autoModerateIgnoresBots": true,
+      "sendWarningMessage": true,
+      "replyToDeletion": false
+    }
+  }
+}

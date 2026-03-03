@@ -1,0 +1,26 @@
+{
+  "active": true,
+  "defaultDurationMin": 60,
+  "defaultWinners": 1,
+  "defaultPrize": "",
+  "defaultImageUrl": "",
+  "announceTemplate": "Giveaway started: {{prize}}",
+  "rerollTemplate": "Rerolled giveaway winner for {{prize}}",
+  "endTemplate": "Giveaway ended: {{prize}}",
+  "requireStaffApproval": false,
+  "allowedRoleIds": [],
+  "blockedRoleIds": [],
+  "hostRoleIds": [],
+  "allowedChannelIds": [],
+  "imageLibrary": [],
+  "antiAbuse": {
+    "minAccountAgeDays": 0,
+    "ignoreBotEntries": true
+  },
+  "runtime": {
+    "maxConcurrentGiveaways": 5,
+    "cooldownMinutes": 0
+  },
+  "notes": "",
+  "lastSavedAt": "2026-03-02T03:29:14.965Z"
+}

@@ -1,107 +1,33 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { Suspense } from "react";
-import { PossumSidebar } from "@/components/possum/PossumSidebar";
-import { DashboardSaveUX } from "@/components/possum/DashboardSaveUX";
-import { possum } from "@/styles/possumTheme";
+import PossumSidebar from "@/components/possum/PossumSidebar";
 
-function SidebarFallback() {
+export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <aside
-      style={{
-        width: 300,
-        borderRight: `1px solid ${possum.divider}`,
-        padding: "20px 18px",
-      }}
-    >
-      <div
-        style={{
-          color: possum.red,
-          textShadow: possum.glowSoft,
-          fontWeight: 950,
-          letterSpacing: "0.22em",
-          textTransform: "uppercase",
-          fontSize: 22,
-        }}
-      >
-        POSSUM
-      </div>
-      <div
-        style={{
-          marginTop: 10,
-          color: possum.soft,
-          letterSpacing: "0.22em",
-          textTransform: "uppercase",
-          fontSize: 12,
-          opacity: 0.9,
-        }}
-      >
-        Control System
-      </div>
-    </aside>
-  );
-}
-
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="possum-bg" style={{ minHeight: "100vh" }}>
-      <div style={{ display: "flex", minHeight: "100vh" }}>
-        <Suspense fallback={<SidebarFallback />}>
+    <div className="min-h-screen possum-bg text-red-300">
+      <div className="mx-auto flex min-h-screen max-w-[1780px]">
+        <aside className="w-72 shrink-0 border-r possum-divider bg-black/55 p-4">
           <PossumSidebar />
-        </Suspense>
+        </aside>
 
-        <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          <header
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "18px 22px",
-              borderBottom: `1px solid ${possum.divider}`,
-              minHeight: 76,
-            }}
-          >
-            <div
-              style={{
-                fontWeight: 950,
-                letterSpacing: "0.22em",
-                textTransform: "uppercase",
-                fontSize: 14,
-                color: "#fff",
-                textShadow: possum.glowSoft,
-              }}
-            >
-              Possum Dashboard
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span className="possum-pill">System Online</span>
+        <main className="min-w-0 flex-1">
+          <header className="sticky top-0 z-20 border-b possum-divider bg-black/75 backdrop-blur">
+            <div className="flex items-center justify-between px-5 py-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.28em] possum-soft">Control Surface</p>
+                <h1 className="text-base font-extrabold uppercase tracking-[0.12em] possum-red possum-glow-soft">Possum Dashboard</h1>
+              </div>
 
               <Link
-                href="/"
-                style={{
-                  textDecoration: "none",
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  border: `1px solid ${possum.border}`,
-                  color: possum.soft,
-                  fontWeight: 950,
-                  letterSpacing: "0.22em",
-                  textTransform: "uppercase",
-                  fontSize: 12,
-                  boxShadow: "0 0 16px rgba(255,0,0,0.10)",
-                }}
+                href="/guilds"
+                className="rounded-lg bg-black/40 px-3 py-2 text-sm font-black uppercase tracking-[0.08em] possum-red possum-btn"
               >
-                Exit
+                Change Guild
               </Link>
             </div>
           </header>
 
-          <div style={{ padding: 22 }}>{children}</div>
-                  <DashboardSaveUX />
+          <section className="px-5 py-5">{children}</section>
         </main>
       </div>
     </div>

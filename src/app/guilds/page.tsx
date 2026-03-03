@@ -1,189 +1,151 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-type GuildRow = {
-  id: string;
-  name: string;
-  icon: string | null;
+type Guild = { id: string; name: string; icon?: string | null };
+
+type PolicyState = {
+  primaryGuildId: string;
+  stockLockNonPrimary: boolean;
 };
 
-type Api = {
-  success?: boolean;
-  guilds?: GuildRow[];
-  error?: string;
-};
-
-function initials(name: string) {
-  return String(name || "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() || "")
-    .join("");
+function badgeStyle(kind: "primary" | "stock") {
+  if (kind === "primary") {
+    return {
+      border: "1px solid #0f7a0f",
+      color: "#b8ffb8",
+      background: "rgba(16,100,16,0.2)",
+    } as const;
+  }
+  return {
+    border: "1px solid #8a4d00",
+    color: "#ffd9a3",
+    background: "rgba(120,70,0,0.18)",
+  } as const;
 }
 
-export default function GuildSelectPage() {
-  const [guilds, setGuilds] = useState<GuildRow[]>([]);
+export default function GuildsPage() {
+  const [guilds, setGuilds] = useState<Guild[]>([]);
+  const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [policy, setPolicy] = useState<PolicyState>({
+    primaryGuildId: "1431799056211906582",
+    stockLockNonPrimary: true,
+  });
 
   useEffect(() => {
-    let cancelled = false;
-
     (async () => {
       try {
-        const res = await fetch("/api/bot/guilds", { cache: "no-store" });
-        const data = (await res.json()) as Api;
+        setLoading(true);
+        setMsg("");
 
-        if (cancelled) return;
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || "Failed to load guilds");
+        // Auto policy pass: primary guild ON, all others stock OFF.
+        const policyRes = await fetch("/api/bot/enforce-stock-policy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        }).catch(() => null);
+
+        if (policyRes) {
+          const p = await policyRes.json().catch(() => ({}));
+          if (p?.primaryGuildId) {
+            setPolicy({
+              primaryGuildId: String(p.primaryGuildId),
+              stockLockNonPrimary: Boolean(p.stockLockNonPrimary),
+            });
+          }
         }
 
-        setGuilds(Array.isArray(data.guilds) ? data.guilds : []);
+        const res = await fetch("/api/bot/guilds", { cache: "no-store" });
+        const text = await res.text();
+
+        let json: any = {};
+        try {
+          json = text ? JSON.parse(text) : {};
+        } catch {
+          throw new Error(text?.slice(0, 180) || "Invalid API response");
+        }
+
+        if (!res.ok || json?.success === false) {
+          throw new Error(json?.error || `Guild API failed (${res.status})`);
+        }
+
+        const list = Array.isArray(json?.guilds) ? json.guilds : [];
+        setGuilds(list);
       } catch (e: any) {
-        if (cancelled) return;
-        setError(e?.message || "Failed to load guilds");
+        setMsg(e?.message || "Failed to load guilds.");
       } finally {
-        if (cancelled) return;
         setLoading(false);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
+  const byPrimary = useMemo(() => {
+    return [...guilds].sort((a, b) => {
+      const ap = a.id === policy.primaryGuildId ? 0 : 1;
+      const bp = b.id === policy.primaryGuildId ? 0 : 1;
+      if (ap !== bp) return ap - bp;
+      return a.name.localeCompare(b.name);
+    });
+  }, [guilds, policy.primaryGuildId]);
+
+  function openGuild(guildId: string) {
+    localStorage.setItem("activeGuildId", guildId);
+    window.location.href = `/dashboard?guildId=${encodeURIComponent(guildId)}`;
+  }
+
   return (
-    <div className="possum-bg" style={{ minHeight: "100vh", padding: "28px 20px" }}>
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <div
-          className="possum-red possum-glow"
-          style={{
-            textAlign: "center",
-            fontSize: 34,
-            fontWeight: 950,
-            letterSpacing: "0.22em",
-            textTransform: "uppercase",
-            marginBottom: 8
-          }}
-        >
-          Select Guild
-        </div>
+    <div style={{ color: "#ff5252", padding: 24 }}>
+      <h1 style={{ marginTop: 0, letterSpacing: "0.16em", textTransform: "uppercase" }}>Select Guild</h1>
+      <p style={{ letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.9 }}>
+        Baseline guild = all features ON. Other guilds = stock OFF by default.
+      </p>
+      {loading ? <p>Loading...</p> : null}
+      {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
 
-        <div
-          className="possum-soft"
-          style={{
-            textAlign: "center",
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-            fontSize: 12,
-            marginBottom: 24
-          }}
-        >
-          Choose a server to enter dashboard context
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 12, maxWidth: 980 }}>
+        {byPrimary.map((g) => {
+          const isPrimary = g.id === policy.primaryGuildId;
+          const badge = isPrimary ? "PRIMARY BASELINE (ALL ON)" : "STOCK LOCKED (STARTS OFF)";
+          const kind = isPrimary ? "primary" : "stock";
 
-        {loading ? <div className="possum-soft" style={{ textAlign: "center" }}>Loading guilds...</div> : null}
-        {error ? <div style={{ color: "#ff7a7a", textAlign: "center", marginBottom: 16 }}>{error}</div> : null}
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-            gap: 14
-          }}
-        >
-          {guilds.map((g) => (
-            <div
+          return (
+            <button
               key={g.id}
+              onClick={() => openGuild(g.id)}
               style={{
-                border: "1px solid rgba(255,0,0,0.35)",
+                textAlign: "left",
+                border: "1px solid #6f0000",
                 borderRadius: 12,
-                padding: 12,
-                background: "rgba(0,0,0,0.45)",
-                boxShadow: "0 0 16px rgba(255,0,0,0.11)"
+                background: "rgba(120,0,0,0.08)",
+                color: "#ffd7d7",
+                padding: 14,
+                cursor: "pointer",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {g.icon ? (
-                  <img
-                    src={g.icon}
-                    alt={g.name}
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: "50%",
-                      border: "1px solid rgba(255,0,0,0.45)",
-                      objectFit: "cover"
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: "50%",
-                      border: "1px solid rgba(255,0,0,0.45)",
-                      display: "grid",
-                      placeItems: "center",
-                      color: "#ff9e9e",
-                      fontSize: 12,
-                      fontWeight: 900,
-                      letterSpacing: "0.08em"
-                    }}
-                  >
-                    {initials(g.name)}
-                  </div>
-                )}
-
-                <div style={{ minWidth: 0 }}>
-                  <div
-                    style={{
-                      color: "#fff",
-                      fontWeight: 900,
-                      fontSize: 15,
-                      letterSpacing: "0.04em",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis"
-                    }}
-                    title={g.name}
-                  >
-                    {g.name}
-                  </div>
-                  <div className="possum-soft" style={{ fontSize: 10, letterSpacing: "0.08em" }}>
-                    {g.id}
-                  </div>
-                </div>
+              <div style={{ fontWeight: 900, marginBottom: 4 }}>{g.name}</div>
+              
+              <div
+                style={{
+                  marginTop: 10,
+                  display: "inline-block",
+                  borderRadius: 999,
+                  padding: "2px 10px",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: "0.04em",
+                  ...badgeStyle(kind),
+                }}
+              >
+                {badge}
               </div>
 
-              <div style={{ marginTop: 10 }}>
-                <a
-                  href={`/dashboard?guildId=${encodeURIComponent(g.id)}`}
-                  className="possum-pill"
-                  style={{
-                    textDecoration: "none",
-                    display: "inline-block",
-                    padding: "7px 11px",
-                    fontSize: 11,
-                    letterSpacing: "0.16em"
-                  }}
-                >
-                  Open
-                </a>
+              <div style={{ marginTop: 10, display: "inline-block", border: "1px solid #7a0000", borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 800 }}>
+                Open
               </div>
-            </div>
-          ))}
-        </div>
-
-        {!loading && !error && guilds.length === 0 ? (
-          <div className="possum-soft" style={{ textAlign: "center", marginTop: 14 }}>
-            No guilds found. Add IDs in `DASHBOARD_GUILD_IDS`.
-          </div>
-        ) : null}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

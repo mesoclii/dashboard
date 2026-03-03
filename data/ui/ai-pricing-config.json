@@ -1,0 +1,61 @@
+{
+  "1431799056211906582": {
+    "active": true,
+    "publicCatalogEnabled": false,
+    "nsfwAllowed": false,
+    "plans": {
+      "bronze": {
+        "enabled": true,
+        "monthlyUsd": 1.74,
+        "yearlyUsd": 14.99,
+        "includedMessages": 200,
+        "includedImages": 20,
+        "includedBackstory": 20
+      },
+      "silver": {
+        "enabled": true,
+        "monthlyUsd": 3.49,
+        "yearlyUsd": 29.99,
+        "includedMessages": 500,
+        "includedImages": 50,
+        "includedBackstory": 50
+      },
+      "gold": {
+        "enabled": true,
+        "monthlyUsd": 8.74,
+        "yearlyUsd": 74.99,
+        "includedMessages": 2500,
+        "includedImages": 200,
+        "includedBackstory": 200
+      },
+      "platinum": {
+        "enabled": true,
+        "monthlyUsd": 34.99,
+        "yearlyUsd": 299.99,
+        "includedMessages": 10000,
+        "includedImages": 1000,
+        "includedBackstory": 1000
+      },
+      "diamond": {
+        "enabled": true,
+        "monthlyUsd": 13.99,
+        "yearlyUsd": 119.99,
+        "includedMessages": 5000,
+        "includedImages": 500,
+        "includedBackstory": 500
+      }
+    },
+    "overage": {
+      "per1kTextTokensUsd": 0.02,
+      "perImageUsd": 0.05,
+      "per1kTtsCharsUsd": 0.01
+    },
+    "features": {
+      "writeEnabled": true,
+      "imagineEnabled": true,
+      "backstoryEnabled": true,
+      "charactersEnabled": true
+    },
+    "notes": ""
+  }
+}
