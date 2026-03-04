@@ -241,7 +241,7 @@ export default function EconomyPage() {
       <details open style={cardStyle}>
         <summary style={{ cursor: "pointer", padding: "12px 14px", borderBottom: "1px solid rgba(255,0,0,.2)", display: "flex", justifyContent: "space-between" }}>
           <span style={{ color: "#fff", fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 13 }}>
-            Economy Modules
+            Economy Engines
           </span>
           <Pill on={!!features.economyEnabled || !!features.birthdayEnabled} />
         </summary>
@@ -273,7 +273,7 @@ export default function EconomyPage() {
                 setMsg("");
                 try {
                   await saveFeatures();
-                  setMsg("Economy module toggles saved.");
+                  setMsg("Economy engine toggles saved.");
                 } catch (e: any) {
                   setMsg(e?.message || "Save failed.");
                 } finally {
@@ -294,7 +294,7 @@ export default function EconomyPage() {
                 cursor: "pointer"
               }}
             >
-              Save Economy Modules
+              Save Economy Engines
             </button>
           </div>
         </div>

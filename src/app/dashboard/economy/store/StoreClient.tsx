@@ -1,11 +1,10 @@
 "use client";
 
-
-
 import { useEffect, useState } from "react";
 
 type Role = { id: string; name: string };
 type Channel = { id: string; name: string };
+type StoreImage = { url: string; label?: string };
 
 type StoreItem = {
   id: string;
@@ -29,6 +28,7 @@ type StoreConfig = {
     buttonLabel: string;
     embedColor: string;
     imageUrl: string;
+    imageLibrary: StoreImage[];
   };
   policies: {
     maxItemsPerPurchase: number;
@@ -48,7 +48,8 @@ const DEFAULT_CONFIG: StoreConfig = {
     description: "Spend coins on roles, perks, and items.",
     buttonLabel: "Open Store",
     embedColor: "#ff3b3b",
-    imageUrl: ""
+    imageUrl: "",
+    imageLibrary: []
   },
   policies: {
     maxItemsPerPurchase: 1,
@@ -80,11 +81,28 @@ function getGuildId(): string {
   return guildId;
 }
 
+function normalizeLibrary(raw: any): StoreImage[] {
+  if (!Array.isArray(raw)) return [];
+  const out: StoreImage[] = [];
+  const seen = new Set<string>();
+  for (const row of raw) {
+    const url = String(row?.url || "").trim();
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    out.push({ url, label: String(row?.label || "").trim().slice(0, 120) });
+  }
+  return out;
+}
+
 function mergeConfig(raw: any): StoreConfig {
   return {
     ...DEFAULT_CONFIG,
     ...(raw || {}),
-    panel: { ...DEFAULT_CONFIG.panel, ...(raw?.panel || {}) },
+    panel: {
+      ...DEFAULT_CONFIG.panel,
+      ...(raw?.panel || {}),
+      imageLibrary: normalizeLibrary(raw?.panel?.imageLibrary)
+    },
     policies: { ...DEFAULT_CONFIG.policies, ...(raw?.policies || {}) },
     items: Array.isArray(raw?.items) ? raw.items : DEFAULT_CONFIG.items
   };
@@ -115,6 +133,8 @@ export default function StorePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [newImageLabel, setNewImageLabel] = useState("");
 
   useEffect(() => setGuildId(getGuildId()), []);
 
@@ -158,12 +178,47 @@ export default function StorePage() {
       });
       const json = await res.json();
       if (!res.ok || json?.success === false) throw new Error(json?.error || "Save failed");
+      setCfg(mergeConfig(json?.config || cfg));
       setMsg("Store saved.");
     } catch (e: any) {
       setMsg(e?.message || "Save failed.");
     } finally {
       setSaving(false);
     }
+  }
+
+  function addPanelImage() {
+    const url = String(newImageUrl || "").trim();
+    if (!url) return;
+    if (cfg.panel.imageLibrary.some((x) => x.url === url)) {
+      setMsg("Image already in library.");
+      return;
+    }
+    setCfg((prev) => ({
+      ...prev,
+      panel: {
+        ...prev.panel,
+        imageLibrary: [...prev.panel.imageLibrary, { url, label: String(newImageLabel || "").trim() }]
+      }
+    }));
+    setNewImageUrl("");
+    setNewImageLabel("");
+    setMsg("Added image to library. Save Store to persist.");
+  }
+
+  function removePanelImage(url: string) {
+    setCfg((prev) => ({
+      ...prev,
+      panel: {
+        ...prev.panel,
+        imageLibrary: prev.panel.imageLibrary.filter((x) => x.url !== url),
+        imageUrl: prev.panel.imageUrl === url ? "" : prev.panel.imageUrl
+      }
+    }));
+  }
+
+  function setPanelBackground(url: string) {
+    setCfg((prev) => ({ ...prev, panel: { ...prev.panel, imageUrl: url } }));
   }
 
   function addItem() {
@@ -202,7 +257,7 @@ export default function StorePage() {
 
   return (
     <div style={{ color: "#ff4d4d", padding: 20, maxWidth: 1180 }}>
-      <h1 style={{ marginTop: 0, letterSpacing: "0.12em", textTransform: "uppercase" }}>Economy - Store</h1>
+      <h1 style={{ marginTop: 0, letterSpacing: "0.12em", textTransform: "uppercase" }}>Economy - Store Engine</h1>
       <p>Guild: {guildId}</p>
 
       {loading ? <p>Loading...</p> : (
@@ -214,7 +269,7 @@ export default function StorePage() {
                 checked={cfg.active}
                 onChange={(e) => setCfg({ ...cfg, active: e.target.checked })}
               />{" "}
-              Store active
+              Store engine active
             </label>
           </div>
 
@@ -281,7 +336,7 @@ export default function StorePage() {
                 />
               </div>
               <div>
-                <label>Image URL</label>
+                <label>Selected background image URL</label>
                 <input
                   style={input}
                   value={cfg.panel.imageUrl}
@@ -300,6 +355,51 @@ export default function StorePage() {
                 Panel enabled
               </label>
             </div>
+          </div>
+
+          <div style={box}>
+            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Store Background Image Library</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8 }}>
+              <input
+                style={input}
+                placeholder="Image URL"
+                value={newImageUrl}
+                onChange={(e) => setNewImageUrl(e.target.value)}
+              />
+              <input
+                style={input}
+                placeholder="Label (optional)"
+                value={newImageLabel}
+                onChange={(e) => setNewImageLabel(e.target.value)}
+              />
+              <button onClick={addPanelImage} style={{ ...input, width: "auto", cursor: "pointer" }}>Add</button>
+            </div>
+
+            {cfg.panel.imageLibrary.length ? (
+              <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                {cfg.panel.imageLibrary.map((img) => (
+                  <div key={img.url} style={{ border: "1px solid #5f0000", borderRadius: 8, padding: 8, display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center" }}>
+                    <div>
+                      <div style={{ color: "#ffd6d6", fontWeight: 700 }}>{img.label || "Store background"}</div>
+                      <div style={{ color: "#ff9f9f", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }}>{img.url}</div>
+                    </div>
+                    <button onClick={() => setPanelBackground(img.url)} style={{ ...input, width: "auto", cursor: "pointer" }}>
+                      {cfg.panel.imageUrl === img.url ? "Selected" : "Select"}
+                    </button>
+                    <button onClick={() => removePanelImage(img.url)} style={{ ...input, width: "auto", cursor: "pointer" }}>Remove</button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ marginTop: 10, color: "#ff9f9f", fontSize: 12 }}>No images in library yet.</div>
+            )}
+
+            {cfg.panel.imageUrl ? (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ color: "#ffb3b3", marginBottom: 4, fontSize: 12 }}>Current background preview</div>
+                <img src={cfg.panel.imageUrl} alt="Store background preview" style={{ maxWidth: "100%", borderRadius: 8, border: "1px solid #5f0000" }} />
+              </div>
+            ) : null}
           </div>
 
           <div style={box}>
@@ -418,7 +518,7 @@ export default function StorePage() {
           <button onClick={save} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 700 }}>
             {saving ? "Saving..." : "Save Store"}
           </button>
-          {msg ? <p style={{ marginTop: 10 }}>{msg}</p> : null}
+          {msg ? <div style={{ marginTop: 10, color: "#ffd1d1" }}>{msg}</div> : null}
         </>
       )}
     </div>

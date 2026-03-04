@@ -10,7 +10,7 @@ export default function Page({
 }) {
   const gid = String(searchParams?.guildId || searchParams?.guildid || "").trim();
   if (gid) {
-    redirect(`/dashboard/security/engines?guildId=${encodeURIComponent(gid)}&guildid=${encodeURIComponent(gid)}`);
+    redirect(`/dashboard/access?guildId=${encodeURIComponent(gid)}&guildid=${encodeURIComponent(gid)}`);
   }
-  redirect("/dashboard/security/engines");
+  redirect("/dashboard/access");
 }

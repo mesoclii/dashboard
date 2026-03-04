@@ -31,7 +31,7 @@ export default function DashboardClient() {
         <p className="text-xs uppercase tracking-[0.22em] possum-soft">Possum Control</p>
         <h2 className="mt-1 text-2xl font-black uppercase tracking-[0.08em] possum-red possum-glow">Guild Dashboard</h2>
         <p className="mt-2 text-sm text-red-200/80">
-          Baseline/stock policy is enforced automatically. Open any module to manage server behavior.
+          Baseline/stock policy is enforced automatically. Open any engine to manage server behavior.
         </p>
       </header>
 

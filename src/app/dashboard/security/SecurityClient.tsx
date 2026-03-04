@@ -43,7 +43,7 @@ export default function SecurityPage() {
     <main style={{ padding: 16 }}>
       <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: 1, textTransform: "uppercase" }}>Security Center</h1>
       <p style={{ marginTop: 8, color: "#ff8a8a" }}>
-        Stable launcher mode. Open any security module below.
+        Stable launcher mode. Open any security engine below.
       </p>
 
       <div

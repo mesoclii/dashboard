@@ -249,7 +249,7 @@ export default function SecurityEngineMatrixPage() {
           </div>
 
           <div style={{ ...card, marginBottom: 12 }}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Dashboard Module Visibility + Toggles</h3>
+            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Dashboard Engine Visibility + Toggles</h3>
             <div style={{ display: "grid", gap: 8 }}>
               {rows.map((r) => (
                 <label

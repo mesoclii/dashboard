@@ -6,13 +6,11 @@ import { useEffect, useState } from "react";
 type Features = {
   ticketsEnabled: boolean;
   ttsEnabled: boolean;
-  governanceEnabled: boolean;
 };
 
 const DEFAULT_FEATURES: Features = {
   ticketsEnabled: false,
-  ttsEnabled: false,
-  governanceEnabled: false
+  ttsEnabled: false
 };
 
 function resolveGuildId(): string {
@@ -52,7 +50,6 @@ export default function AccessClient() {
         setFeatures({
           ticketsEnabled: !!f.ticketsEnabled,
           ttsEnabled: !!f.ttsEnabled,
-          governanceEnabled: !!f.governanceEnabled
         });
       } catch {
         setFeatures(DEFAULT_FEATURES);
@@ -66,8 +63,9 @@ export default function AccessClient() {
 
   return (
     <main style={{ padding: 16, color: "#ffd0d0" }}>
-      <h1 style={{ marginTop: 0, color: "#ff4444", textTransform: "uppercase" }}>Access Center</h1>
+      <h1 style={{ marginTop: 0, color: "#ff4444", textTransform: "uppercase", letterSpacing: "0.08em" }}>Access Engines</h1>
       <p style={{ color: "#ff8a8a" }}>Guild: {guildId}</p>
+      <p style={{ color: "#ffaaaa", fontSize: 12, marginTop: -4 }}>Each access engine is separated into its own page and saved independently.</p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 12 }}>
         <Link href={withGuild("/dashboard/access/tickets", guildId)} style={{ border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none" }}>
@@ -77,7 +75,7 @@ export default function AccessClient() {
           <b>TTS</b> <span style={{ marginLeft: 8, color: features.ttsEnabled ? "#72ff9c" : "#ff7f7f" }}>{features.ttsEnabled ? "ENABLED" : "DISABLED"}</span>
         </Link>
         <Link href={withGuild("/dashboard/governance", guildId)} style={{ border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none" }}>
-          <b>Governance</b> <span style={{ marginLeft: 8, color: features.governanceEnabled ? "#72ff9c" : "#ff7f7f" }}>{features.governanceEnabled ? "ENABLED" : "DISABLED"}</span>
+          <b>Governance</b> <span style={{ marginLeft: 8, color: features.governanceEnabled ? "#72ff9c" : "#ff7f7f" }}></span>
         </Link>
         <Link href={withGuild("/dashboard/access/invite-tracker", guildId)} style={{ border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none" }}>
           <b>Invite Tracker</b>
@@ -86,7 +84,7 @@ export default function AccessClient() {
           <b>Selfroles</b>
         </Link>
         <Link href={withGuild("/dashboard/security/engines", guildId)} style={{ border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none" }}>
-          <b>Engines</b>
+          <b>Security Engines</b>
         </Link>
       </div>
     </main>

@@ -200,6 +200,39 @@ function toTierArr(v: any, d: LevelTier[]): LevelTier[] {
     .slice(0, 100);
 }
 
+
+function parseGuildList(raw: string): Set<string> {
+  return new Set(
+    String(raw || "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean)
+  );
+}
+
+function pokemonAllowedGuild(guildId: string): boolean {
+  const explicit = parseGuildList(String(process.env.POKEMON_ALLOWED_GUILD_IDS || ""));
+  const privateList = parseGuildList(String(process.env.PRIVATE_GUILD_IDS || ""));
+  const merged = new Set<string>([...explicit, ...privateList]);
+  if (!merged.size) return true;
+  return merged.has(String(guildId || "").trim());
+}
+
+function enforcePokemonPolicy(config: GamesConfig, guildId: string): { config: GamesConfig; allowed: boolean } {
+  const allowed = pokemonAllowedGuild(guildId);
+  const next: GamesConfig = {
+    ...config,
+    pokemon: {
+      ...config.pokemon,
+      privateOnly: true,
+      enabled: allowed ? config.pokemon.enabled : false,
+      battleEnabled: allowed ? config.pokemon.battleEnabled : false,
+      tradingEnabled: allowed ? config.pokemon.tradingEnabled : false,
+    },
+  };
+  return { config: next, allowed };
+}
+
 function merge(current: GamesConfig, patch: any): GamesConfig {
   const p = patch || {};
   return {
@@ -296,14 +329,16 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const current = { ...DEFAULT_CONFIG, ...(store[guildId] || {}) };
 
   if (req.method === "GET") {
-    return res.status(200).json({ success: true, guildId, config: current });
+    const enforced = enforcePokemonPolicy(current, guildId);
+    return res.status(200).json({ success: true, guildId, config: enforced.config, pokemonAllowedGuild: enforced.allowed });
   }
 
   if (req.method === "POST") {
-    const next = merge(current, req.body?.patch || {});
-    store[guildId] = next;
+    const merged = merge(current, req.body?.patch || {});
+    const enforced = enforcePokemonPolicy(merged, guildId);
+    store[guildId] = enforced.config;
     saveStore(store);
-    return res.status(200).json({ success: true, guildId, config: next });
+    return res.status(200).json({ success: true, guildId, config: enforced.config, pokemonAllowedGuild: enforced.allowed });
   }
 
   return res.status(405).json({ success: false, error: "Method not allowed" });

@@ -34,7 +34,8 @@ function defaultConfig() {
       description: "Spend coins on roles, perks, and items.",
       buttonLabel: "Open Store",
       embedColor: "#ff3b3b",
-      imageUrl: ""
+      imageUrl: "",
+      imageLibrary: []
     },
     policies: {
       maxItemsPerPurchase: 1,

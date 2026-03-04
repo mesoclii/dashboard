@@ -280,7 +280,7 @@ export default function TicketsPage() {
       ) : (
         <div style={{ marginTop: 16 }}>
           <div style={card}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Module State</h3>
+            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Engine State</h3>
             <label>
               <input
                 type="checkbox"
