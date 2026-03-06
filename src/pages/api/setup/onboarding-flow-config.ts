@@ -1,8 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
-
-const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
-const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 
 type OnboardingFlowConfig = {
   onboardingEnabled: boolean;
@@ -100,22 +98,6 @@ const DEFAULT_CFG: OnboardingFlowConfig = {
   },
 };
 
-function headersWithAuth(json = false): Record<string, string> {
-  const h: Record<string, string> = {};
-  if (json) h["Content-Type"] = "application/json";
-  if (DASHBOARD_TOKEN) h["x-dashboard-token"] = DASHBOARD_TOKEN;
-  return h;
-}
-
-async function readJsonSafe(response: Response) {
-  const text = await response.text();
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch {
-    return { success: false, error: text || "Invalid upstream JSON" };
-  }
-}
-
 function asBool(v: any, fallback: boolean): boolean {
   return typeof v === "boolean" ? v : fallback;
 }
@@ -202,9 +184,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === "GET") {
       const [dashRes, onRes, verRes] = await Promise.all([
-        fetch(`${BOT_API}/dashboard-config?guildId=${encodeURIComponent(guildId)}`, { headers: headersWithAuth(false) }),
-        fetch(`${BOT_API}/engine-config?guildId=${encodeURIComponent(guildId)}&engine=onboarding`, { headers: headersWithAuth(false) }),
-        fetch(`${BOT_API}/engine-config?guildId=${encodeURIComponent(guildId)}&engine=verification`, { headers: headersWithAuth(false) }),
+        fetch(`${BOT_API}/dashboard-config?guildId=${encodeURIComponent(guildId)}`, { headers: buildBotApiHeaders(req), cache: "no-store" }),
+        fetch(`${BOT_API}/engine-config?guildId=${encodeURIComponent(guildId)}&engine=onboarding`, { headers: buildBotApiHeaders(req), cache: "no-store" }),
+        fetch(`${BOT_API}/engine-config?guildId=${encodeURIComponent(guildId)}&engine=verification`, { headers: buildBotApiHeaders(req), cache: "no-store" }),
       ]);
 
       const [dash, onboarding, verification] = await Promise.all([
@@ -276,17 +258,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const [dashSave, onSave, verSave] = await Promise.all([
         fetch(`${BOT_API}/dashboard-config`, {
           method: "POST",
-          headers: headersWithAuth(true),
+          headers: buildBotApiHeaders(req, { json: true }),
           body: JSON.stringify({ guildId, patch: dashPatch }),
         }),
         fetch(`${BOT_API}/engine-config`, {
           method: "POST",
-          headers: headersWithAuth(true),
+          headers: buildBotApiHeaders(req, { json: true }),
           body: JSON.stringify({ guildId, engine: "onboarding", config: onboardingConfig }),
         }),
         fetch(`${BOT_API}/engine-config`, {
           method: "POST",
-          headers: headersWithAuth(true),
+          headers: buildBotApiHeaders(req, { json: true }),
           body: JSON.stringify({ guildId, engine: "verification", config: verificationConfig }),
         }),
       ]);

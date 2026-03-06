@@ -3,25 +3,7 @@ import {
   PRIMARY_BASELINE_GUILD_ID,  parseDashboardGuildIds,
   STOCK_LOCK_NON_PRIMARY,
 } from "@/lib/guildPolicy";
-
-const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
-const TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
-
-function h(json = false) {
-  const headers: Record<string, string> = {};
-  if (json) headers["Content-Type"] = "application/json";
-  if (TOKEN) headers["x-dashboard-token"] = TOKEN;
-  return headers;
-}
-
-async function readJsonSafe(r: Response) {
-  const t = await r.text();
-  try {
-    return t ? JSON.parse(t) : {};
-  } catch {
-    return { success: false, error: t || "Invalid JSON" };
-  }
-}
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 
 const ALL_FEATURES_ON_BASE = {
   onboardingEnabled: true,
@@ -65,11 +47,12 @@ const BLANK = {
   },
 };
 
-async function enforcePrimary(guildId: string) {
+async function enforcePrimary(req: NextApiRequest, guildId: string) {
   const steps: Array<Record<string, any>> = [];
 
   const curRes = await fetch(`${BOT_API}/guild-features?guildId=${encodeURIComponent(guildId)}`, {
-    headers: h(false),
+    headers: buildBotApiHeaders(req),
+    cache: "no-store",
   });
   const curJson = await readJsonSafe(curRes);
   const privateGuild = Boolean(curJson?.privateGuild);
@@ -81,7 +64,7 @@ async function enforcePrimary(guildId: string) {
 
   const fRes = await fetch(`${BOT_API}/guild-features`, {
     method: "POST",
-    headers: h(true),
+    headers: buildBotApiHeaders(req, { json: true }),
     body: JSON.stringify({ guildId, features: allOn }),
   });
   const fJson = await readJsonSafe(fRes);
@@ -89,7 +72,7 @@ async function enforcePrimary(guildId: string) {
 
   const tRes = await fetch(`${BOT_API}/engine-config`, {
     method: "POST",
-    headers: h(true),
+    headers: buildBotApiHeaders(req, { json: true }),
     body: JSON.stringify({ guildId, engine: "tts", config: { enabled: true } }),
   });
   const tJson = await readJsonSafe(tRes);
@@ -103,10 +86,10 @@ async function enforcePrimary(guildId: string) {
   };
 }
 
-async function enforceStock(guildId: string) {
+async function enforceStock(req: NextApiRequest, guildId: string) {
   const up = await fetch(`${BOT_API}/dashboard-config`, {
     method: "POST",
-    headers: h(true),
+    headers: buildBotApiHeaders(req, { json: true }),
     body: JSON.stringify({ guildId, patch: BLANK }),
   });
   const data = await readJsonSafe(up);
@@ -153,9 +136,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
       if (guildId === PRIMARY_BASELINE_GUILD_ID) {
-        results.push(await enforcePrimary(guildId));
+        results.push(await enforcePrimary(req, guildId));
       } else {
-        results.push(await enforceStock(guildId));
+        results.push(await enforceStock(req, guildId));
       }
     } catch (e: any) {
       results.push({

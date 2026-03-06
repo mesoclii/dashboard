@@ -1,8 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
-
-const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
-const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 
 type TtsConfig = {
   active: boolean;
@@ -31,22 +29,6 @@ const DEFAULT_TTS: TtsConfig = {
   requirePrefix: true,
   prefix: "??",
 };
-
-function headersWithAuth(json = false): Record<string, string> {
-  const h: Record<string, string> = {};
-  if (json) h["Content-Type"] = "application/json";
-  if (DASHBOARD_TOKEN) h["x-dashboard-token"] = DASHBOARD_TOKEN;
-  return h;
-}
-
-async function readJsonSafe(response: Response) {
-  const text = await response.text();
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch {
-    return { success: false, error: text || "Invalid upstream JSON" };
-  }
-}
 
 function toArray(v: any): string[] {
   return Array.isArray(v) ? v.map((x) => String(x).trim()).filter(Boolean) : [];
@@ -95,10 +77,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "GET") {
       const [dashRes, ttsRes] = await Promise.all([
         fetch(`${BOT_API}/dashboard-config?guildId=${encodeURIComponent(guildId)}`, {
-          headers: headersWithAuth(false),
+          headers: buildBotApiHeaders(req),
+          cache: "no-store",
         }),
         fetch(`${BOT_API}/engine-config?guildId=${encodeURIComponent(guildId)}&engine=tts`, {
-          headers: headersWithAuth(false),
+          headers: buildBotApiHeaders(req),
+          cache: "no-store",
         }),
       ]);
 
@@ -114,10 +98,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const [dashRes0, ttsRes0] = await Promise.all([
         fetch(`${BOT_API}/dashboard-config?guildId=${encodeURIComponent(guildId)}`, {
-          headers: headersWithAuth(false),
+          headers: buildBotApiHeaders(req),
+          cache: "no-store",
         }),
         fetch(`${BOT_API}/engine-config?guildId=${encodeURIComponent(guildId)}&engine=tts`, {
-          headers: headersWithAuth(false),
+          headers: buildBotApiHeaders(req),
+          cache: "no-store",
         }),
       ]);
 
@@ -153,7 +139,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const [dashSaveRes, ttsSaveRes] = await Promise.all([
         fetch(`${BOT_API}/dashboard-config`, {
           method: "POST",
-          headers: headersWithAuth(true),
+          headers: buildBotApiHeaders(req, { json: true }),
           body: JSON.stringify({
             guildId,
             patch: { features: { ttsEnabled: !!nextActive } },
@@ -161,7 +147,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }),
         fetch(`${BOT_API}/engine-config`, {
           method: "POST",
-          headers: headersWithAuth(true),
+          headers: buildBotApiHeaders(req, { json: true }),
           body: JSON.stringify({
             guildId,
             engine: "tts",

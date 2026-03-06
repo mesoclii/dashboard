@@ -11,16 +11,7 @@ import {
   resolveCanonicalFeatureKey,
   withLegacyFeatureAliases,
 } from "@/lib/dashboard/featureKeys";
-
-const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
-const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
-
-function headersWithAuth(json = false) {
-  const headers: Record<string, string> = {};
-  if (json) headers["Content-Type"] = "application/json";
-  if (DASHBOARD_TOKEN) headers["x-dashboard-token"] = DASHBOARD_TOKEN;
-  return headers;
-}
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 
 function isRecord(input: unknown): input is Record<string, unknown> {
   return !!input && typeof input === "object" && !Array.isArray(input);
@@ -29,15 +20,6 @@ function isRecord(input: unknown): input is Record<string, unknown> {
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof Error && err.message) return err.message;
   return fallback;
-}
-
-async function readJsonSafe(response: Response) {
-  const text = await response.text();
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch {
-    return { success: false, error: text || "Invalid upstream JSON" };
-  }
 }
 
 function applyNonPrimaryDefaultFeatures(
@@ -66,7 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const upstream = await fetch(
         `${BOT_API}/guild-features?guildId=${encodeURIComponent(guildId)}`,
-        { headers: headersWithAuth(false) }
+        { headers: buildBotApiHeaders(req), cache: "no-store" }
       );
 
       const data = await readJsonSafe(upstream);
@@ -118,7 +100,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const upstream = await fetch(`${BOT_API}/guild-features`, {
         method: "POST",
-        headers: headersWithAuth(true),
+        headers: buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify(payload),
       });
 

@@ -4,32 +4,17 @@ import {
   isWriteBlockedForGuild,
   stockLockError,
 } from "@/lib/guildPolicy";
+import { engineCatalog } from "@/lib/engineCatalog";
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 
-const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
-const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
+const SUPPORTED_ENGINES = new Set(engineCatalog.map((engine) => engine.engineId));
 
 function sanitizeEngineId(raw: unknown) {
   return String(raw || "").trim().replace(/[^a-zA-Z0-9._-]/g, "");
 }
 
-function headersWithAuth(json = false) {
-  const headers: Record<string, string> = {};
-  if (json) headers["Content-Type"] = "application/json";
-  if (DASHBOARD_TOKEN) headers["x-dashboard-token"] = DASHBOARD_TOKEN;
-  return headers;
-}
-
 function isRecord(input: unknown): input is Record<string, unknown> {
   return !!input && typeof input === "object" && !Array.isArray(input);
-}
-
-async function readJsonSafe(response: Response) {
-  const text = await response.text();
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch {
-    return { success: false, error: text || "Invalid upstream JSON" };
-  }
 }
 
 function normalizeConfigPayload(body: unknown): Record<string, unknown> | null {
@@ -61,6 +46,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!engine) {
       return res.status(400).json({ success: false, error: "Missing or invalid engineId" });
     }
+    if (!SUPPORTED_ENGINES.has(engine)) {
+      return res.status(404).json({ success: false, error: "Unsupported engineId" });
+    }
     if (!guildId) {
       return res.status(400).json({ success: false, error: "Missing or invalid guildId" });
     }
@@ -68,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "GET") {
       const upstream = await fetch(
         `${BOT_API}/engine-config?${new URLSearchParams({ guildId, engine }).toString()}`,
-        { headers: headersWithAuth(false), cache: "no-store" }
+        { headers: buildBotApiHeaders(req), cache: "no-store" }
       );
 
       const data = await readJsonSafe(upstream);
@@ -87,7 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const upstream = await fetch(`${BOT_API}/engine-config`, {
         method: req.method,
-        headers: headersWithAuth(true),
+        headers: buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify({
           guildId,
           engine,

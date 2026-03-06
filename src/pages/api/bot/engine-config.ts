@@ -4,25 +4,7 @@ import {
   isWriteBlockedForGuild,
   stockLockError,
 } from "@/lib/guildPolicy";
-
-const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
-const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
-
-function headersWithAuth(json = false) {
-  const headers: Record<string, string> = {};
-  if (json) headers["Content-Type"] = "application/json";
-  if (DASHBOARD_TOKEN) headers["x-dashboard-token"] = DASHBOARD_TOKEN;
-  return headers;
-}
-
-async function readJsonSafe(response: Response) {
-  const text = await response.text();
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch {
-    return { success: false, error: text || "Invalid upstream JSON" };
-  }
-}
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 
 function normalizeWriteBody(req: NextApiRequest, guildId: string) {
   const body = req.body && typeof req.body === "object" ? { ...req.body } : {};
@@ -55,7 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (engine) query.set("engine", engine);
 
       const upstream = await fetch(`${BOT_API}/engine-config?${query.toString()}`, {
-        headers: headersWithAuth(false),
+        headers: buildBotApiHeaders(req),
         cache: "no-store",
       });
 
@@ -75,7 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const body = normalizeWriteBody(req, guildId);
       const upstream = await fetch(`${BOT_API}/engine-config`, {
         method: req.method,
-        headers: headersWithAuth(true),
+        headers: buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify(body),
       });
 

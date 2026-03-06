@@ -1,22 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-
-const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
-const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
-
-function headersWithAuth() {
-  const headers: Record<string, string> = {};
-  if (DASHBOARD_TOKEN) headers["x-dashboard-token"] = DASHBOARD_TOKEN;
-  return headers;
-}
-
-async function readJsonSafe(response: Response) {
-  const text = await response.text();
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch {
-    return { success: false, error: text || "Invalid upstream JSON" };
-  }
-}
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -31,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const upstream = await fetch(
       `${BOT_API}/guild-data?guildId=${encodeURIComponent(guildId)}`,
-      { headers: headersWithAuth() }
+      { headers: buildBotApiHeaders(req), cache: "no-store" }
     );
 
     const data = await readJsonSafe(upstream);

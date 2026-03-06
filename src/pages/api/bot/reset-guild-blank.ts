@@ -4,24 +4,7 @@ import {
   STOCK_LOCK_NON_PRIMARY,
   readGuildIdFromRequest,
 } from "@/lib/guildPolicy";
-
-const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
-const TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
-
-function h(json = false) {
-  const headers: Record<string, string> = {};
-  if (json) headers["Content-Type"] = "application/json";
-  if (TOKEN) headers["x-dashboard-token"] = TOKEN;
-  return headers;
-}
-async function readJsonSafe(r: Response) {
-  const t = await r.text();
-  try {
-    return t ? JSON.parse(t) : {};
-  } catch {
-    return { success: false, error: t || "Invalid JSON" };
-  }
-}
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 
 const BLANK = {
   features: {
@@ -69,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const up = await fetch(`${BOT_API}/dashboard-config`, {
       method: "POST",
-      headers: h(true),
+      headers: buildBotApiHeaders(req, { json: true }),
       body: JSON.stringify({ guildId, patch: BLANK }),
     });
     const data = await readJsonSafe(up);

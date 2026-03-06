@@ -1,7 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-
-const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
-const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
+import { BOT_API, buildBotApiHeaders } from "@/lib/botApi";
 
 function parseGuildIds(): string[] {
   const raw =
@@ -18,7 +16,7 @@ function parseGuildIds(): string[] {
   return [...new Set(ids)];
 }
 
-export default async function handler(_req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const guildIds = parseGuildIds();
     if (!guildIds.length) {
@@ -32,7 +30,7 @@ export default async function handler(_req: NextApiRequest, res: NextApiResponse
       try {
         const r = await fetch(
           `${BOT_API}/guild-data?guildId=${encodeURIComponent(guildId)}`,
-          { headers: { "x-dashboard-token": DASHBOARD_TOKEN } }
+          { headers: buildBotApiHeaders(req), cache: "no-store" }
         );
 
         if (!r.ok) {

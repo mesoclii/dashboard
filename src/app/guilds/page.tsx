@@ -34,6 +34,25 @@ export default function GuildsPage() {
   });
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const userId = String(
+        params.get("userId") ||
+        params.get("uid") ||
+        localStorage.getItem("dashboardUserId") ||
+        ""
+      ).trim();
+      const roleIds = String(
+        params.get("roleIds") ||
+        params.get("roles") ||
+        localStorage.getItem("dashboardUserRoleIds") ||
+        ""
+      ).trim();
+
+      if (userId) localStorage.setItem("dashboardUserId", userId);
+      if (roleIds) localStorage.setItem("dashboardUserRoleIds", roleIds);
+    }
+
     (async () => {
       try {
         setLoading(true);
@@ -92,7 +111,14 @@ export default function GuildsPage() {
   function openGuild(guildId: string, guildName: string) {
     localStorage.setItem("activeGuildId", guildId);
     localStorage.setItem("activeGuildName", guildName || guildId);
-    window.location.href = `/dashboard?guildId=${encodeURIComponent(guildId)}`;
+
+    const userId = String(localStorage.getItem("dashboardUserId") || "").trim();
+    const roleIds = String(localStorage.getItem("dashboardUserRoleIds") || "").trim();
+    const next = new URLSearchParams({ guildId });
+    if (userId) next.set("userId", userId);
+    if (roleIds) next.set("roleIds", roleIds);
+
+    window.location.href = `/dashboard?${next.toString()}`;
   }
 
   return (

@@ -11,16 +11,7 @@ import {
   normalizeFeaturePatch,
   withLegacyFeatureAliases,
 } from "@/lib/dashboard/featureKeys";
-
-const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
-const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
-
-function authHeaders(json = false): Record<string, string> {
-  const h: Record<string, string> = {};
-  if (json) h["Content-Type"] = "application/json";
-  if (DASHBOARD_TOKEN) h["x-dashboard-token"] = DASHBOARD_TOKEN;
-  return h;
-}
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 
 function isRecord(input: unknown): input is Record<string, unknown> {
   return !!input && typeof input === "object" && !Array.isArray(input);
@@ -98,15 +89,6 @@ function normalizeWriteBody(req: NextApiRequest, guildId: string) {
   return { body, ignoredFeatureKeys: Array.from(new Set(ignored)) };
 }
 
-async function readJsonSafe(r: Response) {
-  const text = await r.text();
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch {
-    return { success: false, error: text || "Invalid upstream response" };
-  }
-}
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const guildId = readGuildIdFromRequest(req);
@@ -116,7 +98,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const upstream = await fetch(
         `${BOT_API}/dashboard-config?guildId=${encodeURIComponent(guildId)}`,
-        { headers: authHeaders(false) }
+        { headers: buildBotApiHeaders(req), cache: "no-store" }
       );
       const data = await readJsonSafe(upstream);
       if (isRecord(data) && isRecord(data.config)) {
@@ -134,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const normalized = normalizeWriteBody(req, guildId);
       const upstream = await fetch(`${BOT_API}/dashboard-config`, {
         method: "POST",
-        headers: authHeaders(true),
+        headers: buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify(normalized.body),
       });
       const data = await readJsonSafe(upstream);

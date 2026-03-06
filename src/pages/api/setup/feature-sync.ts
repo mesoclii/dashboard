@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { readStore, appendAudit } from "@/lib/setupStore";
 import { PRIMARY_BASELINE_GUILD_ID } from "@/lib/guildPolicy";
+import { getRequestOrigin, readActorUserId } from "@/lib/botApi";
 
 type GenericObject = Record<string, unknown>;
 
@@ -109,10 +110,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === "POST") {
     try {
-      const upstream = await fetch("http://127.0.0.1:3000/api/bot/dashboard-config", {
+      const origin = getRequestOrigin(req) || process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://127.0.0.1:3000";
+      const userId = readActorUserId(req);
+      const upstream = await fetch(`${origin}/api/bot/dashboard-config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, patch: { features } })
+        body: JSON.stringify({ guildId, userId, patch: { features } })
       });
       const data = await upstream.json().catch(() => ({}));
 

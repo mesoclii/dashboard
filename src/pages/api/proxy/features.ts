@@ -9,15 +9,7 @@ import {
   resolveCanonicalFeatureKey,
   withLegacyFeatureAliases,
 } from "@/lib/dashboard/featureKeys";
-
-const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
-const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
-
-function authHeaders() {
-  const headers: Record<string, string> = {};
-  if (DASHBOARD_TOKEN) headers["x-dashboard-token"] = DASHBOARD_TOKEN;
-  return headers;
-}
+import { BOT_API, buildBotApiHeaders } from "@/lib/botApi";
 
 function isRecord(input: unknown): input is Record<string, unknown> {
   return !!input && typeof input === "object" && !Array.isArray(input);
@@ -37,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === "GET") {
       const url = `${BOT_API}/guild-features?guildId=${encodeURIComponent(guildId)}`;
-      const r = await fetch(url, { method: "GET", headers: authHeaders() });
+      const r = await fetch(url, { method: "GET", headers: buildBotApiHeaders(req), cache: "no-store" });
       const data = await r.json().catch(() => ({}));
       if (isRecord(data) && isRecord(data.features)) {
         data.features = withLegacyFeatureAliases(data.features);
@@ -62,7 +54,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const r = await fetch(`${BOT_API}/guild-features`, {
           method: "POST",
           headers: {
-            ...authHeaders(),
+            ...buildBotApiHeaders(req),
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ guildId, features: normalized.patch }),
@@ -94,10 +86,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const r = await fetch(`${BOT_API}/api/features/update`, {
         method: "POST",
         headers: {
-          ...authHeaders(),
+          ...buildBotApiHeaders(req),
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ guildId, featureKey: canonical, key: canonical, feature: canonical, enabled }),
+        body: JSON.stringify({ guildId, feature: canonical, value: enabled }),
       });
 
       const data = await r.json().catch(() => ({}));

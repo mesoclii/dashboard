@@ -5,25 +5,7 @@ import {
   readGuildIdFromRequest,
   stockLockError,
 } from "@/lib/guildPolicy";
-
-const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
-const TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
-
-function h(json = false) {
-  const headers: Record<string, string> = {};
-  if (json) headers["Content-Type"] = "application/json";
-  if (TOKEN) headers["x-dashboard-token"] = TOKEN;
-  return headers;
-}
-
-async function readJsonSafe(r: Response) {
-  const t = await r.text();
-  try {
-    return t ? JSON.parse(t) : {};
-  } catch {
-    return { success: false, error: t || "Invalid JSON" };
-  }
-}
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ success: false, error: "Method not allowed" });
@@ -48,7 +30,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const srcRes = await fetch(`${BOT_API}/dashboard-config?guildId=${encodeURIComponent(sourceGuildId)}`, {
-      headers: h(false),
+      headers: buildBotApiHeaders(req),
+      cache: "no-store",
     });
     const src = await readJsonSafe(srcRes);
     if (!srcRes.ok || !src?.config) {
@@ -57,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const saveRes = await fetch(`${BOT_API}/dashboard-config`, {
       method: "POST",
-      headers: h(true),
+      headers: buildBotApiHeaders(req, { json: true }),
       body: JSON.stringify({ guildId, patch: src.config }),
     });
     const out = await readJsonSafe(saveRes);

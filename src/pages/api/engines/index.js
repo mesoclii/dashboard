@@ -1,4 +1,4 @@
-import { ENGINE_REGISTRY } from "@/lib/dashboard/engineRegistry";
+import { engineCatalog } from "@/lib/engineCatalog";
 
 export default function handler(req, res) {
   if (req.method && req.method !== "GET") {
@@ -7,6 +7,6 @@ export default function handler(req, res) {
 
   return res.status(200).json({
     success: true,
-    engines: ENGINE_REGISTRY,
+    engines: engineCatalog,
   });
 }

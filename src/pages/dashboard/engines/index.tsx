@@ -1,6 +1,14 @@
+import { useRouter } from "next/router";
 import { engineCatalog } from "@/lib/engineCatalog";
 
 export default function EnginesPage() {
+  const router = useRouter();
+  const guildId = Array.isArray(router.query.guildId)
+    ? router.query.guildId[0] || ""
+    : typeof router.query.guildId === "string"
+      ? router.query.guildId
+      : "";
+
   return (
     <div style={{ padding: 24 }}>
       <h1 style={{ fontSize: 28, fontWeight: 900 }}>
@@ -25,7 +33,7 @@ export default function EnginesPage() {
               {engine.description}
             </div>
             <div style={{ marginTop: 12 }}>
-              <a href={`/dashboard/engines/${engine.engineId}`}>
+              <a href={`/dashboard/engines/${engine.engineId}${guildId ? `?guildId=${encodeURIComponent(guildId)}` : ""}`}>
                 Open
               </a>
             </div>

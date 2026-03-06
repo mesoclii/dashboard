@@ -12,12 +12,7 @@ type GuildData = {
 export default function EngineDetail() {
   const router = useRouter();
   const { engineId } = router.query;
-
-  const guildId = useMemo(() => {
-    const raw = router.query.guildId;
-    if (Array.isArray(raw)) return raw[0] || "";
-    return typeof raw === "string" ? raw : "";
-  }, [router.query.guildId]);
+  const [guildId, setGuildId] = useState("");
 
   const engine = useMemo(() => {
     if (!engineId || typeof engineId !== "string") return null;
@@ -29,6 +24,16 @@ export default function EngineDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = router.query.guildId;
+    const fromQuery = Array.isArray(raw) ? raw[0] || "" : typeof raw === "string" ? raw : "";
+    const fromStore = localStorage.getItem("activeGuildId") || "";
+    const nextGuildId = String(fromQuery || fromStore).trim();
+    if (nextGuildId) localStorage.setItem("activeGuildId", nextGuildId);
+    setGuildId(nextGuildId);
+  }, [router.query.guildId]);
 
   useEffect(() => {
     if (!engine || !guildId) return;
@@ -71,7 +76,7 @@ export default function EngineDetail() {
   }, [engine, guildId]);
 
   if (!engine) return <div style={{ padding: 24 }}>Engine not found</div>;
-  if (!guildId) return <div style={{ padding: 24 }}>Missing guildId in URL (?guildId=...)</div>;
+  if (!guildId) return <div style={{ padding: 24 }}>Missing guildId. Open from /guilds first.</div>;
 
   function setValue(key: string, value: any) {
     setConfig((prev) => ({ ...prev, [key]: value }));
