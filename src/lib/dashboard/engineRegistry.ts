@@ -22,6 +22,7 @@ export const SAVIORS_GUILD_ID = "1431799056211906582";
 export const ENGINE_REGISTRY: EngineDef[] = [
   { id: "bot-personalizer", label: "Bot Personalizer", description: "Per-guild bot identity, avatar, and backstory", group: "Access", route: "/dashboard/bot-personalizer" },
   { id: "bot-masters", label: "Bot Masters", description: "Dashboard role/user access per guild", group: "Access", route: "/dashboard/bot-masters" },
+  { id: "premium-features", label: "Premium Features", description: "Public SaaS catalog showing paid vs standard features", group: "Access", route: "/dashboard/premium-features" },
   { id: "onboarding", label: "Onboarding", description: "Welcome + ticket-driven join flow", group: "Security", route: "/dashboard/security/onboarding", featureKey: "onboardingEnabled" },
   { id: "verification", label: "Verification", description: "ID/verification workflows", group: "Security", route: "/dashboard/security/verification", featureKey: "verificationEnabled" },
   { id: "lockdown", label: "Lockdown", description: "Emergency channel/server controls", group: "Security", route: "/dashboard/security/lockdown", notes: "Engine-config controlled" },
@@ -61,7 +62,7 @@ export const ENGINE_REGISTRY: EngineDef[] = [
   { id: "panel-deploy", label: "Panel Deploy", description: "Panel deploy/status controls", group: "Automation", route: "/dashboard/panels" },
   { id: "event-reactor", label: "Event Reactor", description: "Scheduled event reactor controls", group: "Automation", route: "/dashboard/event-reactor" },
 
-  { id: "ai-core", label: "AI", description: "Persona/AI message handling", group: "AI", route: "/dashboard/ai", featureKey: "aiEnabled" },
+  { id: "ai-core", label: "AI Control", description: "Split learning AI, persona engine, and provider controls", group: "AI", route: "/dashboard/ai" },
 
   { id: "blacklist", label: "Blacklist", description: "Blacklist controls", group: "Operations", route: "/dashboard/blacklist" },
   { id: "failsafe", label: "Failsafe", description: "Failsafe emergency controls", group: "Operations", route: "/dashboard/failsafe" },

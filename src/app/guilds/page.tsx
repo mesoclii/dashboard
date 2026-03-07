@@ -7,9 +7,12 @@ type Guild = {
   id: string;
   name: string;
   icon?: string | null;
+  iconUrl?: string | null;
   botPresent?: boolean;
   memberCount?: number | null;
   accessReason?: string | null;
+  manageable?: boolean;
+  owner?: boolean;
 };
 
 type PolicyState = {
@@ -18,7 +21,14 @@ type PolicyState = {
   stockLockNonPrimary: boolean;
 };
 
-function badgeStyle(kind: "primary" | "games" | "stock") {
+type DiscordUser = {
+  id: string;
+  username: string;
+  globalName: string | null;
+  avatar: string | null;
+};
+
+function badgeStyle(kind: "primary" | "games" | "stock" | "oauth") {
   if (kind === "primary") {
     return {
       border: "1px solid #0f7a0f",
@@ -33,6 +43,13 @@ function badgeStyle(kind: "primary" | "games" | "stock") {
       background: "rgba(8,82,112,0.22)",
     } as const;
   }
+  if (kind === "oauth") {
+    return {
+      border: "1px solid #0f5f7a",
+      color: "#b8f4ff",
+      background: "rgba(8,82,112,0.22)",
+    } as const;
+  }
   return {
     border: "1px solid #8a4d00",
     color: "#ffd9a3",
@@ -40,12 +57,19 @@ function badgeStyle(kind: "primary" | "games" | "stock") {
   } as const;
 }
 
-function actionButtonStyle(tone: "accent" | "muted" | "open") {
+function actionButtonStyle(tone: "accent" | "muted" | "open" | "oauth") {
   if (tone === "accent") {
     return {
       border: "1px solid #ff3b3b",
       color: "#ffe0e0",
       background: "rgba(140,0,0,0.35)",
+    } as const;
+  }
+  if (tone === "oauth") {
+    return {
+      border: "1px solid #0f5f7a",
+      color: "#d7f7ff",
+      background: "rgba(8,82,112,0.28)",
     } as const;
   }
   if (tone === "open") {
@@ -67,12 +91,33 @@ function readStoredDashboardUserId() {
   return String(localStorage.getItem("dashboardUserId") || MASTER_OWNER_USER_ID).trim();
 }
 
+function buildInviteUrl(baseUrl: string, guildId: string) {
+  if (!baseUrl) return "";
+  try {
+    const url = new URL(baseUrl);
+    url.searchParams.set("guild_id", guildId);
+    url.searchParams.set("disable_guild_select", "true");
+    return url.toString();
+  } catch {
+    return baseUrl;
+  }
+}
+
+function resolveGuildIcon(guild: Guild) {
+  if (guild.iconUrl) return guild.iconUrl;
+  if (guild.icon) return guild.icon;
+  return null;
+}
+
 export default function GuildsPage() {
   const [guilds, setGuilds] = useState<Guild[]>([]);
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionKey, setActionKey] = useState("");
   const [inviteUrl, setInviteUrl] = useState("");
+  const [oauthConfigured, setOauthConfigured] = useState(false);
+  const [oauthLoggedIn, setOauthLoggedIn] = useState(false);
+  const [oauthUser, setOauthUser] = useState<DiscordUser | null>(null);
   const [policy, setPolicy] = useState<PolicyState>({
     primaryGuildId: "1431799056211906582",
     gamesBaselineGuildId: "1336178965202599936",
@@ -84,15 +129,15 @@ export default function GuildsPage() {
       const params = new URLSearchParams(window.location.search);
       const userId = String(
         params.get("userId") ||
-        params.get("uid") ||
-        localStorage.getItem("dashboardUserId") ||
-        MASTER_OWNER_USER_ID
+          params.get("uid") ||
+          localStorage.getItem("dashboardUserId") ||
+          MASTER_OWNER_USER_ID
       ).trim();
       const roleIds = String(
         params.get("roleIds") ||
-        params.get("roles") ||
-        localStorage.getItem("dashboardUserRoleIds") ||
-        ""
+          params.get("roles") ||
+          localStorage.getItem("dashboardUserRoleIds") ||
+          ""
       ).trim();
 
       if (userId) localStorage.setItem("dashboardUserId", userId);
@@ -100,10 +145,10 @@ export default function GuildsPage() {
     }
 
     (async () => {
-      try {
-        setLoading(true);
-        setMsg("");
+      setLoading(true);
+      setMsg("");
 
+      try {
         const policyRes = await fetch("/api/bot/enforce-stock-policy?dryRun=true", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -121,35 +166,87 @@ export default function GuildsPage() {
           }
         }
 
-        const params = new URLSearchParams();
-        const actorUserId = readStoredDashboardUserId();
-        if (actorUserId) params.set("userId", actorUserId);
+        const [oauthRes, installedRes] = await Promise.all([
+          fetch("/api/guilds", { cache: "no-store" }).catch(() => null),
+          fetch("/api/guilds/installed", { cache: "no-store" }).catch(() => null),
+        ]);
 
-        const res = await fetch(`/api/bot/guilds${params.toString() ? `?${params.toString()}` : ""}`, { cache: "no-store" });
-        const text = await res.text();
+        const oauthJson = oauthRes ? await oauthRes.json().catch(() => ({})) : {};
+        const installedJson = installedRes ? await installedRes.json().catch(() => ({})) : {};
 
-        let json: any = {};
-        try {
-          json = text ? JSON.parse(text) : {};
-        } catch {
-          throw new Error(text?.slice(0, 180) || "Invalid API response");
+        const oauthUserValue = oauthJson?.user && typeof oauthJson.user.id === "string"
+          ? {
+              id: String(oauthJson.user.id),
+              username: String(oauthJson.user.username || "Discord User"),
+              globalName: oauthJson.user.globalName ?? null,
+              avatar: oauthJson.user.avatar ?? null,
+            }
+          : null;
+
+        setOauthConfigured(Boolean(oauthJson?.oauthConfigured));
+        setOauthLoggedIn(Boolean(oauthJson?.loggedIn));
+        setOauthUser(oauthUserValue);
+
+        if (oauthUserValue?.id && typeof window !== "undefined") {
+          localStorage.setItem("dashboardUserId", oauthUserValue.id);
         }
 
-        if (!res.ok || json?.success === false) {
-          throw new Error(json?.error || `Guild API failed (${res.status})`);
-        }
-
-        const list = Array.isArray(json?.guilds) ? json.guilds : [];
         const merged = new Map<string, Guild>();
-        for (const guild of list) {
-          merged.set(String(guild.id), guild);
+
+        const installedGuilds = Array.isArray(installedJson?.guilds) ? installedJson.guilds : [];
+        for (const guild of installedGuilds) {
+          const id = String(guild?.id || "").trim();
+          if (!id) continue;
+          merged.set(id, {
+            id,
+            name: String(guild?.name || id),
+            icon: guild?.icon || null,
+            botPresent: guild?.botPresent !== false,
+            memberCount: Number(guild?.memberCount || 0),
+            accessReason: guild?.accessReason || null,
+            manageable: true,
+          });
         }
-        setInviteUrl(typeof json?.inviteUrl === "string" ? json.inviteUrl : "");
+
+        const adminGuilds = Array.isArray(oauthJson?.guilds) ? oauthJson.guilds : [];
+        for (const guild of adminGuilds) {
+          const id = String(guild?.id || "").trim();
+          if (!id) continue;
+          const existing = merged.get(id);
+          merged.set(id, {
+            ...existing,
+            id,
+            name: String(guild?.name || existing?.name || id),
+            icon: guild?.icon || existing?.icon || null,
+            iconUrl: guild?.iconUrl || existing?.iconUrl || null,
+            botPresent: existing?.botPresent ?? false,
+            memberCount: existing?.memberCount ?? null,
+            accessReason: existing?.accessReason || "oauth_manage_guild",
+            manageable: true,
+            owner: guild?.owner === true,
+          });
+        }
+
+        setInviteUrl(typeof installedJson?.inviteUrl === "string" ? installedJson.inviteUrl : "");
+
         for (const [guildId, guildName] of Object.entries(FALLBACK_GUILD_NAMES)) {
           if (!merged.has(guildId)) {
-            merged.set(guildId, { id: guildId, name: guildName, icon: null, botPresent: false });
+            merged.set(guildId, {
+              id: guildId,
+              name: guildName,
+              icon: null,
+              botPresent: false,
+              manageable: false,
+            });
           }
         }
+
+        if (installedRes && !installedRes.ok) {
+          setMsg(installedJson?.error || `Installed guild API failed (${installedRes.status})`);
+        } else if (oauthRes && !oauthRes.ok && oauthJson?.error) {
+          setMsg(oauthJson.error);
+        }
+
         setGuilds([...merged.values()]);
       } catch (e: any) {
         setMsg(e?.message || "Failed to load guilds.");
@@ -169,6 +266,9 @@ export default function GuildsPage() {
       const ap = rank(a.id);
       const bp = rank(b.id);
       if (ap !== bp) return ap - bp;
+      if ((a.botPresent ? 1 : 0) !== (b.botPresent ? 1 : 0)) {
+        return a.botPresent ? -1 : 1;
+      }
       return a.name.localeCompare(b.name);
     });
   }, [guilds, policy.gamesBaselineGuildId, policy.primaryGuildId]);
@@ -207,11 +307,7 @@ export default function GuildsPage() {
         throw new Error(json?.error || `Guild baseline failed (${res.status})`);
       }
 
-      setMsg(
-        mode === "stock"
-          ? `${guildName} reset to stock off.`
-          : `${guildName} baseline applied.`
-      );
+      setMsg(mode === "stock" ? `${guildName} reset to stock off.` : `${guildName} baseline applied.`);
     } catch (e: any) {
       setMsg(e?.message || "Failed to apply guild baseline.");
     } finally {
@@ -223,66 +319,122 @@ export default function GuildsPage() {
     <div style={{ color: "#ff5252", padding: 24 }}>
       <h1 style={{ marginTop: 0, letterSpacing: "0.16em", textTransform: "uppercase" }}>Select Guild</h1>
       <p style={{ letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.9 }}>
-        Saviors = full baseline. Alexandria = public baseline. Other guilds start stock off, but stay fully editable.
+        Saviors = full baseline. Alexandria = public baseline. Other guilds start stock off, but stay fully editable once the bot is installed.
       </p>
       {loading ? <p>Loading...</p> : null}
       {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
-      {inviteUrl ? (
-        <div
-          style={{
-            marginBottom: 12,
-            maxWidth: 1040,
-            border: "1px solid #6f0000",
-            borderRadius: 12,
-            background: "rgba(120,0,0,0.08)",
-            padding: 14,
-            color: "#ffd7d7",
-            display: "flex",
-            justifyContent: "space-between",
-            gap: 12,
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
-          <div>
-            <div style={{ fontWeight: 900 }}>Add Negan To Another Server</div>
-            <div style={{ fontSize: 12, opacity: 0.76 }}>
-              Live guilds appear here automatically once the bot joins. External admin-owned guild discovery still needs Discord OAuth.
-            </div>
+
+      <div
+        style={{
+          marginBottom: 12,
+          maxWidth: 1040,
+          border: "1px solid #6f0000",
+          borderRadius: 12,
+          background: "rgba(120,0,0,0.08)",
+          padding: 14,
+          color: "#ffd7d7",
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <div>
+          <div style={{ fontWeight: 900 }}>
+            {oauthLoggedIn
+              ? `Discord connected as ${oauthUser?.globalName || oauthUser?.username || oauthUser?.id}`
+              : "Discord OAuth unlocks admin-owned guild discovery"}
           </div>
-          <a
-            href={inviteUrl}
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              borderRadius: 999,
-              padding: "8px 14px",
-              fontSize: 12,
-              fontWeight: 900,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              border: "1px solid #7a0000",
-              color: "#fff0f0",
-              textDecoration: "none",
-              background: "rgba(140,0,0,0.32)",
-            }}
-          >
-            Invite Bot
-          </a>
+          <div style={{ fontSize: 12, opacity: 0.76 }}>
+            {oauthConfigured
+              ? oauthLoggedIn
+                ? "Open Dashboard appears for guilds the bot is in. Add Bot appears for servers you manage that do not have Possum yet."
+                : "Login with Discord to see servers you manage, even if the bot is not installed there yet."
+              : "Discord OAuth is not configured in the dashboard env yet, so only bot-installed guilds can be shown right now."}
+          </div>
         </div>
-      ) : null}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {oauthConfigured && !oauthLoggedIn ? (
+            <a
+              href="/api/auth/discord/login"
+              style={{
+                borderRadius: 999,
+                padding: "8px 14px",
+                fontSize: 12,
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                textDecoration: "none",
+                ...actionButtonStyle("oauth"),
+              }}
+            >
+              Login With Discord
+            </a>
+          ) : null}
+          {oauthConfigured && oauthLoggedIn ? (
+            <a
+              href="/api/auth/logout"
+              style={{
+                borderRadius: 999,
+                padding: "8px 14px",
+                fontSize: 12,
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                textDecoration: "none",
+                ...actionButtonStyle("muted"),
+              }}
+            >
+              Logout
+            </a>
+          ) : null}
+          {inviteUrl ? (
+            <a
+              href={inviteUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                borderRadius: 999,
+                padding: "8px 14px",
+                fontSize: 12,
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                border: "1px solid #7a0000",
+                color: "#fff0f0",
+                textDecoration: "none",
+                background: "rgba(140,0,0,0.32)",
+              }}
+            >
+              Invite Bot
+            </a>
+          ) : null}
+        </div>
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 12, maxWidth: 1040 }}>
         {byPrimary.map((g) => {
           const isPrimary = g.id === policy.primaryGuildId;
           const isGamesBaseline = g.id === policy.gamesBaselineGuildId;
           const isEditableBaseline = isPrimary || isGamesBaseline;
+          const canConfigureLive = g.botPresent !== false;
           const badge = isPrimary
             ? "PRIMARY BASELINE (ALL ON)"
             : isGamesBaseline
               ? "PUBLIC BASELINE (SECURITY OFF)"
-              : "STOCK DEFAULT (STARTS OFF)";
-          const kind = isPrimary ? "primary" : isGamesBaseline ? "games" : "stock";
+              : g.botPresent === false && g.manageable
+                ? "ADMIN GUILD (BOT MISSING)"
+                : "STOCK DEFAULT (STARTS OFF)";
+          const kind = isPrimary
+            ? "primary"
+            : isGamesBaseline
+              ? "games"
+              : g.botPresent === false && g.manageable
+                ? "oauth"
+                : "stock";
+          const iconUrl = resolveGuildIcon(g);
+          const inviteHref = buildInviteUrl(inviteUrl, g.id);
 
           return (
             <div
@@ -296,14 +448,32 @@ export default function GuildsPage() {
                 padding: 14,
               }}
             >
-              <div style={{ fontWeight: 900, marginBottom: 4 }}>{g.name}</div>
-              <div style={{ fontSize: 12, opacity: 0.72 }}>Guild {g.id}</div>
+              <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    border: "1px solid rgba(255,0,0,0.28)",
+                    background: iconUrl
+                      ? `center / cover no-repeat url(${iconUrl})`
+                      : "linear-gradient(135deg, rgba(100,0,0,0.6), rgba(20,20,20,0.9))",
+                  }}
+                />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 900, marginBottom: 4 }}>{g.name}</div>
+                  <div style={{ fontSize: 12, opacity: 0.72 }}>Guild {g.id}</div>
+                </div>
+              </div>
+
               <div style={{ fontSize: 12, opacity: 0.72 }}>
-                {g.botPresent === false
-                  ? "Bot not detected in this guild yet."
-                  : g.memberCount
+                {canConfigureLive
+                  ? g.memberCount
                     ? `${g.memberCount} members`
-                    : "Bot connected"}
+                    : "Bot connected"
+                  : g.manageable
+                    ? "You manage this server. Add the bot to enable the dashboard."
+                    : "Bot not detected in this guild yet."}
               </div>
 
               <div
@@ -322,7 +492,7 @@ export default function GuildsPage() {
               </div>
 
               <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {isEditableBaseline ? (
+                {canConfigureLive && isEditableBaseline ? (
                   <button
                     onClick={() => applyGuildMode(g.id, g.name, "builtIn")}
                     disabled={actionKey === `${g.id}:builtIn`}
@@ -343,7 +513,7 @@ export default function GuildsPage() {
                   </button>
                 ) : null}
 
-                {!isPrimary ? (
+                {canConfigureLive && !isPrimary ? (
                   <button
                     onClick={() => applyGuildMode(g.id, g.name, "stock")}
                     disabled={actionKey === `${g.id}:stock`}
@@ -353,7 +523,6 @@ export default function GuildsPage() {
                       fontSize: 12,
                       fontWeight: 800,
                       cursor: actionKey === `${g.id}:stock` ? "wait" : "pointer",
-                      opacity: 1,
                       ...actionButtonStyle("muted"),
                     }}
                     title="Reset this guild to stock off."
@@ -362,23 +531,7 @@ export default function GuildsPage() {
                   </button>
                 ) : null}
 
-                {g.botPresent === false && inviteUrl ? (
-                  <a
-                    href={inviteUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      borderRadius: 999,
-                      padding: "6px 12px",
-                      fontSize: 12,
-                      fontWeight: 800,
-                      textDecoration: "none",
-                      ...actionButtonStyle("open"),
-                    }}
-                  >
-                    Invite
-                  </a>
-                ) : (
+                {canConfigureLive ? (
                   <button
                     onClick={() => openGuild(g.id, g.name)}
                     style={{
@@ -392,7 +545,37 @@ export default function GuildsPage() {
                   >
                     Open
                   </button>
-                )}
+                ) : inviteHref ? (
+                  <a
+                    href={inviteHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      borderRadius: 999,
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 800,
+                      textDecoration: "none",
+                      ...actionButtonStyle(g.manageable ? "oauth" : "open"),
+                    }}
+                  >
+                    Add Bot
+                  </a>
+                ) : oauthConfigured && !oauthLoggedIn ? (
+                  <a
+                    href="/api/auth/discord/login"
+                    style={{
+                      borderRadius: 999,
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 800,
+                      textDecoration: "none",
+                      ...actionButtonStyle("oauth"),
+                    }}
+                  >
+                    Login
+                  </a>
+                ) : null}
               </div>
             </div>
           );

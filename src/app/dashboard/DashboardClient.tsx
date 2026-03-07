@@ -351,7 +351,8 @@ const pokemonTradeController: ToggleController = {
 const CARDS: Card[] = [
   { href: "/dashboard/bot-personalizer", title: "Bot Personalizer", description: "Per-guild bot naming, avatar, activity, and backstory.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/bot-masters", title: "Bot Masters", description: "Set which guild roles and users can manage the dashboard.", goOnly: true, goLabel: "Go" },
-  { href: "/dashboard/ai", title: "AI", description: "Persona/AI message handling and pricing.", toggle: featureController("aiEnabled") },
+  { href: "/dashboard/premium-features", title: "Premium Features", description: "See which public SaaS features are paid vs standard before you finalize billing.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/ai", title: "AI Control", description: "Split adaptive AI, persona engine, and OpenAI platform controls.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/automations", title: "Automations", description: "Bot automation list, limits, and runtime state.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/automations/studio", title: "Automation Studio", description: "Visual trigger/condition/action flow builder.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/commands", title: "Command Studio", description: "Custom command engine and command toggles.", goOnly: true, goLabel: "Go" },
@@ -476,7 +477,7 @@ export default function DashboardClient() {
   return (
     <section className="space-y-5">
       <header className="rounded-xl border possum-divider bg-black/50 p-5 possum-border">
-        <p className="text-xs uppercase tracking-[0.22em] possum-soft">Negan Control</p>
+        <p className="text-xs uppercase tracking-[0.22em] possum-soft">Possum Control</p>
         <h2 className="mt-1 text-2xl font-black uppercase tracking-[0.08em] possum-red possum-glow">Guild Dashboard</h2>
         <p className="mt-2 text-sm text-red-200/80">
           {guildId === SAVIORS_GUILD_ID

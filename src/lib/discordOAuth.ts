@@ -1,0 +1,127 @@
+export type DiscordGuild = {
+  id: string;
+  name: string;
+  icon: string | null;
+  owner?: boolean;
+  permissions?: string;
+  permissions_new?: string;
+};
+
+export type DiscordUser = {
+  id: string;
+  username: string;
+  global_name?: string | null;
+  avatar?: string | null;
+};
+
+const DISCORD_API_BASE = "https://discord.com/api";
+const DISCORD_AUTH_BASE = "https://discord.com/oauth2/authorize";
+
+function getRequiredEnv(name: string) {
+  const value = String(process.env[name] || "").trim();
+  if (!value) {
+    throw new Error(`${name} is not configured.`);
+  }
+  return value;
+}
+
+async function readDiscordJson<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  let parsed: any = {};
+
+  try {
+    parsed = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(text || "Discord returned an invalid response.");
+  }
+
+  if (!response.ok) {
+    throw new Error(parsed?.error_description || parsed?.message || `Discord request failed (${response.status})`);
+  }
+
+  return parsed as T;
+}
+
+export function isDiscordOauthConfigured() {
+  return Boolean(
+    String(process.env.DISCORD_CLIENT_ID || "").trim() &&
+      String(process.env.DISCORD_CLIENT_SECRET || "").trim() &&
+      String(process.env.DISCORD_REDIRECT_URI || "").trim()
+  );
+}
+
+export function buildDiscordOauthUrl(state: string) {
+  const params = new URLSearchParams({
+    client_id: getRequiredEnv("DISCORD_CLIENT_ID"),
+    response_type: "code",
+    redirect_uri: getRequiredEnv("DISCORD_REDIRECT_URI"),
+    scope: "identify guilds",
+    state,
+  });
+
+  return `${DISCORD_AUTH_BASE}?${params.toString()}`;
+}
+
+export async function exchangeDiscordCode(code: string) {
+  const body = new URLSearchParams({
+    client_id: getRequiredEnv("DISCORD_CLIENT_ID"),
+    client_secret: getRequiredEnv("DISCORD_CLIENT_SECRET"),
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: getRequiredEnv("DISCORD_REDIRECT_URI"),
+  });
+
+  const response = await fetch(`${DISCORD_API_BASE}/oauth2/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+    cache: "no-store",
+  });
+
+  return readDiscordJson<{
+    access_token: string;
+    token_type: string;
+    expires_in: number;
+    refresh_token?: string;
+    scope?: string;
+  }>(response);
+}
+
+export async function fetchDiscordUser(accessToken: string) {
+  const response = await fetch(`${DISCORD_API_BASE}/users/@me`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    cache: "no-store",
+  });
+
+  return readDiscordJson<DiscordUser>(response);
+}
+
+export async function fetchDiscordGuilds(accessToken: string) {
+  const response = await fetch(`${DISCORD_API_BASE}/users/@me/guilds`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    cache: "no-store",
+  });
+
+  return readDiscordJson<DiscordGuild[]>(response);
+}
+
+export function getDiscordGuildIconUrl(guildId: string, icon: string | null | undefined) {
+  if (!icon) return null;
+  return `https://cdn.discordapp.com/icons/${guildId}/${icon}.png?size=256`;
+}
+
+export function hasGuildManageAccess(guild: DiscordGuild) {
+  const raw = String(guild.permissions_new || guild.permissions || "0").trim();
+  try {
+    const permissions = BigInt(raw);
+    return guild.owner === true || (permissions & 0x8n) === 0x8n || (permissions & 0x20n) === 0x20n;
+  } catch {
+    return guild.owner === true;
+  }
+}

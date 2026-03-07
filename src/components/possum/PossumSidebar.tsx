@@ -12,6 +12,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/bot-personalizer", label: "Bot Personalizer" },
   { href: "/dashboard/bot-masters", label: "Bot Masters" },
+  { href: "/dashboard/premium-features", label: "Premium Features" },
   { href: "/dashboard/ai", label: "AI" },
   { href: "/dashboard/automations", label: "Automations" },
   { href: "/dashboard/automations/studio", label: "Automation Studio" },
@@ -69,7 +70,7 @@ export default function PossumSidebar() {
   return (
     <div className="rounded-xl border possum-divider bg-black/55 p-4 possum-border">
       <div className="mb-4 border-b possum-divider pb-3">
-        <p className="text-[11px] uppercase tracking-[0.24em] possum-soft">Negan Bot</p>
+        <p className="text-[11px] uppercase tracking-[0.24em] possum-soft">Possum Bot</p>
         <Link
           href={buildDashboardHref("/dashboard")}
           className="mt-1 block text-lg font-black uppercase tracking-[0.08em] possum-red possum-glow-soft hover:text-red-200"

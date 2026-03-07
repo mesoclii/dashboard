@@ -81,7 +81,7 @@ export default function Home() {
             Engine Governance • Security Oversight • System Control
           </div>
 
-          <div style={{ display: "flex", gap: "28px", justifyContent: "center" }}>
+          <div style={{ display: "flex", gap: "28px", justifyContent: "center", flexWrap: "wrap" }}>
             <a
               href="/guilds"
               className="possum-btn"
@@ -101,7 +101,7 @@ export default function Home() {
             </a>
 
             <a
-              href="/guilds"
+              href="/api/auth/discord/login"
               className="possum-btn"
               style={{
                 display: "inline-block",
@@ -115,7 +115,7 @@ export default function Home() {
                 background: "transparent",
               }}
             >
-              System Status
+              Login With Discord
             </a>
           </div>
         </div>

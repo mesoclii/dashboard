@@ -84,7 +84,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
   }, [guildId, engine]);
 
   async function save(nextPatch?: Partial<T>) {
-    if (!guildId) return;
+    if (!guildId) return null;
     setSaving(true);
     setMessage("");
     try {
@@ -102,8 +102,10 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
       setSummary(Array.isArray(json?.summary) ? json.summary : []);
       setDetails((json?.details && typeof json.details === "object") ? json.details : {});
       setMessage("Saved.");
+      return json;
     } catch (err: any) {
       setMessage(err?.message || "Save failed.");
+      return null;
     } finally {
       setSaving(false);
     }
@@ -126,7 +128,18 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
       setConfig({ ...(defaults as any), ...(json?.config || config) });
       setSummary(Array.isArray(json?.summary) ? json.summary : []);
       setDetails((json?.details && typeof json.details === "object") ? json.details : {});
-      setMessage("Action completed.");
+      const warnings = Array.isArray(json?.result?.warnings) ? json.result.warnings.filter(Boolean) : [];
+      if (warnings.length) {
+        setMessage(warnings.join(" | "));
+      } else if (json?.result?.nickname?.applied && json?.result?.presence?.applied) {
+        setMessage("Guild nickname and live presence applied.");
+      } else if (json?.result?.nickname?.applied) {
+        setMessage("Guild nickname applied.");
+      } else if (json?.result?.presence?.applied) {
+        setMessage("Live presence applied.");
+      } else {
+        setMessage("Action completed.");
+      }
       return json?.result ?? null;
     } catch (err: any) {
       setMessage(err?.message || "Action failed.");

@@ -1,7 +1,5 @@
 "use client";
 
-
-
 import { useEffect } from "react";
 
 export default function AiToneRedirectPage() {
@@ -12,5 +10,5 @@ export default function AiToneRedirectPage() {
     window.location.replace(next);
   }, []);
 
-  return <div style={{ color: "#ff6b6b", padding: 24 }}>Redirecting to AI Personas…</div>;
+  return <div style={{ color: "#ff6b6b", padding: 24 }}>Redirecting to AI Control...</div>;
 }

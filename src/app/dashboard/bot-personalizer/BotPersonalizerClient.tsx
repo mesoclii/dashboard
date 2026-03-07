@@ -63,7 +63,7 @@ const action: React.CSSProperties = {
 };
 
 function previewName(cfg: PersonaConfig) {
-  return String(cfg.guildNickname || cfg.botName || cfg.webhookName || "Negan").trim();
+  return String(cfg.guildNickname || cfg.botName || cfg.webhookName || "Possum").trim();
 }
 
 export default function BotPersonalizerClient() {
@@ -87,6 +87,13 @@ export default function BotPersonalizerClient() {
   const previewBanner = String(cfg.profileBannerUrl || "").trim();
   const previewBotName = previewName(cfg);
 
+  async function saveAndApply() {
+    const saved = await save(cfg);
+    if (saved) {
+      await runAction("applyProfile");
+    }
+  }
+
   if (!guildId) {
     return <div style={{ color: "#ff8585", padding: 20 }}>Missing guildId. Open from /guilds first.</div>;
   }
@@ -101,15 +108,16 @@ export default function BotPersonalizerClient() {
             </h1>
             <div style={{ color: "#ff9f9f", marginBottom: 8 }}>Guild: {guildName || guildId}</div>
             <div style={{ color: "#ffb5b5", fontSize: 12, maxWidth: 760 }}>
-              Server nickname applies live in this guild. Avatar, banner, status, and backstory are stored per guild for webhook/persona presentation and preview. Discord bot account avatar/presence remain global platform limits.
+              Guild nickname applies live in this guild. Presence applies live across the bot account. Avatar, banner,
+              and backstory are stored per guild for webhook-backed assistant replies and persona presentation where supported.
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button onClick={() => void runAction("applyProfile")} disabled={saving} style={action}>
-              {saving ? "Applying..." : "Apply Nickname"}
+              {saving ? "Applying..." : "Apply Live Now"}
             </button>
-            <button onClick={() => void save(cfg)} disabled={saving} style={action}>
-              {saving ? "Saving..." : "Save Personalizer"}
+            <button onClick={() => void saveAndApply()} disabled={saving} style={action}>
+              {saving ? "Saving..." : "Save + Apply Live"}
             </button>
           </div>
         </div>
@@ -139,7 +147,7 @@ export default function BotPersonalizerClient() {
                     style={input}
                     value={cfg.guildNickname || ""}
                     onChange={(e) => setCfg((prev) => ({ ...DEFAULT_CFG, ...prev, guildNickname: e.target.value }))}
-                    placeholder="Negan"
+                    placeholder="Possum"
                   />
                 </div>
                 <div>
@@ -148,7 +156,7 @@ export default function BotPersonalizerClient() {
                     style={input}
                     value={cfg.botName || ""}
                     onChange={(e) => setCfg((prev) => ({ ...DEFAULT_CFG, ...prev, botName: e.target.value }))}
-                    placeholder="Negan"
+                    placeholder="Possum"
                   />
                 </div>
                 <div>
@@ -157,7 +165,7 @@ export default function BotPersonalizerClient() {
                     style={input}
                     value={cfg.webhookName || ""}
                     onChange={(e) => setCfg((prev) => ({ ...DEFAULT_CFG, ...prev, webhookName: e.target.value }))}
-                    placeholder="Negan"
+                    placeholder="Possum"
                   />
                 </div>
                 <div>
@@ -212,7 +220,7 @@ export default function BotPersonalizerClient() {
                   <div style={{ paddingTop: 42 }}>
                     <div style={{ fontSize: 22, fontWeight: 900 }}>{previewBotName}</div>
                     <div style={{ color: "#ffb7b7", fontSize: 13, marginTop: 4 }}>
-                      {String(cfg.status || "online").toUpperCase()} • {String(cfg.activityType || "LISTENING").toUpperCase()} {String(cfg.activityText || "/help")}
+                      {String(cfg.status || "online").toUpperCase()} | {String(cfg.activityType || "LISTENING").toUpperCase()} {String(cfg.activityText || "/help")}
                     </div>
                     <div style={{ color: "#ff9797", fontSize: 12, marginTop: 8 }}>
                       {cfg.useWebhookPersona ? "Webhook identity will be used where supported." : "Default bot identity remains active until webhook mode is enabled."}
@@ -271,7 +279,7 @@ export default function BotPersonalizerClient() {
                 Want deeper AI persona behavior too? Keep the server identity here, then refine response style and memory on the AI pages.
               </div>
               <Link href={aiPersonaHref} style={{ ...action, textDecoration: "none" }}>
-                Open AI Persona
+                Open Persona Engine
               </Link>
             </div>
           </section>
