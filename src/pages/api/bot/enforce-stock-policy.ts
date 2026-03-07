@@ -1,6 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import {
-  PRIMARY_BASELINE_GUILD_ID,  parseDashboardGuildIds,
+  PRIMARY_BASELINE_GUILD_ID,
+  GAMES_BASELINE_GUILD_ID,
+  parseDashboardGuildIds,
   STOCK_LOCK_NON_PRIMARY,
 } from "@/lib/guildPolicy";
 import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
@@ -14,6 +16,19 @@ const ALL_FEATURES_ON_BASE = {
   aiEnabled: true,
   ttsEnabled: true,
   birthdayEnabled: true,
+  economyEnabled: true,
+  governanceEnabled: true,
+};
+
+const PUBLIC_GAMES_FEATURE_BASE = {
+  onboardingEnabled: false,
+  verificationEnabled: false,
+  heistEnabled: true,
+  rareDropEnabled: true,
+  pokemonEnabled: true,
+  aiEnabled: false,
+  ttsEnabled: true,
+  birthdayEnabled: false,
   economyEnabled: true,
   governanceEnabled: true,
 };
@@ -86,6 +101,61 @@ async function enforcePrimary(req: NextApiRequest, guildId: string) {
   };
 }
 
+async function enforcePublicGamesBaseline(req: NextApiRequest, guildId: string) {
+  const steps: Array<Record<string, any>> = [];
+
+  const enginePatches = [
+    ["tts", { enabled: true }],
+    ["crew", { enabled: true, allowPublicRecruitment: true }],
+    ["dominion", { enabled: true, seasonsEnabled: true }],
+    ["contracts", { enabled: true }],
+    ["prestige", { enabled: true }],
+    ["inviteTracker", { enabled: true }],
+    ["rareSpawn", { enabled: true }],
+    ["catDrop", { enabled: true }],
+    ["range", { enabled: true }],
+    ["pokemon", { enabled: true, guildAllowed: true, privateOnly: false, stage2Enabled: true, battleEnabled: true, tradingEnabled: true }],
+    ["truthDare", { enabled: true }],
+    ["panelDeploy", { enabled: true }],
+    ["masterPanel", { enabled: true }],
+  ] as const;
+
+  for (const [engine, config] of enginePatches) {
+    const upstream = await fetch(`${BOT_API}/engine-config`, {
+      method: "POST",
+      headers: buildBotApiHeaders(req, { json: true }),
+      body: JSON.stringify({ guildId, engine, config }),
+    });
+    const json = await readJsonSafe(upstream);
+    steps.push({
+      step: `engine:${engine}`,
+      success: upstream.ok && json?.success !== false,
+      status: upstream.status,
+      error: upstream.ok ? null : json?.error || "failed",
+    });
+  }
+
+  const featureRes = await fetch(`${BOT_API}/guild-features`, {
+    method: "POST",
+    headers: buildBotApiHeaders(req, { json: true }),
+    body: JSON.stringify({ guildId, features: PUBLIC_GAMES_FEATURE_BASE }),
+  });
+  const featureJson = await readJsonSafe(featureRes);
+  steps.push({
+    step: "guild-features",
+    success: featureRes.ok && featureJson?.success !== false,
+    status: featureRes.status,
+    error: featureRes.ok ? null : featureJson?.error || "failed",
+  });
+
+  return {
+    guildId,
+    action: "public_games_baseline",
+    success: steps.every((s) => s.success),
+    steps,
+  };
+}
+
 async function enforceStock(req: NextApiRequest, guildId: string) {
   const up = await fetch(`${BOT_API}/dashboard-config`, {
     method: "POST",
@@ -115,6 +185,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       success: true,
       dryRun,
       primaryGuildId: PRIMARY_BASELINE_GUILD_ID,
+      gamesBaselineGuildId: GAMES_BASELINE_GUILD_ID,
       stockLockNonPrimary: STOCK_LOCK_NON_PRIMARY,
       results: [],
       message: "No guild IDs configured",
@@ -127,7 +198,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (dryRun) {
       results.push({
         guildId,
-        action: guildId === PRIMARY_BASELINE_GUILD_ID ? "primary_all_features_on" : "reset_to_stock",
+        action:
+          guildId === PRIMARY_BASELINE_GUILD_ID
+            ? "primary_all_features_on"
+            : guildId === GAMES_BASELINE_GUILD_ID
+              ? "public_games_baseline"
+              : "reset_to_stock",
         success: true,
         skipped: true,
       });
@@ -137,13 +213,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       if (guildId === PRIMARY_BASELINE_GUILD_ID) {
         results.push(await enforcePrimary(req, guildId));
+      } else if (guildId === GAMES_BASELINE_GUILD_ID) {
+        results.push(await enforcePublicGamesBaseline(req, guildId));
       } else {
         results.push(await enforceStock(req, guildId));
       }
     } catch (e: any) {
       results.push({
         guildId,
-        action: guildId === PRIMARY_BASELINE_GUILD_ID ? "primary_all_features_on" : "reset_to_stock",
+        action:
+          guildId === PRIMARY_BASELINE_GUILD_ID
+            ? "primary_all_features_on"
+            : guildId === GAMES_BASELINE_GUILD_ID
+              ? "public_games_baseline"
+              : "reset_to_stock",
         success: false,
         error: e?.message || "policy step failed",
       });
@@ -156,7 +239,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     success: failed.length === 0,
     dryRun,
     primaryGuildId: PRIMARY_BASELINE_GUILD_ID,
-      stockLockNonPrimary: STOCK_LOCK_NON_PRIMARY,
+    gamesBaselineGuildId: GAMES_BASELINE_GUILD_ID,
+    stockLockNonPrimary: STOCK_LOCK_NON_PRIMARY,
     results,
   });
 }

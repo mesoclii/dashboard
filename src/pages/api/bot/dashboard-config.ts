@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import {
   readGuildIdFromRequest,
   PRIMARY_BASELINE_GUILD_ID,
+  GAMES_BASELINE_GUILD_ID,
   isWriteBlockedForGuild,
   stockLockError,
 } from "@/lib/guildPolicy";
@@ -21,6 +22,20 @@ function getErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof Error && err.message) return err.message;
   return fallback;
 }
+
+const GAMES_BASELINE_FEATURES: Record<string, boolean> = {
+  onboardingEnabled: false,
+  verificationEnabled: false,
+  heistEnabled: true,
+  rareDropEnabled: true,
+  pokemonEnabled: true,
+  aiEnabled: false,
+  ttsEnabled: true,
+  birthdayEnabled: false,
+  economyEnabled: true,
+  governanceEnabled: true,
+  securityEnabled: true,
+};
 
 function enrichDashboardFeatures(configInput: unknown, guildId: string) {
   if (!isRecord(configInput)) return configInput;
@@ -55,9 +70,8 @@ function enrichDashboardFeatures(configInput: unknown, guildId: string) {
     pokemonPrivateOnly,
   });
   const allCanonicalOff = CANONICAL_FEATURE_KEYS.every((key) => normalized[key] === false);
-  if (guildId && guildId !== PRIMARY_BASELINE_GUILD_ID && allCanonicalOff) {
-    for (const key of CANONICAL_FEATURE_KEYS) normalized[key] = true;
-    normalized.securityEnabled = true;
+  if (guildId && guildId === GAMES_BASELINE_GUILD_ID && allCanonicalOff) {
+    Object.assign(normalized, GAMES_BASELINE_FEATURES);
   }
   config.features = normalized;
 

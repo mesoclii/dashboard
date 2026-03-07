@@ -7,8 +7,20 @@ export const PRIMARY_BASELINE_GUILD_ID = String(
     "1431799056211906582"
 ).trim();
 
+export const GAMES_BASELINE_GUILD_ID = String(
+  process.env.PUBLIC_GAMES_GUILD_ID ||
+    process.env.ALEXANDRIA_GUILD_ID ||
+    "1336178965202599936"
+).trim();
+
 export const STOCK_LOCK_NON_PRIMARY = ["1", "true", "yes", "on", "enabled"].includes(
   String(process.env.STOCK_LOCK_NON_PRIMARY || "false").trim().toLowerCase()
+);
+
+export const EDITABLE_BASELINE_GUILD_IDS = Array.from(
+  new Set(
+    [PRIMARY_BASELINE_GUILD_ID, GAMES_BASELINE_GUILD_ID].filter((value) => /^\d{16,20}$/.test(String(value)))
+  )
 );
 
 export function readGuildIdFromRequest(req: NextApiRequest): string {
@@ -20,15 +32,22 @@ export function readGuildIdFromRequest(req: NextApiRequest): string {
 export function isWriteBlockedForGuild(guildId: string): boolean {
   if (!STOCK_LOCK_NON_PRIMARY) return false;
   if (!guildId) return false;
-  return guildId !== PRIMARY_BASELINE_GUILD_ID;
+  return !EDITABLE_BASELINE_GUILD_IDS.includes(guildId);
+}
+
+export function getGuildBaselineKind(guildId: string): "primary" | "games" | "stock" {
+  if (guildId === PRIMARY_BASELINE_GUILD_ID) return "primary";
+  if (guildId === GAMES_BASELINE_GUILD_ID) return "games";
+  return "stock";
 }
 
 export function stockLockError(guildId: string) {
   return {
     success: false,
-    error: "This guild is stock-locked. Only the primary baseline guild is editable.",
+    error: "This guild is stock-locked. Only the baseline guilds are editable.",
     guildId,
     primaryGuildId: PRIMARY_BASELINE_GUILD_ID,
+    gamesBaselineGuildId: GAMES_BASELINE_GUILD_ID,
     stockLockNonPrimary: STOCK_LOCK_NON_PRIMARY,
   };
 }

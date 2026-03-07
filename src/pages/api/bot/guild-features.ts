@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import {
   readGuildIdFromRequest,
   PRIMARY_BASELINE_GUILD_ID,
+  GAMES_BASELINE_GUILD_ID,
   isWriteBlockedForGuild,
   stockLockError,
 } from "@/lib/guildPolicy";
@@ -22,6 +23,20 @@ function getErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+const GAMES_BASELINE_FEATURES: Record<string, boolean> = {
+  onboardingEnabled: false,
+  verificationEnabled: false,
+  heistEnabled: true,
+  rareDropEnabled: true,
+  pokemonEnabled: true,
+  aiEnabled: false,
+  ttsEnabled: true,
+  birthdayEnabled: false,
+  economyEnabled: true,
+  governanceEnabled: true,
+  securityEnabled: true,
+};
+
 function applyNonPrimaryDefaultFeatures(
   guildId: string,
   upstreamFeatures: unknown,
@@ -30,11 +45,13 @@ function applyNonPrimaryDefaultFeatures(
   if (!guildId || guildId === PRIMARY_BASELINE_GUILD_ID) return normalized;
   const allCanonicalOff = CANONICAL_FEATURE_KEYS.every((key) => normalized[key] === false);
   if (!allCanonicalOff) return normalized;
-
-  const next = { ...normalized };
-  for (const key of CANONICAL_FEATURE_KEYS) next[key] = true;
-  next.securityEnabled = true;
-  return next;
+  if (guildId === GAMES_BASELINE_GUILD_ID) {
+    return {
+      ...normalized,
+      ...GAMES_BASELINE_FEATURES,
+    };
+  }
+  return normalized;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

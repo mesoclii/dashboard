@@ -6,15 +6,23 @@ type Guild = { id: string; name: string; icon?: string | null };
 
 type PolicyState = {
   primaryGuildId: string;
+  gamesBaselineGuildId: string;
   stockLockNonPrimary: boolean;
 };
 
-function badgeStyle(kind: "primary" | "stock") {
+function badgeStyle(kind: "primary" | "games" | "stock") {
   if (kind === "primary") {
     return {
       border: "1px solid #0f7a0f",
       color: "#b8ffb8",
       background: "rgba(16,100,16,0.2)",
+    } as const;
+  }
+  if (kind === "games") {
+    return {
+      border: "1px solid #0f5f7a",
+      color: "#b8f4ff",
+      background: "rgba(8,82,112,0.22)",
     } as const;
   }
   return {
@@ -30,6 +38,7 @@ export default function GuildsPage() {
   const [loading, setLoading] = useState(true);
   const [policy, setPolicy] = useState<PolicyState>({
     primaryGuildId: "1431799056211906582",
+    gamesBaselineGuildId: "1336178965202599936",
     stockLockNonPrimary: true,
   });
 
@@ -58,11 +67,10 @@ export default function GuildsPage() {
         setLoading(true);
         setMsg("");
 
-        // Auto policy pass: primary guild ON, all others stock OFF.
-        const policyRes = await fetch("/api/bot/enforce-stock-policy", {
+        const policyRes = await fetch("/api/bot/enforce-stock-policy?dryRun=true", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ dryRun: true }),
         }).catch(() => null);
 
         if (policyRes) {
@@ -70,6 +78,7 @@ export default function GuildsPage() {
           if (p?.primaryGuildId) {
             setPolicy({
               primaryGuildId: String(p.primaryGuildId),
+              gamesBaselineGuildId: String(p.gamesBaselineGuildId || "1336178965202599936"),
               stockLockNonPrimary: Boolean(p.stockLockNonPrimary),
             });
           }
@@ -101,12 +110,17 @@ export default function GuildsPage() {
 
   const byPrimary = useMemo(() => {
     return [...guilds].sort((a, b) => {
-      const ap = a.id === policy.primaryGuildId ? 0 : 1;
-      const bp = b.id === policy.primaryGuildId ? 0 : 1;
+      const rank = (guildId: string) => {
+        if (guildId === policy.primaryGuildId) return 0;
+        if (guildId === policy.gamesBaselineGuildId) return 1;
+        return 2;
+      };
+      const ap = rank(a.id);
+      const bp = rank(b.id);
       if (ap !== bp) return ap - bp;
       return a.name.localeCompare(b.name);
     });
-  }, [guilds, policy.primaryGuildId]);
+  }, [guilds, policy.gamesBaselineGuildId, policy.primaryGuildId]);
 
   function openGuild(guildId: string, guildName: string) {
     localStorage.setItem("activeGuildId", guildId);
@@ -125,7 +139,7 @@ export default function GuildsPage() {
     <div style={{ color: "#ff5252", padding: 24 }}>
       <h1 style={{ marginTop: 0, letterSpacing: "0.16em", textTransform: "uppercase" }}>Select Guild</h1>
       <p style={{ letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.9 }}>
-        Baseline guild = all features ON. Other guilds = stock OFF by default.
+        Saviors = full baseline. Alexandria = public games baseline. Other guilds = stock off by default.
       </p>
       {loading ? <p>Loading...</p> : null}
       {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
@@ -133,8 +147,13 @@ export default function GuildsPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 12, maxWidth: 980 }}>
         {byPrimary.map((g) => {
           const isPrimary = g.id === policy.primaryGuildId;
-          const badge = isPrimary ? "PRIMARY BASELINE (ALL ON)" : "STOCK LOCKED (STARTS OFF)";
-          const kind = isPrimary ? "primary" : "stock";
+          const isGamesBaseline = g.id === policy.gamesBaselineGuildId;
+          const badge = isPrimary
+            ? "PRIMARY BASELINE (ALL ON)"
+            : isGamesBaseline
+              ? "PUBLIC GAMES BASELINE (ENGINES ON)"
+              : "STOCK DEFAULT (STARTS OFF)";
+          const kind = isPrimary ? "primary" : isGamesBaseline ? "games" : "stock";
 
           return (
             <button
