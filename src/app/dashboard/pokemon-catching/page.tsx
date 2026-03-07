@@ -16,6 +16,8 @@ import {
   titleizePokemonTier,
 } from "@/lib/dashboard/pokemonConfig";
 
+export const dynamic = "force-dynamic";
+
 const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1320 };
 const card: React.CSSProperties = { border: "1px solid #5f0000", borderRadius: 12, padding: 14, background: "rgba(120,0,0,0.10)", marginBottom: 12 };
 const input: React.CSSProperties = { width: "100%", background: "#0a0a0a", color: "#ffd0d0", border: "1px solid #7f0000", borderRadius: 8, padding: "10px 12px" };

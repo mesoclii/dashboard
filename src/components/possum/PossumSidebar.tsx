@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { buildDashboardHref } from "@/lib/dashboardContext";
 
 type NavItem = {
   href: string;
@@ -67,14 +68,23 @@ export default function PossumSidebar() {
     <div className="rounded-xl border possum-divider bg-black/55 p-4 possum-border">
       <div className="mb-4 border-b possum-divider pb-3">
         <p className="text-[11px] uppercase tracking-[0.24em] possum-soft">Negan Bot</p>
-        <h2 className="mt-1 text-lg font-black uppercase tracking-[0.08em] possum-red possum-glow-soft">Dashboard</h2>
+        <Link
+          href={buildDashboardHref("/dashboard")}
+          className="mt-1 block text-lg font-black uppercase tracking-[0.08em] possum-red possum-glow-soft hover:text-red-200"
+        >
+          Dashboard
+        </Link>
       </div>
 
       <nav className="space-y-1">
         {NAV_ITEMS.map((item) => {
           const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
           return (
-            <Link key={item.href} href={item.href} className={itemClass(Boolean(active))}>
+            <Link
+              key={item.href}
+              href={buildDashboardHref(item.href)}
+              className={itemClass(Boolean(active))}
+            >
               {item.label}
             </Link>
           );

@@ -18,7 +18,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <div className="flex items-center justify-between px-5 py-4">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.28em] possum-soft">Control Surface</p>
-                <h1 className="text-base font-extrabold uppercase tracking-[0.12em] possum-red possum-glow-soft">Possum Dashboard</h1>
+                <Link href="/dashboard" className="text-base font-extrabold uppercase tracking-[0.12em] possum-red possum-glow-soft hover:text-red-200">
+                  Possum Dashboard
+                </Link>
               </div>
 
               <div className="flex items-center gap-2">
