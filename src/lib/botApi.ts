@@ -1,4 +1,5 @@
 import type { NextApiRequest } from "next";
+import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
 
 export const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
 
@@ -36,7 +37,8 @@ export function readActorUserId(req: NextApiRequest): string {
     readBodyString(req, "userId") ||
     readBodyString(req, "uid") ||
     readFromReferrer(req, "userId") ||
-    readFromReferrer(req, "uid")
+    readFromReferrer(req, "uid") ||
+    MASTER_OWNER_USER_ID
   );
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
 
 type AccessConfig = {
   active: boolean;
@@ -46,7 +47,7 @@ function getContext() {
     sp.get("userId") ||
       sp.get("uid") ||
       localStorage.getItem("dashboardUserId") ||
-      ""
+      MASTER_OWNER_USER_ID
   ).trim();
   if (userId) localStorage.setItem("dashboardUserId", userId);
 

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { BOT_API, buildBotApiHeaders } from "@/lib/botApi";
 import { parseDashboardGuildIds } from "@/lib/guildPolicy";
+import { FALLBACK_GUILD_NAMES } from "@/lib/dashboardOwner";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -12,6 +13,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const guilds: Array<{ id: string; name: string; icon: string | null }> = [];
     const unavailable: Array<{ guildId: string; status: number }> = [];
 
+    const pushFallbackGuild = (guildId: string) => {
+      guilds.push({
+        id: guildId,
+        name: FALLBACK_GUILD_NAMES[guildId] || guildId,
+        icon: null,
+      });
+    };
+
     for (const guildId of guildIds) {
       try {
         const r = await fetch(
@@ -21,6 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (!r.ok) {
           unavailable.push({ guildId, status: r.status });
+          pushFallbackGuild(guildId);
           continue;
         }
 
@@ -33,9 +43,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           });
         } else {
           unavailable.push({ guildId, status: 502 });
+          pushFallbackGuild(guildId);
         }
       } catch {
         unavailable.push({ guildId, status: 0 });
+        pushFallbackGuild(guildId);
       }
     }
 

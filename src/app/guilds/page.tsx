@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { FALLBACK_GUILD_NAMES, MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
 
 type Guild = { id: string; name: string; icon?: string | null };
 
@@ -56,7 +57,7 @@ function actionButtonStyle(tone: "accent" | "muted" | "open") {
 
 function readStoredDashboardUserId() {
   if (typeof window === "undefined") return "";
-  return String(localStorage.getItem("dashboardUserId") || "").trim();
+  return String(localStorage.getItem("dashboardUserId") || MASTER_OWNER_USER_ID).trim();
 }
 
 export default function GuildsPage() {
@@ -77,7 +78,7 @@ export default function GuildsPage() {
         params.get("userId") ||
         params.get("uid") ||
         localStorage.getItem("dashboardUserId") ||
-        ""
+        MASTER_OWNER_USER_ID
       ).trim();
       const roleIds = String(
         params.get("roleIds") ||
@@ -131,7 +132,16 @@ export default function GuildsPage() {
         }
 
         const list = Array.isArray(json?.guilds) ? json.guilds : [];
-        setGuilds(list);
+        const merged = new Map<string, Guild>();
+        for (const guild of list) {
+          merged.set(String(guild.id), guild);
+        }
+        for (const [guildId, guildName] of Object.entries(FALLBACK_GUILD_NAMES)) {
+          if (!merged.has(guildId)) {
+            merged.set(guildId, { id: guildId, name: guildName, icon: null });
+          }
+        }
+        setGuilds([...merged.values()]);
       } catch (e: any) {
         setMsg(e?.message || "Failed to load guilds.");
       } finally {
