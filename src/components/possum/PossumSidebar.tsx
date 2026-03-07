@@ -36,7 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/rarespawn", label: "Rare Spawn" },
   { href: "/dashboard/range", label: "Range" },
   { href: "/dashboard/truthdare", label: "Truth Dare" },
-  { href: "/dashboard/pokemon-stage2", label: "Pokemon Stage2" },
+  { href: "/dashboard/pokemon-catching", label: "Pokemon Catching" },
   { href: "/dashboard/pokemon-battle", label: "Pokemon Battle" },
   { href: "/dashboard/pokemon-trade", label: "Pokemon Trade" },
   { href: "/dashboard/event-reactor", label: "Event Reactor" },

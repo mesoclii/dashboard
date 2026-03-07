@@ -13,7 +13,7 @@ const LINKS = [
   { href: "/dashboard/tts", label: "TTS" },
   { href: "/dashboard/economy", label: "Economy" },
   { href: "/dashboard/games", label: "Games" },
-  { href: "/dashboard/pokemon-stage2", label: "Pokemon" },
+  { href: "/dashboard/pokemon-catching", label: "Pokemon Catching" },
   { href: "/dashboard/pokemon-battle", label: "Pokemon Battle" },
   { href: "/dashboard/pokemon-trade", label: "Pokemon Trade" },
   { href: "/dashboard/heist", label: "Heist" },

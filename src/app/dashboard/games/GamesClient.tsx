@@ -170,9 +170,9 @@ export default function GamesClient() {
           </section>
 
           <section style={cardStyle}>
-            <h3 style={titleStyle}>Pokemon (Private Engine)</h3>
+            <h3 style={titleStyle}>Pokemon System</h3>
             <div style={{ marginBottom: 8, color: "#ffb5b5", fontSize: 13 }}>
-              Keep this private and non-monetized. Use the toggle below to allow Pokemon only in this selected guild.
+              Catching, battle, and trade share one trainer inventory. Use the dedicated pages for full control of each surface.
             </div>
             <label><input type="checkbox" checked={cfg.pokemon.guildAllowed} onChange={(e) => setCfg((p) => ({ ...p, pokemon: { ...p.pokemon, guildAllowed: e.target.checked } }))} /> Allow Pokemon in this guild</label>
             {!cfg.pokemon.guildAllowed ? (
@@ -190,6 +190,11 @@ export default function GamesClient() {
             <div style={grid2}>
               <input style={inputStyle} value={cfg.pokemon.intervalMinutes} onChange={(e) => setCfg((p) => ({ ...p, pokemon: { ...p.pokemon, intervalMinutes: Number(e.target.value || 0) } }))} placeholder="Interval minutes" />
               <input style={inputStyle} value={cfg.pokemon.maxActive} onChange={(e) => setCfg((p) => ({ ...p, pokemon: { ...p.pokemon, maxActive: Number(e.target.value || 0) } }))} placeholder="Max active" />
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+              <Link href={`/dashboard/pokemon-catching?guildId=${encodeURIComponent(guildId)}`} style={{ ...inputStyle, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Catching</Link>
+              <Link href={`/dashboard/pokemon-battle?guildId=${encodeURIComponent(guildId)}`} style={{ ...inputStyle, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Battle</Link>
+              <Link href={`/dashboard/pokemon-trade?guildId=${encodeURIComponent(guildId)}`} style={{ ...inputStyle, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Trade</Link>
             </div>
           </section>
 

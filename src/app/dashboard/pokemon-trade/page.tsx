@@ -1,34 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
+import {
+  DEFAULT_POKEMON_CONFIG,
+  normalizePokemonConfig,
+  type PokemonConfig,
+  isTextLikeChannel,
+} from "@/lib/dashboard/pokemonConfig";
 
-type PokemonCfg = {
-  enabled: boolean;
-  guildAllowed: boolean;
-  stage2Enabled: boolean;
-  tradingEnabled: boolean;
-  tradeLogChannelId: string;
-};
-
-const DEFAULT_CONFIG: PokemonCfg = {
-  enabled: false,
-  guildAllowed: false,
-  stage2Enabled: true,
-  tradingEnabled: true,
-  tradeLogChannelId: "",
-};
-
-const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1180 };
+const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1240 };
 const card: React.CSSProperties = { border: "1px solid #5f0000", borderRadius: 12, padding: 14, background: "rgba(120,0,0,0.10)", marginBottom: 12 };
 const input: React.CSSProperties = { width: "100%", background: "#0a0a0a", color: "#ffd0d0", border: "1px solid #7f0000", borderRadius: 8, padding: "10px 12px" };
+const navCard: React.CSSProperties = { border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none", background: "#110000" };
 
 export default function PokemonTradePage() {
   const {
     guildId,
     guildName,
-    config: cfg,
+    config: rawCfg,
     setConfig: setCfg,
     channels,
     summary,
@@ -37,18 +29,25 @@ export default function PokemonTradePage() {
     saving,
     message,
     save,
-  } = useGuildEngineEditor<PokemonCfg>("pokemon", DEFAULT_CONFIG);
+  } = useGuildEngineEditor<PokemonConfig>("pokemon", DEFAULT_POKEMON_CONFIG);
 
-  const textChannels = channels.filter((c) => Number(c?.type) === 0 || Number(c?.type) === 5 || String(c?.type || "").toLowerCase().includes("text"));
+  const cfg = useMemo(() => normalizePokemonConfig(rawCfg), [rawCfg]);
+  const textChannels = useMemo(
+    () => channels.filter((channel) => isTextLikeChannel(channel?.type)),
+    [channels]
+  );
 
   if (!guildId) return <div style={{ ...shell, color: "#ff8080" }}>Missing guildId. Open from /guilds first.</div>;
 
+  const catchingHref = `/dashboard/pokemon-catching?guildId=${encodeURIComponent(guildId)}`;
+  const battleHref = `/dashboard/pokemon-battle?guildId=${encodeURIComponent(guildId)}`;
+
   return (
     <div style={shell}>
-      <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>Pokemon Trade Engine</h1>
+      <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>Pokemon Trade</h1>
       <div style={{ color: "#ff9999", marginTop: 6 }}>Guild: {guildName || guildId}</div>
       <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 4 }}>
-        Dedicated trade page for Pokemon trading availability and trade log routing.
+        Trading is tied to the same caught inventory as battling. Trainers exchange Pokemon already earned through catching.
       </div>
       {message ? <div style={{ marginTop: 8, color: "#ffd27a" }}>{message}</div> : null}
 
@@ -59,31 +58,59 @@ export default function PokemonTradePage() {
           <EngineInsights summary={summary} details={details} />
 
           <section style={{ ...card, marginTop: 12 }}>
+            <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Shared System Gates</div>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-              <label><input type="checkbox" checked={cfg.enabled} onChange={(e) => setCfg((p) => ({ ...p, enabled: e.target.checked }))} /> Engine Enabled</label>
-              <label><input type="checkbox" checked={cfg.guildAllowed} onChange={(e) => setCfg((p) => ({ ...p, guildAllowed: e.target.checked }))} /> Guild Allowed</label>
-              <label><input type="checkbox" checked={cfg.stage2Enabled} onChange={(e) => setCfg((p) => ({ ...p, stage2Enabled: e.target.checked }))} /> Stage 2 UI Enabled</label>
-              <label><input type="checkbox" checked={cfg.tradingEnabled} onChange={(e) => setCfg((p) => ({ ...p, tradingEnabled: e.target.checked }))} /> Trading Enabled</label>
+              <label><input type="checkbox" checked={cfg.enabled} onChange={(e) => setCfg((prev) => ({ ...normalizePokemonConfig(prev), enabled: e.target.checked }))} /> Pokemon Enabled</label>
+              <label><input type="checkbox" checked={cfg.guildAllowed} onChange={(e) => setCfg((prev) => ({ ...normalizePokemonConfig(prev), guildAllowed: e.target.checked }))} /> Guild Allowed</label>
+              <label><input type="checkbox" checked={cfg.privateOnly} onChange={(e) => setCfg((prev) => ({ ...normalizePokemonConfig(prev), privateOnly: e.target.checked }))} /> Private Only</label>
+              <label><input type="checkbox" checked={cfg.stage2Enabled} onChange={(e) => setCfg((prev) => ({ ...normalizePokemonConfig(prev), stage2Enabled: e.target.checked }))} /> Trainer Panel Enabled</label>
+              <label><input type="checkbox" checked={cfg.tradingEnabled} onChange={(e) => setCfg((prev) => ({ ...normalizePokemonConfig(prev), tradingEnabled: e.target.checked }))} /> Trading Enabled</label>
             </div>
           </section>
 
           <section style={card}>
-            <div>
-              <div style={{ marginBottom: 6 }}>Trade Log Channel</div>
-              <select style={input} value={cfg.tradeLogChannelId || ""} onChange={(e) => setCfg((p) => ({ ...p, tradeLogChannelId: e.target.value }))}>
-                <option value="">Select channel</option>
-                {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
-              </select>
+            <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Trade Routing</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
+              <div>
+                <div style={{ marginBottom: 6 }}>Trade Log Channel</div>
+                <select style={input} value={cfg.tradeLogChannelId || ""} onChange={(e) => setCfg((prev) => ({ ...normalizePokemonConfig(prev), tradeLogChannelId: e.target.value }))}>
+                  <option value="">Select channel</option>
+                  {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>Battle Channel Reference</div>
+                <select style={input} value={cfg.battleChannelId || ""} onChange={(e) => setCfg((prev) => ({ ...normalizePokemonConfig(prev), battleChannelId: e.target.value }))}>
+                  <option value="">Select channel</option>
+                  {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                </select>
+              </div>
             </div>
           </section>
 
-          <section style={{ ...card, display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <Link href={`/dashboard/pokemon-stage2?guildId=${encodeURIComponent(guildId)}`} style={{ color: "#ffd0d0" }}>Open Pokemon Overview</Link>
-            <Link href={`/dashboard/pokemon-battle?guildId=${encodeURIComponent(guildId)}`} style={{ color: "#ffd0d0" }}>Open Pokemon Battle</Link>
+          <section style={card}>
+            <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Operator Notes</div>
+            <div style={{ color: "#ffb0b0", fontSize: 13, lineHeight: 1.55 }}>
+              Trade shares the same trainer inventory as battle. If the shared Pokemon system is off, trades will not open even if trading stays enabled here.
+            </div>
+            <div style={{ color: "#ff9c9c", fontSize: 12, marginTop: 8 }}>
+              Use the catching page to control spawn lanes and acquisition volume. Use the battle page to route live duel traffic.
+            </div>
+          </section>
+
+          <section style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
+            <Link href={catchingHref} style={navCard}>
+              <div style={{ color: "#ff5a5a", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em" }}>Pokemon Catching</div>
+              <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 6 }}>Manage wild spawn lanes, catch timing, and reward tuning.</div>
+            </Link>
+            <Link href={battleHref} style={navCard}>
+              <div style={{ color: "#ff5a5a", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em" }}>Pokemon Battle</div>
+              <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 6 }}>Configure duel availability, challenge lane, and combat logging.</div>
+            </Link>
           </section>
 
           <div style={{ ...card, display: "flex", justifyContent: "flex-end" }}>
-            <button onClick={() => save()} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
+            <button onClick={() => save(cfg)} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
               {saving ? "Saving..." : "Save Trade"}
             </button>
           </div>

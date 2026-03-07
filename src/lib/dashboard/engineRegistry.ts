@@ -44,8 +44,7 @@ export const ENGINE_REGISTRY: EngineDef[] = [
 
   { id: "heist", label: "Heist", description: "Heist signup/session controls", group: "Games", route: "/dashboard/heist", featureKey: "heistEnabled" },
   { id: "gta-ops", label: "GTA Ops", description: "GTA operations entity (separate from Heist signup)", group: "Games", route: "/dashboard/gta-ops" },
-  { id: "pokemon", label: "Pokemon", description: "Pokemon controls", group: "Games", route: "/dashboard/pokemon-stage2", featureKey: "pokemonEnabled" },
-  { id: "pokemon-stage2", label: "Pokemon Stage2", description: "Battle/trade/team panel controls", group: "Games", route: "/dashboard/pokemon-stage2", featureKey: "pokemonEnabled" },
+  { id: "pokemon", label: "Pokemon Catching", description: "Wild spawn lanes, catch economy, and trainer intake", group: "Games", route: "/dashboard/pokemon-catching", featureKey: "pokemonEnabled" },
   { id: "pokemon-battle", label: "Pokemon Battle", description: "Pokemon battle routing and logs", group: "Games", route: "/dashboard/pokemon-battle", featureKey: "pokemonEnabled" },
   { id: "pokemon-trade", label: "Pokemon Trade", description: "Pokemon trade routing and logs", group: "Games", route: "/dashboard/pokemon-trade", featureKey: "pokemonEnabled" },
   { id: "rare-drop", label: "Rare Spawn", description: "Rare spawn controls", group: "Games", route: "/dashboard/rarespawn", featureKey: "rareDropEnabled" },

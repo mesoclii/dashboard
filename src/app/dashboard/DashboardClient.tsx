@@ -34,7 +34,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/rarespawn", title: "Rare Spawn", description: "Rare event spawn/claim settings." },
   { href: "/dashboard/range", title: "Range", description: "Range game interactions and limits." },
   { href: "/dashboard/truthdare", title: "Truth Or Dare", description: "Truth/Dare prompts, channel locks, and bet controls." },
-  { href: "/dashboard/pokemon-stage2", title: "Pokemon", description: "Shared Pokemon engine, battle, and trade runtime controls." },
+  { href: "/dashboard/pokemon-catching", title: "Pokemon Catching", description: "Wild spawn lanes, catch rates, reward tuning, and catch logs." },
   { href: "/dashboard/pokemon-battle", title: "Pokemon Battle", description: "Battle lane, battle logging, and duel availability." },
   { href: "/dashboard/pokemon-trade", title: "Pokemon Trade", description: "Trade gate and trade log routing." },
   { href: "/dashboard/governance", title: "Governance", description: "Governance state and enforcement controls." },
