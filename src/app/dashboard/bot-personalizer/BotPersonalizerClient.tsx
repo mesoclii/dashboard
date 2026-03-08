@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { useMemo } from "react";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
@@ -34,15 +35,15 @@ const DEFAULT_CFG: PersonaConfig = {
   backstory: "",
 };
 
-const wrap: React.CSSProperties = { color: "#ffd0d0", maxWidth: 1320 };
-const card: React.CSSProperties = {
+const wrap: CSSProperties = { color: "#ffd0d0", maxWidth: 1320 };
+const card: CSSProperties = {
   border: "1px solid rgba(255,0,0,.36)",
   borderRadius: 12,
   padding: 14,
   background: "rgba(100,0,0,.10)",
   marginBottom: 12,
 };
-const input: React.CSSProperties = {
+const input: CSSProperties = {
   width: "100%",
   background: "#0a0a0a",
   border: "1px solid rgba(255,0,0,.45)",
@@ -50,7 +51,7 @@ const input: React.CSSProperties = {
   borderRadius: 8,
   padding: "10px 12px",
 };
-const action: React.CSSProperties = {
+const action: CSSProperties = {
   border: "1px solid #7a0000",
   borderRadius: 10,
   background: "#130707",
@@ -79,10 +80,10 @@ export default function BotPersonalizerClient() {
     message,
     save,
     runAction,
-  } = useGuildEngineEditor<PersonaConfig>("persona", DEFAULT_CFG);
+  } = useGuildEngineEditor<PersonaConfig>("botPersonalizer", DEFAULT_CFG);
 
   const cfg = useMemo(() => ({ ...DEFAULT_CFG, ...(rawCfg || {}) }), [rawCfg]);
-  const aiPersonaHref = buildDashboardHref("/dashboard/ai/persona");
+  const possumAiHref = buildDashboardHref("/dashboard/ai/learning");
   const previewAvatar = String(cfg.webhookAvatarUrl || "").trim();
   const previewBanner = String(cfg.profileBannerUrl || "").trim();
   const previewBotName = previewName(cfg);
@@ -109,7 +110,7 @@ export default function BotPersonalizerClient() {
             <div style={{ color: "#ff9f9f", marginBottom: 8 }}>Guild: {guildName || guildId}</div>
             <div style={{ color: "#ffb5b5", fontSize: 12, maxWidth: 760 }}>
               Guild nickname applies live in this guild. Presence applies live across the bot account. Avatar, banner,
-              and backstory are stored per guild for webhook-backed assistant replies and persona presentation where supported.
+              and backstory are stored per guild for webhook-backed Possum AI replies and guild identity presentation where supported.
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -223,7 +224,7 @@ export default function BotPersonalizerClient() {
                       {String(cfg.status || "online").toUpperCase()} | {String(cfg.activityType || "LISTENING").toUpperCase()} {String(cfg.activityText || "/help")}
                     </div>
                     <div style={{ color: "#ff9797", fontSize: 12, marginTop: 8 }}>
-                      {cfg.useWebhookPersona ? "Webhook identity will be used where supported." : "Default bot identity remains active until webhook mode is enabled."}
+                      {cfg.useWebhookPersona ? "Webhook identity will be used for Possum AI replies where supported." : "Default bot identity remains active until webhook mode is enabled."}
                     </div>
                   </div>
                 </div>
@@ -276,10 +277,10 @@ export default function BotPersonalizerClient() {
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
               <div style={{ color: "#ffb5b5", fontSize: 12, maxWidth: 760 }}>
-                Want deeper AI persona behavior too? Keep the server identity here, then refine response style and memory on the AI pages.
+                This page controls Possum AI identity, naming, webhook branding, and guild-facing presentation. Persona AI is a separate paid surface and does not control this page.
               </div>
-              <Link href={aiPersonaHref} style={{ ...action, textDecoration: "none" }}>
-                Open Persona Engine
+              <Link href={possumAiHref} style={{ ...action, textDecoration: "none" }}>
+                Open Possum AI
               </Link>
             </div>
           </section>
