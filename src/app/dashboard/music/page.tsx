@@ -68,6 +68,15 @@ type MusicCfg = {
     defaultProvider: string;
     requireHttps: boolean;
   };
+  searchProvider: {
+    enabled: boolean;
+    endpointUrl: string;
+    authHeader: string;
+    bearerToken: string;
+    queryParam: string;
+    resultLimit: number;
+    timeoutMs: number;
+  };
   audio: {
     qualityPreset: "low" | "balanced" | "high" | "ultra";
     targetBitrateKbps: number;
@@ -90,13 +99,14 @@ type MusicCfg = {
     title: string;
     description: string;
     bannerUrl: string;
+    showRouteSelector: boolean;
     footerText: string;
   };
   library: MusicLibraryTrack[];
   routes: MusicRoute[];
 };
 
-const PROVIDERS = ["direct_url", "local_library"] as const;
+const PROVIDERS = ["direct_url", "local_library", "self_hosted_search"] as const;
 const QUALITY_PRESETS = ["low", "balanced", "high", "ultra"] as const;
 
 const EMPTY: MusicCfg = {
@@ -122,9 +132,18 @@ const EMPTY: MusicCfg = {
     mode: "allowlist",
     allowedDomains: [],
     blockedDomains: [],
-    allowedProviders: ["direct_url", "local_library"],
+    allowedProviders: ["direct_url", "local_library", "self_hosted_search"],
     defaultProvider: "local_library",
     requireHttps: true,
+  },
+  searchProvider: {
+    enabled: false,
+    endpointUrl: "",
+    authHeader: "Authorization",
+    bearerToken: "",
+    queryParam: "q",
+    resultLimit: 5,
+    timeoutMs: 8000,
   },
   audio: {
     qualityPreset: "balanced",
@@ -148,6 +167,7 @@ const EMPTY: MusicCfg = {
     title: "Possum Music Control",
     description: "Use /music to route direct audio streams and library aliases into the configured voice routes.",
     bannerUrl: "",
+    showRouteSelector: true,
     footerText: "Music stays permanently free and excluded from paid plans.",
   },
   library: [],
@@ -300,7 +320,7 @@ export default function MusicEnginePage() {
         {cfg.legalNotice}
         <br />
         This page edits the live guild music runtime: route-based voice sessions, source-channel capture, DJ access, local library aliases,
-        route banners, and the audio profile used by every route. V1 playback only accepts direct audio stream URLs and configured local-library aliases.
+        route banners, self-hosted search routing, live panel controls, and the audio profile used by every route.
       </div>
       {message ? <div style={{ marginBottom: 10, color: "#ffd27a" }}>{message}</div> : null}
       {loading ? (
@@ -371,6 +391,7 @@ export default function MusicEnginePage() {
                 <select style={input} value={cfg.sourcePolicy.defaultProvider} onChange={(e) => setCfg((prev) => ({ ...prev, sourcePolicy: { ...prev.sourcePolicy, defaultProvider: e.target.value } }))}>
                   <option value="local_library">Local Library</option>
                   <option value="direct_url">Direct URL</option>
+                  <option value="self_hosted_search">Self-Hosted Search</option>
                 </select>
               </div>
               <div>
@@ -464,6 +485,37 @@ export default function MusicEnginePage() {
                 </label>
               ))}
             </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14, marginTop: 14 }}>
+              <label style={{ display: "inline-flex", gap: 8, alignItems: "center", color: "#ffdcdc", fontWeight: 700 }}>
+                <input type="checkbox" checked={cfg.searchProvider.enabled} onChange={(e) => setCfg((prev) => ({ ...prev, searchProvider: { ...prev.searchProvider, enabled: e.target.checked } }))} />
+                Self-Hosted Search Enabled
+              </label>
+              <div>
+                <div style={label}>Search Endpoint URL</div>
+                <input style={input} value={cfg.searchProvider.endpointUrl} onChange={(e) => setCfg((prev) => ({ ...prev, searchProvider: { ...prev.searchProvider, endpointUrl: e.target.value } }))} placeholder="https://your-host/api/search" />
+              </div>
+              <div>
+                <div style={label}>Auth Header</div>
+                <input style={input} value={cfg.searchProvider.authHeader} onChange={(e) => setCfg((prev) => ({ ...prev, searchProvider: { ...prev.searchProvider, authHeader: e.target.value } }))} />
+              </div>
+              <div>
+                <div style={label}>Bearer Token</div>
+                <input style={input} value={cfg.searchProvider.bearerToken} onChange={(e) => setCfg((prev) => ({ ...prev, searchProvider: { ...prev.searchProvider, bearerToken: e.target.value } }))} />
+              </div>
+              <div>
+                <div style={label}>Query Param</div>
+                <input style={input} value={cfg.searchProvider.queryParam} onChange={(e) => setCfg((prev) => ({ ...prev, searchProvider: { ...prev.searchProvider, queryParam: e.target.value } }))} />
+              </div>
+              <div>
+                <div style={label}>Result Limit</div>
+                <input style={input} type="number" min={1} max={25} value={cfg.searchProvider.resultLimit} onChange={(e) => setCfg((prev) => ({ ...prev, searchProvider: { ...prev.searchProvider, resultLimit: Number(e.target.value || 1) } }))} />
+              </div>
+              <div>
+                <div style={label}>Timeout (ms)</div>
+                <input style={input} type="number" min={1000} max={30000} value={cfg.searchProvider.timeoutMs} onChange={(e) => setCfg((prev) => ({ ...prev, searchProvider: { ...prev.searchProvider, timeoutMs: Number(e.target.value || 1000) } }))} />
+              </div>
+            </div>
           </section>
 
           <section style={box}>
@@ -522,6 +574,12 @@ export default function MusicEnginePage() {
             <div style={{ marginTop: 14 }}>
               <div style={label}>Panel Footer</div>
               <input style={input} value={cfg.panelDeploy.footerText} onChange={(e) => setCfg((prev) => ({ ...prev, panelDeploy: { ...prev.panelDeploy, footerText: e.target.value } }))} />
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <label style={{ display: "inline-flex", gap: 8, alignItems: "center", color: "#ffdcdc", fontWeight: 700 }}>
+                <input type="checkbox" checked={cfg.panelDeploy.showRouteSelector} onChange={(e) => setCfg((prev) => ({ ...prev, panelDeploy: { ...prev.panelDeploy, showRouteSelector: e.target.checked } }))} />
+                Show live route selector and control buttons on the deployed panel
+              </label>
             </div>
           </section>
 

@@ -1,14 +1,14 @@
-import EngineEntityClient from "@/components/possum/EngineEntityClient";
+import SecuritySubEngineConsole from "@/components/possum/SecuritySubEngineConsole";
 
 export default function Page() {
   return (
-    <EngineEntityClient
+    <SecuritySubEngineConsole
+      engineKey="security.forensics"
       title="Forensics Engine"
-      description="Dedicated security sub-engine entity."
-      runtimeId="engine/forensicsEngine.js"
-      commandId="(runtime)"
-      links={[
-        { href: "/dashboard/security/engines", label: "Open Security Engines" },
+      intro="Collects destructive audit-log bursts, moderation anomalies, and trace evidence so incidents can be reconstructed after the fact."
+      related={[
+        { route: "/dashboard/security/audit-trail", label: "Audit Trail", reason: "forensics depends on the audit evidence stream" },
+        { route: "/dashboard/security/staff-activity", label: "Staff Activity", reason: "staff anomalies should be visible beside forensic events" },
       ]}
     />
   );

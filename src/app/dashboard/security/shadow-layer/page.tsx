@@ -1,14 +1,14 @@
-import EngineEntityClient from "@/components/possum/EngineEntityClient";
+import SecuritySubEngineConsole from "@/components/possum/SecuritySubEngineConsole";
 
 export default function Page() {
   return (
-    <EngineEntityClient
+    <SecuritySubEngineConsole
+      engineKey="security.shadowLayer"
       title="Shadow Layer Engine"
-      description="Dedicated security sub-engine entity."
-      runtimeId="engine/shadowLayerEngine.js"
-      commandId="(runtime)"
-      links={[
-        { href: "/dashboard/security/engines", label: "Open Security Engines" },
+      intro="Applies hidden suppression and interaction deny rules for high-risk users when you want quiet containment instead of visible enforcement."
+      related={[
+        { route: "/dashboard/security/containment", label: "Containment", reason: "shadow controls should match visible containment rules" },
+        { route: "/dashboard/security/policy", label: "Security Policy", reason: "suppression should obey governance posture" },
       ]}
     />
   );

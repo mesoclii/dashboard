@@ -1,14 +1,14 @@
-import EngineEntityClient from "@/components/possum/EngineEntityClient";
+import SecuritySubEngineConsole from "@/components/possum/SecuritySubEngineConsole";
 
 export default function Page() {
   return (
-    <EngineEntityClient
+    <SecuritySubEngineConsole
+      engineKey="security.behavioralDrift"
       title="Behavioral Drift Engine"
-      description="Dedicated security sub-engine entity."
-      runtimeId="engine/behavioralDriftEngine.js"
-      commandId="(runtime)"
-      links={[
-        { href: "/dashboard/security/engines", label: "Open Security Engines" },
+      intro="Tracks message volume, content shift, and interaction pattern drift so unusual changes can be fed into trust and escalation scoring."
+      related={[
+        { route: "/dashboard/security/engines", label: "Security Engines", reason: "keep drift tuned alongside the rest of the stack" },
+        { route: "/dashboard/security/risk-escalation", label: "Risk Escalation", reason: "drift contributes directly to escalation" },
       ]}
     />
   );

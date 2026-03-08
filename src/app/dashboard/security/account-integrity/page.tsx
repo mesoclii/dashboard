@@ -1,14 +1,14 @@
-import EngineEntityClient from "@/components/possum/EngineEntityClient";
+import SecuritySubEngineConsole from "@/components/possum/SecuritySubEngineConsole";
 
 export default function Page() {
   return (
-    <EngineEntityClient
+    <SecuritySubEngineConsole
+      engineKey="security.accountIntegrity"
       title="Account Integrity Engine"
-      description="Dedicated security sub-engine entity."
-      runtimeId="engine/accountIntegrityEngine.js"
-      commandId="(runtime)"
-      links={[
-        { href: "/dashboard/security/engines", label: "Open Security Engines" },
+      intro="Scores account age, profile integrity, and baseline trust signals before they flow into the broader threat and escalation pipeline."
+      related={[
+        { route: "/dashboard/security/engines", label: "Security Engines", reason: "see how integrity fits into the full stack" },
+        { route: "/dashboard/security/trust-weight", label: "Trust Weight", reason: "integrity weighting feeds trust calculations" },
       ]}
     />
   );
