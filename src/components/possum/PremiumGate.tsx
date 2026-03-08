@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { buildDashboardHref } from "@/lib/dashboardContext";
+import { DEV_MODE } from "@/lib/devMode";
 
 type PremiumGateProps = {
   featureKey: string;
@@ -63,8 +64,13 @@ export default function PremiumGate({ featureKey, featureLabel, children }: Prem
         if (!res.ok || json?.success === false) {
           throw new Error(json?.error || "Failed to load subscription status.");
         }
-        setAllowed(Boolean(json?.status?.active));
-        setPlan(String(json?.status?.plan || "FREE"));
+        const developerBypass = Boolean(json?.status?.developerBypass);
+        setAllowed(Boolean(json?.status?.active || developerBypass || DEV_MODE));
+        setPlan(
+          developerBypass || DEV_MODE
+            ? "DEVELOPER ACCESS"
+            : String(json?.status?.plan || "FREE")
+        );
       } catch (err: any) {
         setAllowed(false);
         setError(err?.message || "Failed to load subscription status.");
