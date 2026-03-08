@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import ProgressionStackShell from "@/components/possum/ProgressionStackShell";
 
 type Role = { id: string; name: string; position?: number };
 type Channel = { id: string; name: string; type?: number | string };
@@ -253,6 +254,11 @@ export default function AchievementsClient() {
 
   return (
     <div style={shell}>
+      <ProgressionStackShell
+        activeKey="achievements"
+        title="Achievements Engine"
+        subtitle="Milestone grant layer on top of progression. This page controls what unlocks, how rewards are granted, and how your badge/achievement surfaces are announced."
+      />
       <div style={{ ...card, marginBottom: 12, position: "sticky", top: 8, zIndex: 20, backdropFilter: "blur(4px)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div>

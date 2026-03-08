@@ -3,6 +3,7 @@
 
 
 import { useEffect, useState } from "react";
+import ProgressionStackShell from "@/components/possum/ProgressionStackShell";
 
 type Role = { id: string; name: string };
 type Channel = { id: string; name: string };
@@ -259,7 +260,12 @@ export default function ProgressionPage() {
 
   return (
     <div style={{ color: "#ff4d4d", padding: 20, maxWidth: 1220 }}>
-      <h1 style={{ marginTop: 0, letterSpacing: "0.12em", textTransform: "uppercase" }}>Economy - Progression</h1>
+      <ProgressionStackShell
+        activeKey="progression"
+        title="Progression Engine"
+        subtitle="Core XP and event-ingest layer for the linked achievement stack. This page is where the bot decides what gets tracked, how fast members climb, and which reward hooks become eligible."
+      />
+      <h1 style={{ marginTop: 0, letterSpacing: "0.12em", textTransform: "uppercase" }}>Progression Engine</h1>
       <p>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
 
       {loading ? <p>Loading...</p> : (

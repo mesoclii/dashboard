@@ -1,6 +1,7 @@
 "use client";
 
 import EngineInsights from "@/components/possum/EngineInsights";
+import ProgressionStackShell from "@/components/possum/ProgressionStackShell";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
 type PrestigeCfg = {
@@ -21,14 +22,18 @@ const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 12
 const card: React.CSSProperties = { border: "1px solid #5f0000", borderRadius: 12, padding: 14, background: "rgba(120,0,0,0.10)", marginBottom: 12 };
 const input: React.CSSProperties = { width: "100%", background: "#0a0a0a", color: "#ffd0d0", border: "1px solid #7f0000", borderRadius: 8, padding: "10px 12px" };
 
-function roleRewardsToText(value: Record<string, string>) {
-  return Object.entries(value || {}).map(([level, roleId]) => `${level}:${roleId}`).join("\n");
+function toRows(value: Record<string, string>) {
+  const rows = Object.entries(value || {})
+    .map(([prestige, roleId]) => ({ prestige: Number(prestige || 0), roleId: String(roleId || "") }))
+    .filter((row) => Number.isFinite(row.prestige) && row.prestige > 0);
+  return rows.length ? rows.sort((a, b) => a.prestige - b.prestige) : [{ prestige: 1, roleId: "" }];
 }
 
-function textToRoleRewards(text: string) {
-  return text.split(/\n+/).reduce<Record<string, string>>((out, line) => {
-    const [level, roleId] = line.split(":").map((part) => String(part || "").trim());
-    if (level && roleId) out[level] = roleId;
+function rowsToRewards(rows: Array<{ prestige: number; roleId: string }>) {
+  return rows.reduce<Record<string, string>>((out, row) => {
+    const prestige = Math.max(1, Number(row.prestige || 0));
+    const roleId = String(row.roleId || "").trim();
+    if (roleId) out[String(prestige)] = roleId;
     return out;
   }, {});
 }
@@ -40,6 +45,7 @@ export default function PrestigePage() {
     config: cfg,
     setConfig: setCfg,
     channels,
+    roles,
     summary,
     details,
     loading,
@@ -49,13 +55,34 @@ export default function PrestigePage() {
   } = useGuildEngineEditor<PrestigeCfg>("prestige", DEFAULT_PRESTIGE);
 
   const textChannels = channels.filter((c) => Number(c?.type) === 0 || String(c?.type || "").toLowerCase().includes("text"));
+  const roleRows = toRows(cfg.roleRewards);
+
+  function updateRoleReward(index: number, patch: Partial<{ prestige: number; roleId: string }>) {
+    const next = [...roleRows];
+    next[index] = { ...next[index], ...patch };
+    setCfg((p) => ({ ...p, roleRewards: rowsToRewards(next) }));
+  }
+
+  function addRoleReward() {
+    const next = [...roleRows, { prestige: roleRows.length + 1, roleId: "" }];
+    setCfg((p) => ({ ...p, roleRewards: rowsToRewards(next) }));
+  }
+
+  function removeRoleReward(index: number) {
+    const next = roleRows.filter((_, i) => i !== index);
+    setCfg((p) => ({ ...p, roleRewards: rowsToRewards(next) }));
+  }
 
   if (!guildId) return <div style={{ color: "#ff8080", padding: 24 }}>Missing guildId. Open from /guilds first.</div>;
 
   return (
     <div style={shell}>
-      <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>Prestige Engine</h1>
-      <div style={{ color: "#ff9999", marginTop: 6, marginBottom: 12 }}>Guild: {guildName || guildId}</div>
+      <ProgressionStackShell
+        activeKey="prestige"
+        title="Prestige Engine"
+        subtitle="Late-loop reset and elevation layer. Progression and achievements fill the runway, Hall Of Fame shows recognition, Loyalty keeps tenure value, and Prestige is the capstone loop when members have truly cleared the stack."
+      />
+      <div style={{ color: "#ff9999", marginTop: -2, marginBottom: 12 }}>Guild: {guildName || guildId}</div>
       {message ? <div style={{ marginBottom: 10, color: "#ffd27a" }}>{message}</div> : null}
 
       {loading ? <div style={card}>Loading...</div> : (
@@ -67,6 +94,9 @@ export default function PrestigePage() {
           </section>
 
           <section style={card}>
+            <div style={{ color: "#ffb0b0", lineHeight: 1.6, marginBottom: 12 }}>
+              Achievement prestige in the live bot is a separate archival milestone once a member clears the achievement threshold. This page controls the main prestige loop itself: level requirement, announce routing, and prestige reward roles.
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
               <div>
                 <div style={{ marginBottom: 6 }}>Required Max Level</div>
@@ -83,12 +113,47 @@ export default function PrestigePage() {
           </section>
 
           <section style={card}>
-            <div style={{ marginBottom: 6 }}>Role Rewards (one per line, `prestige:roleId`)</div>
-            <textarea
-              style={{ ...input, minHeight: 120, fontFamily: "monospace" }}
-              value={roleRewardsToText(cfg.roleRewards)}
-              onChange={(e) => setCfg((p) => ({ ...p, roleRewards: textToRoleRewards(e.target.value) }))}
-            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+              <div>
+                <div style={{ color: "#ffb0b0", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>Prestige Role Rewards</div>
+                <div style={{ color: "#ff9898", fontSize: 12 }}>Assign milestone roles by prestige count instead of editing raw `prestige:roleId` text.</div>
+              </div>
+              <button onClick={addRoleReward} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>+ Add Reward</button>
+            </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              {roleRows.map((row, index) => (
+                <div key={`${row.prestige}_${index}`} style={{ display: "grid", gridTemplateColumns: "160px minmax(240px,1fr) 120px", gap: 10, alignItems: "end" }}>
+                  <div>
+                    <div style={{ marginBottom: 6 }}>Prestige Count</div>
+                    <input
+                      style={input}
+                      type="number"
+                      min={1}
+                      value={row.prestige}
+                      onChange={(e) => updateRoleReward(index, { prestige: Number(e.target.value || 0) })}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ marginBottom: 6 }}>Reward Role</div>
+                    <select
+                      style={input}
+                      value={row.roleId}
+                      onChange={(e) => updateRoleReward(index, { roleId: e.target.value })}
+                    >
+                      <option value="">Select role</option>
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          @{role.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button onClick={() => removeRoleReward(index)} style={{ ...input, cursor: "pointer", borderColor: "#a00000", color: "#ffb6b6" }}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
           </section>
 
           <button onClick={() => save()} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>

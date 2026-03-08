@@ -128,7 +128,7 @@ export default function VipClient() {
       <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>VIP Engine</h1>
       <div style={{ color: "#ff9999", marginTop: 6, marginBottom: 12 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
       <div style={{ color: "#ffb0b0", fontSize: 12, marginBottom: 12 }}>
-        VIP is a separate engine. Loyalty is a linked engine and is configured directly from VIP Loyalty.
+        VIP is a separate engine. Loyalty is a linked engine and is configured directly from the dedicated Loyalty page.
       </div>
 
       {msg ? <div style={{ marginBottom: 10, color: "#ffd27a" }}>{msg}</div> : null}
@@ -219,9 +219,6 @@ export default function VipClient() {
               Linked Engines
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-              <Link href={withGuild("/dashboard/vip/loyalty", guildId)} style={{ ...input, textDecoration: "none", textAlign: "center", fontWeight: 900 }}>
-                Open VIP Loyalty
-              </Link>
               <Link href={withGuild("/dashboard/loyalty", guildId)} style={{ ...input, textDecoration: "none", textAlign: "center", fontWeight: 900 }}>
                 Open Loyalty Engine
               </Link>

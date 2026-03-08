@@ -53,8 +53,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/runtime-router", label: "Runtime Router" },
   { href: "/dashboard/jed", label: "Jed" },
   { href: "/dashboard/system-health", label: "System Health" },
-  { href: "/dashboard/vip", label: "VIP" },
-  { href: "/dashboard/vip/loyalty", label: "VIP Loyalty" }
+  { href: "/dashboard/vip", label: "VIP" }
 ];
 
 function itemClass(active: boolean): string {

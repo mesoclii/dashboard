@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import EngineInsights from "@/components/possum/EngineInsights";
+import ProgressionStackShell from "@/components/possum/ProgressionStackShell";
 
 type Channel = { id: string; name: string; type?: number | string };
+type Role = { id: string; name: string; position?: number };
+type SummaryItem = { label: string; value: string };
+type DetailItem = { rank?: number; name?: string; title?: string; value: string };
+type Details = Record<string, DetailItem[] | { title: string; value: string } | null | undefined>;
 
 type LoyaltyConfig = {
   active: boolean;
@@ -42,6 +48,9 @@ export default function LoyaltyEngineClient() {
   const [guildId, setGuildId] = useState("");
   const [cfg, setCfg] = useState<LoyaltyConfig>(EMPTY);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [summary, setSummary] = useState<SummaryItem[]>([]);
+  const [details, setDetails] = useState<Details>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -54,14 +63,19 @@ export default function LoyaltyEngineClient() {
       setLoading(true);
       setMsg("");
       try {
-        const [cfgRes, gdRes] = await Promise.all([
+        const [cfgRes, gdRes, runtimeRes] = await Promise.all([
           fetch(`/api/setup/loyalty-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
           fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
+          fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=loyalty`, { cache: "no-store" }),
         ]);
         const cfgJson = await cfgRes.json().catch(() => ({}));
         const gdJson = await gdRes.json().catch(() => ({}));
+        const runtimeJson = await runtimeRes.json().catch(() => ({}));
         setCfg({ ...EMPTY, ...(cfgJson?.config || {}) });
         setChannels((Array.isArray(gdJson?.channels) ? gdJson.channels : []).filter((c: any) => Number(c?.type) === 0));
+        setRoles((Array.isArray(gdJson?.roles) ? gdJson.roles : []).sort((a: Role, b: Role) => Number(b.position || 0) - Number(a.position || 0)));
+        setSummary(Array.isArray(runtimeJson?.summary) ? runtimeJson.summary : []);
+        setDetails(runtimeJson?.details && typeof runtimeJson.details === "object" ? runtimeJson.details : {});
       } catch (e: any) {
         setMsg(e?.message || "Failed to load loyalty config.");
       } finally {
@@ -95,21 +109,26 @@ export default function LoyaltyEngineClient() {
 
   return (
     <div style={{ color: "#ffd0d0", padding: 18, maxWidth: 1200 }}>
-      <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>Loyalty Engine</h1>
-      <div style={{ color: "#ff9999", marginTop: 6, marginBottom: 12 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
+      <ProgressionStackShell
+        activeKey="loyalty"
+        title="Loyalty Engine"
+        subtitle="Long-tail retention layer tied into VIP, progression bonus value, birthday/radio recognition, and member reward timing."
+      />
+      <div style={{ color: "#ff9999", marginTop: -2, marginBottom: 12 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
       <div style={{ color: "#ffb0b0", fontSize: 12, marginBottom: 12 }}>VIP is a separate engine. This page configures loyalty milestone behavior surfaced for VIP + loyalty flow.</div>
       {msg ? <div style={{ marginBottom: 10, color: "#ffd27a" }}>{msg}</div> : null}
 
       {loading ? <div>Loading...</div> : (
         <div style={{ display: "grid", gap: 12 }}>
+          <EngineInsights summary={summary} details={details} />
           <section style={box}>
             <label><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg((p) => ({ ...p, active: e.target.checked }))} /> Loyalty Processing Enabled</label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
               <div><div>Timezone</div><input style={input} value={cfg.timezone} onChange={(e) => setCfg((p) => ({ ...p, timezone: e.target.value }))} /></div>
               <div><div>Announce Channel</div><select style={input} value={cfg.announceChannelId || ""} onChange={(e) => setCfg((p) => ({ ...p, announceChannelId: e.target.value }))}><option value="">Select channel</option>{channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</select></div>
-              <div><div>Heist Exempt Role ID</div><input style={input} value={cfg.heistExemptRoleId} onChange={(e) => setCfg((p) => ({ ...p, heistExemptRoleId: e.target.value }))} /></div>
+              <div><div>Heist Exempt Role</div><select style={input} value={cfg.heistExemptRoleId || ""} onChange={(e) => setCfg((p) => ({ ...p, heistExemptRoleId: e.target.value }))}><option value="">Select role</option>{roles.map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}</select></div>
               <div><div>Heist Exempt Days</div><input style={input} type="number" value={cfg.heistExemptDays} onChange={(e) => setCfg((p) => ({ ...p, heistExemptDays: Number(e.target.value || 0) }))} /></div>
-              <div><div>Year Reward Role ID</div><input style={input} value={cfg.yearRewardRoleId} onChange={(e) => setCfg((p) => ({ ...p, yearRewardRoleId: e.target.value }))} /></div>
+              <div><div>Year Reward Role</div><select style={input} value={cfg.yearRewardRoleId || ""} onChange={(e) => setCfg((p) => ({ ...p, yearRewardRoleId: e.target.value }))}><option value="">Select role</option>{roles.map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}</select></div>
               <div><div>Year Reward Days</div><input style={input} type="number" value={cfg.yearRewardDays} onChange={(e) => setCfg((p) => ({ ...p, yearRewardDays: Number(e.target.value || 0) }))} /></div>
             </div>
             <div style={{ marginTop: 10 }}>
