@@ -101,6 +101,30 @@
       "failureModes": ["provider key missing", "voice pipeline unavailable", "feature disabled"]
     },
     {
+      "key": "music",
+      "name": "Music Engine",
+      "category": "experience",
+      "featureFlag": "musicEnabled",
+      "configKey": "music",
+      "premiumRequired": false,
+      "billable": false,
+      "monetizationAllowed": false,
+      "policyTag": "always_free_non_profit",
+      "privateOnly": false,
+      "enabledByDefault": true,
+      "triggerTypes": ["slash", "message", "voice", "button"],
+      "entrypoints": ["engine/musicEngine.js", "commands/music.js"],
+      "dependencies": {
+        "packages": ["@discordjs/voice", "ffmpeg-static"],
+        "services": ["engineConfigService", "featureService", "permissionService"]
+      },
+      "decisionLogic": "Routes direct URLs and configured local library aliases into independent per-route voice sessions, with slash playback, source-channel capture, per-route queue isolation, and ad-safe source policy checks.",
+      "stateMutations": ["music session state", "queue state", "route runtime metrics"],
+      "persistence": ["engine config (music.routes, music.library, policy/audio settings)"],
+      "outputs": ["voice playback", "queue/status embeds", "audit music events"],
+      "failureModes": ["voice pipeline unavailable", "route missing", "source disallowed by policy", "queue/session caps reached"]
+    },
+    {
       "key": "heist",
       "name": "GTA Heist Signup Engine",
       "category": "gta-ops",

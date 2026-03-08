@@ -26,6 +26,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/economy/progression", label: "Progression" },
   { href: "/dashboard/prestige", label: "Prestige" },
   { href: "/dashboard/economy/radio-birthday", label: "Birthdays" },
+  { href: "/dashboard/music", label: "Music" },
   { href: "/dashboard/giveaways", label: "Giveaways" },
   { href: "/dashboard/gta-ops", label: "GTA Ops" },
   { href: "/dashboard/heist", label: "Heist" },

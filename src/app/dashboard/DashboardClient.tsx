@@ -302,6 +302,22 @@ const rareSpawnController: ToggleController = {
   },
 };
 
+const musicController: ToggleController = {
+  async read(guildId) {
+    const [dashboardConfig, engineConfig] = await Promise.all([
+      getDashboardConfig(guildId),
+      getEngineConfig(guildId, "music"),
+    ]);
+    return readBoolPath(dashboardConfig, ["features", "musicEnabled"], false) && readBoolPath(engineConfig, ["enabled"], false);
+  },
+  async write(guildId, next) {
+    await Promise.all([
+      saveDashboardFeature(guildId, "musicEnabled", next),
+      saveEngineConfig(guildId, "music", { enabled: next }),
+    ]);
+  },
+};
+
 const pokemonCatchingController: ToggleController = {
   async read(guildId) {
     const [dashboardConfig, engineConfig] = await Promise.all([
@@ -368,6 +384,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/economy/progression", title: "Progression", description: "XP intake, level formulas, reward ladders, and progression multipliers.", toggle: setupPatchController("/api/setup/progression-config", ["active"]) },
   { href: "/dashboard/prestige", title: "Prestige", description: "Capstone reset loop, role rewards, and long-tail prestige elevation.", toggle: engineController("prestige") },
   { href: "/dashboard/economy/radio-birthday", title: "Birthdays", description: "Birthday engine settings and reward flow.", toggle: birthdayController },
+  { href: "/dashboard/music", title: "Music", description: "Always-free multi-route music playback, route binding, and live queue control.", toggle: musicController },
   { href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway lifecycle, entrants, rerolls, and controls.", toggle: giveawaysController },
   { href: "/dashboard/heist", title: "Heist", description: "Heist signup engine controls.", toggle: setupBodyController("/api/setup/heist-ops-config", ["active"]), premiumRequired: true, category: "premium" },
   { href: "/dashboard/gta-ops", title: "GTA Ops", description: "GTA operations entity, separate from Heist.", toggle: moduleController("games") },

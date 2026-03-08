@@ -2,6 +2,7 @@ export type EngineGroup =
   | "Security"
   | "Access"
   | "Economy"
+  | "Experience"
   | "Games"
   | "Automation"
   | "AI"
@@ -45,6 +46,8 @@ export const ENGINE_REGISTRY: EngineDef[] = [
   { id: "loyalty", label: "Loyalty", description: "Retention timing, tenure rewards, and VIP-adjacent loyalty benefits", group: "Economy", route: "/dashboard/loyalty" },
   { id: "prestige", label: "Prestige", description: "Capstone reset loop and long-tail prestige reward ladder", group: "Economy", route: "/dashboard/prestige" },
 
+  { id: "music", label: "Music", description: "Always-free multi-route music playback and queue control", group: "Experience", route: "/dashboard/music", featureKey: "musicEnabled" },
+
   { id: "heist", label: "Heist", description: "Heist signup/session controls", group: "Games", route: "/dashboard/heist", featureKey: "heistEnabled" },
   { id: "gta-ops", label: "GTA Ops", description: "GTA operations entity (separate from Heist signup)", group: "Games", route: "/dashboard/gta-ops" },
   { id: "pokemon", label: "Pokemon Catching", description: "Wild spawn lanes, catch economy, and trainer intake", group: "Games", route: "/dashboard/pokemon-catching", featureKey: "pokemonEnabled" },
@@ -72,6 +75,7 @@ export const GROUP_ORDER: EngineGroup[] = [
   "Security",
   "Access",
   "Economy",
+  "Experience",
   "Games",
   "Automation",
   "AI",
