@@ -109,111 +109,67 @@ export default function Home() {
         color: "#ffe2e2",
       }}
     >
-      <div style={{ maxWidth: 1520, margin: "0 auto", padding: "32px 26px 56px" }}>
+      <div style={{ maxWidth: 1520, margin: "0 auto", padding: "22px 26px 56px" }}>
         <section
           style={{
             border: "1px solid rgba(255,0,0,0.32)",
             borderRadius: 28,
             background: "linear-gradient(180deg, rgba(85,0,0,0.18), rgba(0,0,0,0.74))",
-            padding: 30,
+            padding: "42px 34px 34px",
             boxShadow: "0 24px 60px rgba(0,0,0,0.34)",
+            overflow: "hidden",
           }}
         >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0,1.1fr) minmax(320px,0.9fr)",
-              gap: 26,
-              alignItems: "center",
-            }}
-          >
-            <div>
-              <div style={{ color: "#ff9898", fontSize: 15, letterSpacing: "0.30em", textTransform: "uppercase" }}>
-                Control Surface
-              </div>
-              <div
-                className="possum-red possum-glow"
-                style={{
-                  fontSize: "clamp(4rem, 10vw, 8rem)",
-                  fontWeight: 950,
-                  letterSpacing: "0.26em",
-                  textTransform: "uppercase",
-                  lineHeight: 0.88,
-                  marginTop: 18,
-                }}
-              >
-                Possum
-                <br />
-                Control
-                <br />
-                Room
-              </div>
-              <div style={{ color: "#ffd6d6", fontSize: 18, lineHeight: 1.8, maxWidth: 900, marginTop: 22 }}>
-                Status first. Features second. Discord login third. Guild selection after that. The dashboard opens
-                only after a valid Discord login and guild access.
-              </div>
-
-              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 28 }}>
-                <a href="/status" style={secondaryButton}>
-                  System Status
-                </a>
-                <a href="/features" style={secondaryButton}>
-                  Features
-                </a>
-                <a href={entryHref} style={primaryButton}>
-                  {entryLabel}
-                </a>
-              </div>
-
-              <div style={{ color: "#ffbcbc", fontSize: 13, marginTop: 18, lineHeight: 1.7 }}>
-                {session.loggedIn
-                  ? `Discord connected as ${session.user?.globalName || session.user?.username || "Connected"}.`
-                  : session.oauthConfigured
-                    ? "Use Discord login to unlock guild selection and dashboard entry."
-                    : "Discord OAuth is not configured yet on this deployment."}
-              </div>
-            </div>
-
+          <div style={{ textAlign: "center" }}>
             <div
+              className="possum-red possum-glow"
               style={{
-                minHeight: 520,
-                borderRadius: 24,
-                border: "1px solid rgba(255,0,0,0.28)",
-                background: `linear-gradient(180deg, rgba(35,0,0,0.10), rgba(0,0,0,0.62)), center / cover no-repeat url(${HERO_IMAGE})`,
-                boxShadow: "inset 0 0 80px rgba(0,0,0,0.34)",
-                display: "flex",
-                alignItems: "flex-end",
-                padding: 22,
+                fontSize: "clamp(4.8rem, 11vw, 8.8rem)",
+                fontWeight: 950,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                lineHeight: 0.86,
+                margin: 0,
               }}
             >
-              <div
-                style={{
-                  width: "100%",
-                  borderRadius: 18,
-                  background: "rgba(10,0,0,0.68)",
-                  border: "1px solid rgba(255,0,0,0.24)",
-                  padding: 16,
-                }}
-              >
-                <div style={{ color: "#ff8f8f", fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase" }}>
-                  Live Flow
-                </div>
-                <div style={{ color: "#fff1f1", fontSize: 24, fontWeight: 900, marginTop: 8, textTransform: "uppercase" }}>
-                  Home
-                  <span style={{ color: "#ff7f7f" }}> → </span>
-                  Login
-                  <span style={{ color: "#ff7f7f" }}> → </span>
-                  Guild
-                  <span style={{ color: "#ff7f7f" }}> → </span>
-                  Dashboard
-                </div>
-                <div style={{ color: "#ffd5d5", lineHeight: 1.7, marginTop: 10 }}>
-                  New guilds land on the ready baseline with premium features off. Owners finish setup inside the
-                  dashboard without touching Saviors.
-                </div>
-              </div>
+              Possum
+              <br />
+              Control
+              <br />
+              Room
+            </div>
+
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", marginTop: 34 }}>
+              <a href="/status" style={secondaryButton}>
+                System Status
+              </a>
+              <a href="/features" style={secondaryButton}>
+                Features
+              </a>
+              <a href={entryHref} style={primaryButton}>
+                {entryLabel}
+              </a>
+            </div>
+
+            <div style={{ color: "#ffbcbc", fontSize: 14, marginTop: 18, minHeight: 24 }}>
+              {session.loggedIn
+                ? `Discord connected as ${session.user?.globalName || session.user?.username || "Connected"}`
+                : session.oauthConfigured
+                  ? "Login with Discord to unlock guild selection"
+                  : "Discord OAuth is not configured yet on this deployment."}
             </div>
           </div>
+
+          <div
+            style={{
+              marginTop: 34,
+              minHeight: 340,
+              borderRadius: 24,
+              border: "1px solid rgba(255,0,0,0.22)",
+              background: `linear-gradient(180deg, rgba(15,0,0,0.12), rgba(0,0,0,0.42)), center / contain no-repeat url(${HERO_IMAGE})`,
+              boxShadow: "inset 0 0 80px rgba(0,0,0,0.30)",
+            }}
+          />
         </section>
 
         <div style={{ marginTop: 22, textAlign: "center" }}>
@@ -222,6 +178,17 @@ export default function Home() {
           </div>
           <div style={{ color: "#ffd7d7", fontSize: 22, letterSpacing: "0.18em", textTransform: "uppercase", marginTop: 10 }}>
             {timeLine}
+          </div>
+          <div
+            style={{
+              color: "#ff9a9a",
+              fontSize: 13,
+              letterSpacing: "0.20em",
+              textTransform: "uppercase",
+              marginTop: 16,
+            }}
+          >
+            Designed by aStonedPossum &amp; aCityRaccoon
           </div>
         </div>
       </div>
