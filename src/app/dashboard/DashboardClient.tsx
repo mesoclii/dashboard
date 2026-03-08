@@ -405,10 +405,10 @@ const CARDS: Card[] = [
   { href: "/dashboard/governance", title: "Governance", description: "Governance state and enforcement controls.", toggle: featureController("governanceEnabled"), premiumRequired: true, category: "premium" },
   { href: "/dashboard/security", title: "Security", description: "Security stack, moderation, and policies.", toggle: featureController("governanceEnabled"), premiumRequired: true, category: "premium" },
   { href: "/dashboard/blacklist", title: "Blacklist", description: "Blacklist add/remove/show control.", toggle: entityController("engine/blacklistEngine.js") },
-  { href: "/dashboard/failsafe", title: "Failsafe", description: "Emergency pause and safety switches.", toggle: entityController("engine/failsafeEngine.js") },
+  { href: "/dashboard/failsafe", title: "Failsafe", description: "Emergency pause and safety switches.", toggle: engineController("failsafe") },
   { href: "/dashboard/panels", title: "Panel Hub", description: "Jump to the engine tabs that own their own panel layouts and run shared deploys.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/runtime-router", title: "Runtime Router", description: "Gun/possum/vip runtime routing controls.", toggle: entityController("engine/runtimeRouter.js") },
-  { href: "/dashboard/jed", title: "Jed", description: "Sticker/emote/gif steal and deploy engine.", toggle: entityController("engines/jedEngine.js") },
+  { href: "/dashboard/jed", title: "Jed", description: "Sticker/emote/gif steal and deploy engine.", toggle: engineController("jed") },
   { href: "/dashboard/system-health", title: "System Health", description: "Runtime monitor, drift and health checks.", toggle: setupPatchController("/api/setup/runtime-safety-config", ["active"]) },
   { href: "/dashboard/vip", title: "VIP", description: "VIP tiers, grants, and expiry sync.", toggle: setupPatchController("/api/setup/vip-config", ["active"]) },
 ];
