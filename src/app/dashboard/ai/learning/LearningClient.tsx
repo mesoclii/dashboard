@@ -5,6 +5,26 @@ import { useEffect, useState, type CSSProperties } from "react";
 import AiTabs from "@/components/possum/AiTabs";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 
+type PossumSettings = {
+  mode: string;
+  autoReplies: boolean;
+  toneIntensity: number;
+  sarcasmLevel: number;
+  seriousness: number;
+  verbosity: number;
+  gamerMode: boolean;
+};
+
+const DEFAULT_SETTINGS: PossumSettings = {
+  mode: "savage",
+  autoReplies: true,
+  toneIntensity: 5,
+  sarcasmLevel: 5,
+  seriousness: 5,
+  verbosity: 5,
+  gamerMode: false,
+};
+
 const wrap: CSSProperties = { color: "#ffd0d0", maxWidth: 1360 };
 const card: CSSProperties = {
   border: "1px solid rgba(255,0,0,.36)",
@@ -24,6 +44,14 @@ const action: CSSProperties = {
   textTransform: "uppercase",
   cursor: "pointer",
   textDecoration: "none",
+};
+const input: CSSProperties = {
+  width: "100%",
+  background: "#0a0a0a",
+  border: "1px solid rgba(255,0,0,.45)",
+  color: "#ffd5d5",
+  borderRadius: 8,
+  padding: "10px 12px",
 };
 
 const PIPELINE_STEPS = [
@@ -99,6 +127,17 @@ const LEARNING_WRITES = [
   "No Persona AI writes into these adaptive profile tables",
 ];
 
+const SLIDER_FIELDS: Array<{
+  key: keyof Pick<PossumSettings, "toneIntensity" | "sarcasmLevel" | "seriousness" | "verbosity">;
+  label: string;
+  description: string;
+}> = [
+  { key: "toneIntensity", label: "Tone Intensity", description: "How hard the adaptive tone resolver pushes the Possum response profile." },
+  { key: "sarcasmLevel", label: "Sarcasm Level", description: "Stored per guild for the Possum AI response profile." },
+  { key: "seriousness", label: "Seriousness", description: "How grounded vs playful the adaptive profile should feel." },
+  { key: "verbosity", label: "Verbosity", description: "How short or long adaptive replies should trend." },
+];
+
 function resolveGuild() {
   if (typeof window === "undefined") return { guildId: "", guildName: "" };
   const params = new URLSearchParams(window.location.search);
@@ -108,31 +147,144 @@ function resolveGuild() {
   return { guildId, guildName };
 }
 
+async function readJsonOrThrow(res: Response) {
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    throw new Error(json?.error || `Request failed (${res.status})`);
+  }
+  return json;
+}
+
 export default function LearningClient() {
   const [guildId, setGuildId] = useState("");
   const [guildName, setGuildName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
   const [adaptiveEnabled, setAdaptiveEnabled] = useState(false);
   const [personaEnabled, setPersonaEnabled] = useState(false);
+  const [settings, setSettings] = useState<PossumSettings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
     const resolved = resolveGuild();
     setGuildId(resolved.guildId);
     setGuildName(resolved.guildName);
 
-    if (!resolved.guildId) return;
+    if (!resolved.guildId) {
+      setLoading(false);
+      return;
+    }
+
     (async () => {
-      const res = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(resolved.guildId)}`, {
-        cache: "no-store",
-      }).catch(() => null);
-      const json = await res?.json().catch(() => ({}));
-      setAdaptiveEnabled(
-        Boolean(json?.config?.aiRuntime?.adaptiveAiEnabled ?? json?.config?.features?.adaptiveAiEnabled)
-      );
-      setPersonaEnabled(
-        Boolean(json?.config?.aiRuntime?.personaAiEnabled ?? json?.config?.features?.personaAiEnabled)
-      );
+      try {
+        setLoading(true);
+        setMessage("");
+
+        const [dashboardRes, settingsRes] = await Promise.all([
+          fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(resolved.guildId)}`, {
+            cache: "no-store",
+          }),
+          fetch(`/api/bot/possum-settings?guildId=${encodeURIComponent(resolved.guildId)}`, {
+            cache: "no-store",
+          }),
+        ]);
+
+        const dashboardJson = await readJsonOrThrow(dashboardRes);
+        const settingsJson = await readJsonOrThrow(settingsRes);
+
+        setAdaptiveEnabled(
+          Boolean(dashboardJson?.config?.aiRuntime?.adaptiveAiEnabled ?? dashboardJson?.config?.features?.adaptiveAiEnabled)
+        );
+        setPersonaEnabled(
+          Boolean(dashboardJson?.config?.aiRuntime?.personaAiEnabled ?? dashboardJson?.config?.features?.personaAiEnabled)
+        );
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          ...(settingsJson?.config || {}),
+        });
+      } catch (err: any) {
+        setMessage(err?.message || "Failed to load Possum AI.");
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
+
+  async function setAdaptiveRuntime(next: boolean) {
+    if (!guildId) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/bot/engine-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildId,
+          engine: "aiRuntime",
+          patch: { adaptiveAiEnabled: next },
+        }),
+      });
+      await readJsonOrThrow(res);
+      setAdaptiveEnabled(next);
+      setMessage(`Possum AI ${next ? "enabled" : "disabled"} for this guild.`);
+    } catch (err: any) {
+      setMessage(err?.message || "Failed to update Possum AI runtime.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveSettings() {
+    if (!guildId) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/bot/possum-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildId,
+          patch: settings,
+        }),
+      });
+      const json = await readJsonOrThrow(res);
+      setSettings({
+        ...DEFAULT_SETTINGS,
+        ...(json?.config || {}),
+      });
+      setMessage("Saved Possum AI guild settings.");
+    } catch (err: any) {
+      setMessage(err?.message || "Failed to save Possum AI.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function resetSettings() {
+    if (!guildId) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/bot/possum-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildId,
+          reset: true,
+        }),
+      });
+      const json = await readJsonOrThrow(res);
+      setSettings({
+        ...DEFAULT_SETTINGS,
+        ...(json?.config || {}),
+      });
+      setMessage("Reset Possum AI guild settings to defaults.");
+    } catch (err: any) {
+      setMessage(err?.message || "Failed to reset Possum AI.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (!guildId) {
     return <div style={{ color: "#ff8585", padding: 20 }}>Missing guildId. Open from /guilds first.</div>;
@@ -150,17 +302,13 @@ export default function LearningClient() {
             </h1>
             <div style={{ color: "#ff9f9f", marginTop: 8 }}>Guild: {guildName || guildId}</div>
             <div style={{ color: "#ffb5b5", fontSize: 12, marginTop: 8, maxWidth: 980 }}>
-              This is the full homemade adaptive assistant surface: runtime routing, learning writes, tone/topic
-              profiling, knowledge storage, and handcrafted reply synthesis. It is separate from Persona AI and should
-              be treated as the default non-persona message system.
+              Possum AI is the homemade adaptive assistant path. These controls are guild-scoped and write into the live
+              bot runtime, not a dashboard-only stub. Persona AI remains a separate premium surface.
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Link href={buildDashboardHref("/dashboard/bot-personalizer")} style={action}>
               Bot Personalizer
-            </Link>
-            <Link href={buildDashboardHref("/dashboard/ai/persona")} style={action}>
-              Persona AI
             </Link>
             <Link href={buildDashboardHref("/dashboard/ai/memory")} style={action}>
               Memory
@@ -168,109 +316,221 @@ export default function LearningClient() {
             <Link href={buildDashboardHref("/dashboard/ai/tone")} style={action}>
               Tone
             </Link>
+            <Link href={buildDashboardHref("/dashboard/ai/persona")} style={action}>
+              Persona AI
+            </Link>
           </div>
         </div>
+        {message ? <div style={{ color: "#ffd27a", marginTop: 10 }}>{message}</div> : null}
       </section>
 
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginBottom: 12 }}>
-        <div style={card}>
-          <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Adaptive Runtime</div>
-          <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>{adaptiveEnabled ? "Enabled" : "Disabled"}</div>
-        </div>
-        <div style={card}>
-          <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Persona Runtime</div>
-          <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>{personaEnabled ? "Separate / Ready" : "Off"}</div>
-        </div>
-        <div style={card}>
-          <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Primary Entry</div>
-          <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>runtimeRouter</div>
-        </div>
-        <div style={card}>
-          <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Adaptive Identity</div>
-          <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>Bot Knowledge Base</div>
-        </div>
-      </section>
+      {loading ? <div style={card}>Loading Possum AI...</div> : null}
 
-      <section style={card}>
-        <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-          Runtime Pipeline
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
-          {PIPELINE_STEPS.map((step, index) => (
-            <div key={step.title} style={{ borderTop: "1px solid #330000", paddingTop: 10 }}>
-              <div style={{ color: "#ffdcdc", fontWeight: 800 }}>
-                {index + 1}. {step.title}
-              </div>
-              <div style={{ color: "#ffbdbd", fontSize: 12, lineHeight: 1.7, marginTop: 6 }}>{step.detail}</div>
+      {!loading ? (
+        <>
+          <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginBottom: 12 }}>
+            <div style={card}>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Possum Runtime</div>
+              <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>{adaptiveEnabled ? "Enabled" : "Disabled"}</div>
             </div>
-          ))}
-        </div>
-      </section>
-
-      <section style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
-        <div style={card}>
-          <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-            Learning Writes
-          </div>
-          {LEARNING_WRITES.map((item) => (
-            <div key={item} style={{ color: "#ffbdbd", fontSize: 12, lineHeight: 1.7, marginBottom: 8 }}>
-              {item}
+            <div style={card}>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Auto Replies</div>
+              <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>{settings.autoReplies ? "On" : "Off"}</div>
             </div>
-          ))}
-        </div>
-
-        <div style={card}>
-          <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-            Live Separation Rules
-          </div>
-          <div style={{ color: "#ffbdbd", fontSize: 12, lineHeight: 1.7 }}>
-            Possum AI owns the adaptive route only. Persona AI owns persona-only channels, persona keywords, and hosted
-            persona prompts. Possum AI stays tied to Bot Personalizer and the guild identity layer, and Persona AI
-            should never write into Possum adaptive profile tables.
-          </div>
-        </div>
-      </section>
-
-      <section style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
-        <div style={card}>
-          <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-            Active Adaptive Modules
-          </div>
-          <div style={{ display: "grid", gap: 6 }}>
-            {ACTIVE_MODULES.map((item) => (
-              <div key={item} style={{ color: "#ffdcdc", fontSize: 12 }}>
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={card}>
-          <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-            Data Assets + Memory
-          </div>
-          <div style={{ display: "grid", gap: 6 }}>
-            {DATA_ASSETS.map((item) => (
-              <div key={item} style={{ color: "#ffdcdc", fontSize: 12 }}>
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section style={card}>
-        <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-          Persistence Models
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10 }}>
-          {PERSISTENCE_MODELS.map((item) => (
-            <div key={item} style={{ color: "#ffdcdc", fontSize: 12, lineHeight: 1.7, borderTop: "1px solid #330000", paddingTop: 8 }}>
-              {item}
+            <div style={card}>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Tone Intensity</div>
+              <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>{settings.toneIntensity}/10</div>
             </div>
-          ))}
-        </div>
-      </section>
+            <div style={card}>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Adaptive Identity</div>
+              <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>Bot Knowledge Base</div>
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <div>
+                <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                  Guild Runtime Controls
+                </div>
+                <div style={{ color: "#ffbdbd", fontSize: 12, maxWidth: 900 }}>
+                  These settings are specific to the selected guild. They control the adaptive Possum runtime, reply behavior,
+                  tone intensity, and stored guild profile for the homemade assistant path.
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => void setAdaptiveRuntime(!adaptiveEnabled)}
+                  disabled={saving}
+                  style={action}
+                >
+                  {adaptiveEnabled ? "Turn Off Runtime" : "Turn On Runtime"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void resetSettings()}
+                  disabled={saving}
+                  style={action}
+                >
+                  Reset Defaults
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void saveSettings()}
+                  disabled={saving}
+                  style={action}
+                >
+                  {saving ? "Saving..." : "Save Possum AI"}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, marginTop: 14 }}>
+              <div>
+                <label>Adaptive preset label</label>
+                <input
+                  style={input}
+                  value={settings.mode || ""}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, mode: e.target.value }))}
+                  placeholder="savage"
+                />
+                <div style={{ color: "#ff9c9c", fontSize: 11, marginTop: 6 }}>
+                  Stored per guild as the Possum profile label.
+                </div>
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: 10 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.autoReplies}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, autoReplies: e.target.checked }))}
+                  />{" "}
+                  Auto replies enabled
+                </label>
+                <label style={{ display: "block" }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.gamerMode}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, gamerMode: e.target.checked }))}
+                  />{" "}
+                  Gamer mode enabled
+                </label>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12, marginTop: 14 }}>
+              {SLIDER_FIELDS.map((field) => (
+                <div key={field.key} style={{ borderTop: "1px solid #330000", paddingTop: 10 }}>
+                  <div style={{ color: "#ffdcdc", fontWeight: 800 }}>{field.label}</div>
+                  <div style={{ color: "#ffbdbd", fontSize: 12, marginTop: 4 }}>{field.description}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+                    <input
+                      type="range"
+                      min={1}
+                      max={10}
+                      value={settings[field.key]}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          [field.key]: Number(e.target.value || 5),
+                        }))
+                      }
+                      style={{ flex: 1 }}
+                    />
+                    <div style={{ minWidth: 38, textAlign: "right", fontWeight: 900 }}>{settings[field.key]}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ color: "#ff9c9c", fontSize: 12, marginTop: 12 }}>
+              Persona AI is currently {personaEnabled ? "enabled" : "disabled"} in this guild, but it stays fully separate from these Possum AI controls.
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+              Runtime Pipeline
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
+              {PIPELINE_STEPS.map((step, index) => (
+                <div key={step.title} style={{ borderTop: "1px solid #330000", paddingTop: 10 }}>
+                  <div style={{ color: "#ffdcdc", fontWeight: 800 }}>
+                    {index + 1}. {step.title}
+                  </div>
+                  <div style={{ color: "#ffbdbd", fontSize: 12, lineHeight: 1.7, marginTop: 6 }}>{step.detail}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
+            <div style={card}>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                Learning Writes
+              </div>
+              {LEARNING_WRITES.map((item) => (
+                <div key={item} style={{ color: "#ffbdbd", fontSize: 12, lineHeight: 1.7, marginBottom: 8 }}>
+                  {item}
+                </div>
+              ))}
+            </div>
+
+            <div style={card}>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                Live Separation Rules
+              </div>
+              <div style={{ color: "#ffbdbd", fontSize: 12, lineHeight: 1.7 }}>
+                Possum AI owns the adaptive route only. Persona AI owns persona-only channels, persona keywords, and hosted
+                persona prompts. Possum AI stays tied to Bot Personalizer and the guild identity layer, and Persona AI
+                should never write into Possum adaptive profile tables.
+              </div>
+            </div>
+          </section>
+
+          <section style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
+            <div style={card}>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                Active Adaptive Modules
+              </div>
+              <div style={{ display: "grid", gap: 6 }}>
+                {ACTIVE_MODULES.map((item) => (
+                  <div key={item} style={{ color: "#ffdcdc", fontSize: 12 }}>
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={card}>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                Data Assets + Memory
+              </div>
+              <div style={{ display: "grid", gap: 6 }}>
+                {DATA_ASSETS.map((item) => (
+                  <div key={item} style={{ color: "#ffdcdc", fontSize: 12 }}>
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+              Persistence Models
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10 }}>
+              {PERSISTENCE_MODELS.map((item) => (
+                <div key={item} style={{ color: "#ffdcdc", fontSize: 12, lineHeight: 1.7, borderTop: "1px solid #330000", paddingTop: 8 }}>
+                  {item}
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      ) : null}
     </div>
   );
 }
