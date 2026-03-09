@@ -3,8 +3,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import {
-  formatEngineList,
-  getEngineSpec,
   PROGRESSION_STACK,
   type ProgressionStackKey,
 } from "@/lib/dashboardEngineCatalog";
@@ -55,8 +53,6 @@ export default function ProgressionStackShell({
   subtitle: string;
   children?: ReactNode;
 }) {
-  const activeSpec = getEngineSpec(activeKey);
-
   return (
     <div style={{ display: "grid", gap: 14, marginBottom: 14 }}>
       <section style={shellCard}>
@@ -98,48 +94,6 @@ export default function ProgressionStackShell({
           })}
         </div>
       </section>
-
-      {activeSpec ? (
-        <section style={{ ...shellCard, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
-          <div>
-            <div style={{ color: "#ff9a9a", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase" }}>Engine Contract</div>
-            <div style={{ color: "#fff", fontWeight: 900, fontSize: 20, marginTop: 6 }}>{activeSpec.displayName}</div>
-            <div style={{ color: "#ffd0d0", lineHeight: 1.7, marginTop: 8 }}>{activeSpec.decisionLogic}</div>
-          </div>
-
-          <div>
-            <div style={{ color: "#ff9a9a", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase" }}>Runtime</div>
-            <div style={{ color: "#ffdede", lineHeight: 1.7, marginTop: 8 }}>
-              <div>Category: {activeSpec.category}</div>
-              <div>Feature Flag: {activeSpec.featureFlag || "None"}</div>
-              <div>Config Key: {activeSpec.configKey || "None"}</div>
-              <div>Premium: {activeSpec.premiumRequired ? "Yes" : "No"}</div>
-              <div>Private Only: {activeSpec.privateOnly ? "Yes" : "No"}</div>
-              <div>Default: {activeSpec.enabledByDefault ? "On" : "Off"}</div>
-              <div>Triggers: {formatEngineList(activeSpec.triggerTypes)}</div>
-            </div>
-          </div>
-
-          <div>
-            <div style={{ color: "#ff9a9a", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase" }}>Dependencies</div>
-            <div style={{ color: "#ffdede", lineHeight: 1.7, marginTop: 8 }}>
-              <div>Services: {formatEngineList(activeSpec.hardDependencies.services || [])}</div>
-              <div>Runtime Flags: {formatEngineList(activeSpec.hardDependencies.runtimeFlags || [])}</div>
-              <div>Env / Hard Inputs: {formatEngineList(activeSpec.hardDependencies.envVars || [])}</div>
-              <div>Persistence: {formatEngineList(activeSpec.persistence)}</div>
-            </div>
-          </div>
-
-          <div>
-            <div style={{ color: "#ff9a9a", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase" }}>Side Effects</div>
-            <div style={{ color: "#ffdede", lineHeight: 1.7, marginTop: 8 }}>
-              <div>Mutations: {formatEngineList(activeSpec.stateMutations)}</div>
-              <div>Outputs: {formatEngineList(activeSpec.outputs)}</div>
-              <div>Failure Modes: {formatEngineList(activeSpec.failureModes)}</div>
-            </div>
-          </div>
-        </section>
-      ) : null}
 
       {children}
     </div>

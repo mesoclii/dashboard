@@ -3,7 +3,6 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { useMemo } from "react";
-import AiTabs from "@/components/possum/AiTabs";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 import { buildDashboardHref } from "@/lib/dashboardContext";
@@ -102,8 +101,6 @@ export default function BotPersonalizerClient() {
 
   return (
     <div style={wrap}>
-      <AiTabs current="personalizer" />
-
       <div style={card}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <div>
