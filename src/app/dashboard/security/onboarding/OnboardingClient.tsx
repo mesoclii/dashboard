@@ -3,7 +3,10 @@
 
 
 import { useEffect, useMemo, useState } from "react";
-import { fromCsv, getGuildId, loadDashboardConfig, saveDashboardPatch, styles, toCsv, StatusPill } from "../_engineClient";
+import { getGuildId, loadDashboardConfig, saveDashboardPatch, styles, StatusPill } from "../_engineClient";
+
+type GuildChannel = { id: string; name: string; type?: number | string };
+type GuildRole = { id: string; name: string };
 
 const DEFAULTS: any = {
   enabled: true,
@@ -42,6 +45,8 @@ export default function OnboardingPage() {
   const [guildId, setGuildId] = useState("");
   const [cfg, setCfg] = useState<any>(DEFAULTS);
   const [orig, setOrig] = useState<any>(DEFAULTS);
+  const [channels, setChannels] = useState<GuildChannel[]>([]);
+  const [roles, setRoles] = useState<GuildRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -54,10 +59,15 @@ export default function OnboardingPage() {
       setLoading(true);
       setMsg("");
       try {
-        const all = await loadDashboardConfig(guildId);
+        const [all, gd] = await Promise.all([
+          loadDashboardConfig(guildId),
+          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }).then((res) => res.json()),
+        ]);
         const next = { ...DEFAULTS, ...(all?.security?.onboarding || {}) };
         setCfg(next);
         setOrig(next);
+        setChannels(Array.isArray(gd?.channels) ? gd.channels : []);
+        setRoles(Array.isArray(gd?.roles) ? gd.roles : []);
       } catch (e: any) {
         setMsg(e?.message || "Failed to load onboarding settings.");
       } finally {
@@ -67,6 +77,13 @@ export default function OnboardingPage() {
   }, [guildId]);
 
   const dirty = useMemo(() => JSON.stringify(cfg) !== JSON.stringify(orig), [cfg, orig]);
+
+  function toggleRole(list: string[], id: string) {
+    const set = new Set(list || []);
+    if (set.has(id)) set.delete(id);
+    else set.add(id);
+    return Array.from(set);
+  }
 
   async function save() {
     if (!guildId) return;
@@ -86,10 +103,30 @@ export default function OnboardingPage() {
   if (!guildId) return <div style={{ color: "#ff8a8a", padding: 20 }}>Missing guildId. Open from /guilds.</div>;
   if (loading) return <div style={{ color: "#ff8a8a", padding: 20 }}>Loading onboarding...</div>;
 
-  const idFields = [
-    "welcomeChannelId","mainChatChannelId","rulesChannelId","idChannelId","ticketCategoryId","transcriptChannelId",
-    "logChannelId","verifiedRoleId","declineRoleId","hostingLegacyChannelId","hostingEnhancedChannelId","staffIntroChannelId",
-    "selfRolesChannelId","botGuideChannelId","updatesChannelId","funChannelId","subscriptionChannelId"
+  const textChannels = useMemo(
+    () => channels.filter((c) => Number(c?.type) === 0 || Number(c?.type) === 5 || String(c?.type || "").toLowerCase().includes("text")),
+    [channels]
+  );
+  const categoryChannels = useMemo(
+    () => channels.filter((c) => Number(c?.type) === 4 || String(c?.type || "").toLowerCase().includes("category")),
+    [channels]
+  );
+
+  const channelFields: Array<{ key: keyof typeof DEFAULTS; label: string }> = [
+    { key: "welcomeChannelId", label: "Welcome Channel" },
+    { key: "mainChatChannelId", label: "Main Chat Channel" },
+    { key: "rulesChannelId", label: "Rules Channel" },
+    { key: "idChannelId", label: "ID Verification Channel" },
+    { key: "transcriptChannelId", label: "Transcript Channel" },
+    { key: "logChannelId", label: "Log Channel" },
+    { key: "hostingLegacyChannelId", label: "Hosting Legacy Channel" },
+    { key: "hostingEnhancedChannelId", label: "Hosting Enhanced Channel" },
+    { key: "staffIntroChannelId", label: "Staff Intro Channel" },
+    { key: "selfRolesChannelId", label: "Self Roles Channel" },
+    { key: "botGuideChannelId", label: "Bot Guide Channel" },
+    { key: "updatesChannelId", label: "Updates Channel" },
+    { key: "funChannelId", label: "Fun Channel" },
+    { key: "subscriptionChannelId", label: "Subscription Channel" },
   ];
 
   return (
@@ -111,19 +148,100 @@ export default function OnboardingPage() {
       <div style={styles.card}>
         <h3 style={{ marginTop: 0, color: "#ff4444" }}>Channel and Role IDs</h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {idFields.map((k) => (
-            <div key={k}>
-              <label>{k}</label>
-              <input style={styles.input} value={cfg[k] || ""} onChange={(e) => setCfg({ ...cfg, [k]: e.target.value })} />
+          {channelFields.map((field) => (
+            <div key={field.key}>
+              <label>{field.label}</label>
+              <select
+                style={styles.input}
+                value={cfg[field.key] || ""}
+                onChange={(e) => setCfg({ ...cfg, [field.key]: e.target.value })}
+              >
+                <option value="">Select channel</option>
+                {textChannels.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    #{c.name}
+                  </option>
+                ))}
+              </select>
             </div>
           ))}
           <div>
-            <label>staffRoleIds (csv)</label>
-            <input style={styles.input} value={toCsv(cfg.staffRoleIds)} onChange={(e) => setCfg({ ...cfg, staffRoleIds: fromCsv(e.target.value) })} />
+            <label>Ticket Category</label>
+            <select
+              style={styles.input}
+              value={cfg.ticketCategoryId || ""}
+              onChange={(e) => setCfg({ ...cfg, ticketCategoryId: e.target.value })}
+            >
+              <option value="">Select category</option>
+              {categoryChannels.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
-            <label>removeOnVerifyRoleIds (csv)</label>
-            <input style={styles.input} value={toCsv(cfg.removeOnVerifyRoleIds)} onChange={(e) => setCfg({ ...cfg, removeOnVerifyRoleIds: fromCsv(e.target.value) })} />
+            <label>Verified Role</label>
+            <select
+              style={styles.input}
+              value={cfg.verifiedRoleId || ""}
+              onChange={(e) => setCfg({ ...cfg, verifiedRoleId: e.target.value })}
+            >
+              <option value="">Select role</option>
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  @{r.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label>Decline Role</label>
+            <select
+              style={styles.input}
+              value={cfg.declineRoleId || ""}
+              onChange={(e) => setCfg({ ...cfg, declineRoleId: e.target.value })}
+            >
+              <option value="">Select role</option>
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  @{r.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <label>Staff Roles (can operate onboarding)</label>
+            <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
+              {roles.map((r) => (
+                <label key={`staff_${r.id}`} style={{ display: "block", marginBottom: 4 }}>
+                  <input
+                    type="checkbox"
+                    checked={(cfg.staffRoleIds || []).includes(r.id)}
+                    onChange={() => setCfg({ ...cfg, staffRoleIds: toggleRole(cfg.staffRoleIds || [], r.id) })}
+                  />{" "}
+                  @{r.name}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label>Remove On Verify Roles</label>
+            <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
+              {roles.map((r) => (
+                <label key={`remove_${r.id}`} style={{ display: "block", marginBottom: 4 }}>
+                  <input
+                    type="checkbox"
+                    checked={(cfg.removeOnVerifyRoleIds || []).includes(r.id)}
+                    onChange={() => setCfg({ ...cfg, removeOnVerifyRoleIds: toggleRole(cfg.removeOnVerifyRoleIds || [], r.id) })}
+                  />{" "}
+                  @{r.name}
+                </label>
+              ))}
+            </div>
           </div>
         </div>
       </div>

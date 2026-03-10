@@ -369,6 +369,7 @@ const pokemonTradeController: ToggleController = {
 const CARDS: Card[] = [
   { href: "/dashboard/bot-personalizer", title: "Bot Personalizer", description: "Per-guild Possum AI naming, avatar, activity, and backstory.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/bot-masters", title: "Bot Masters", description: "Set which guild roles and users can manage the dashboard.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/channels", title: "Channels", description: "Centralized channel routing for engines that rely on per-guild channel setup.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/premium-features", title: "Premium Features", description: "Plan state, paid add-ons, and owner trial controls.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/ai/learning", title: "Possum AI", description: "Homemade adaptive AI, bot knowledge base, learning writes, and synthesis runtime.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/ai/persona", title: "Persona AI", description: "Hosted persona runtime, photos, triggers, and roster controls.", goOnly: true, goLabel: "Go", premiumRequired: true, category: "premium" },

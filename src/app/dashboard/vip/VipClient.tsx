@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type Channel = { id: string; name: string; type?: number | string };
+type Role = { id: string; name: string };
 
 type VipConfig = {
   active: boolean;
@@ -64,6 +65,7 @@ export default function VipClient() {
   const [guildId, setGuildId] = useState("");
   const [cfg, setCfg] = useState<VipConfig>(EMPTY);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -90,6 +92,7 @@ export default function VipClient() {
 
         setCfg({ ...EMPTY, ...(cfgJson?.config || {}) });
         setChannels((Array.isArray(gdJson?.channels) ? gdJson.channels : []).filter((c: any) => Number(c?.type) === 0));
+        setRoles(Array.isArray(gdJson?.roles) ? gdJson.roles : []);
       } catch (e: any) {
         setMsg(e?.message || "Failed to load VIP config.");
       } finally {
@@ -149,16 +152,37 @@ export default function VipClient() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
               <div>
-                <div>VIP Role ID</div>
-                <input style={input} value={cfg.vipRoleId} onChange={(e) => setCfg((p) => ({ ...p, vipRoleId: e.target.value }))} />
+                <div>VIP Role</div>
+                <select style={input} value={cfg.vipRoleId} onChange={(e) => setCfg((p) => ({ ...p, vipRoleId: e.target.value }))}>
+                  <option value="">Select role</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      @{r.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
-                <div>Supporter Role ID</div>
-                <input style={input} value={cfg.supporterRoleId} onChange={(e) => setCfg((p) => ({ ...p, supporterRoleId: e.target.value }))} />
+                <div>Supporter Role</div>
+                <select style={input} value={cfg.supporterRoleId} onChange={(e) => setCfg((p) => ({ ...p, supporterRoleId: e.target.value }))}>
+                  <option value="">Select role</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      @{r.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
-                <div>Nitro Booster Role ID</div>
-                <input style={input} value={cfg.nitroRoleId} onChange={(e) => setCfg((p) => ({ ...p, nitroRoleId: e.target.value }))} />
+                <div>Nitro Booster Role</div>
+                <select style={input} value={cfg.nitroRoleId} onChange={(e) => setCfg((p) => ({ ...p, nitroRoleId: e.target.value }))}>
+                  <option value="">Select role</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      @{r.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <div>Grant Log Channel</div>

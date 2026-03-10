@@ -2,7 +2,9 @@
 
 
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import EngineInsights from "@/components/possum/EngineInsights";
+import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
 type Config = {
   active: boolean;
@@ -75,75 +77,38 @@ const input: React.CSSProperties = {
   color: "#ffd7d7",
 };
 
-function getGuildId(): string {
-  if (typeof window === "undefined") return "";
-  const q = new URLSearchParams(window.location.search).get("guildId") || "";
-  const s = localStorage.getItem("activeGuildId") || "";
-  const v = (q || s).trim();
-  if (v) localStorage.setItem("activeGuildId", v);
-  return v;
-}
-
-function csvToArr(v: string): string[] {
-  return String(v || "").split(",").map((x) => x.trim()).filter(Boolean);
-}
-function arrToCsv(v: string[]): string {
-  return Array.isArray(v) ? v.join(", ") : "";
+function toggle(list: string[], id: string) {
+  const set = new Set(list || []);
+  if (set.has(id)) set.delete(id);
+  else set.add(id);
+  return Array.from(set);
 }
 
 export default function HeistPage() {
-  const [guildId, setGuildId] = useState("");
-  const [cfg, setCfg] = useState<Config>(DEFAULTS);
-  const [orig, setOrig] = useState<Config>(DEFAULTS);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
+  const {
+    guildId,
+    guildName,
+    config: rawCfg,
+    setConfig: setCfg,
+    roles,
+    channels,
+    summary,
+    details,
+    loading,
+    saving,
+    message,
+    save,
+  } = useGuildEngineEditor<Config>("heist", DEFAULTS);
 
-  useEffect(() => setGuildId(getGuildId()), []);
-
-  useEffect(() => {
-    if (!guildId) return;
-    (async () => {
-      setLoading(true);
-      setMsg("");
-      try {
-        const r = await fetch(`/api/setup/heist-ops-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" });
-        const j = await r.json();
-        const next = { ...DEFAULTS, ...(j?.config || {}) };
-        setCfg(next);
-        setOrig(next);
-      } catch {
-        setMsg("Failed to load heist config.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [guildId]);
-
-  const dirty = useMemo(() => JSON.stringify(cfg) !== JSON.stringify(orig), [cfg, orig]);
-
-  async function save() {
-    if (!guildId) return;
-    setSaving(true);
-    setMsg("");
-    try {
-      const r = await fetch("/api/setup/heist-ops-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, ...cfg }),
-      });
-      const j = await r.json();
-      if (!r.ok || j?.success === false) throw new Error(j?.error || "Save failed");
-      const next = { ...DEFAULTS, ...(j?.config || {}) };
-      setCfg(next);
-      setOrig(next);
-      setMsg("Saved heist ops config.");
-    } catch (e: any) {
-      setMsg(e?.message || "Save failed.");
-    } finally {
-      setSaving(false);
-    }
-  }
+  const cfg = useMemo(() => ({ ...DEFAULTS, ...(rawCfg || {}) }), [rawCfg]);
+  const textChannels = useMemo(
+    () => channels.filter((c) => Number(c?.type) === 0 || Number(c?.type) === 5 || String(c?.type || "").toLowerCase().includes("text")),
+    [channels]
+  );
+  const voiceChannels = useMemo(
+    () => channels.filter((c) => Number(c?.type) === 2 || Number(c?.type) === 13 || String(c?.type || "").toLowerCase().includes("voice")),
+    [channels]
+  );
 
   if (!guildId) return <div style={{ color: "#ff8a8a", padding: 20 }}>Missing guildId. Open from /guilds.</div>;
   if (loading) return <div style={{ color: "#ff8a8a", padding: 20 }}>Loading heist ops...</div>;
@@ -151,7 +116,10 @@ export default function HeistPage() {
   return (
     <div style={{ color: "#ffb3b3", padding: 14, maxWidth: 1300 }}>
       <h1 style={{ marginTop: 0, color: "#ff3b3b", letterSpacing: "0.08em", textTransform: "uppercase" }}>Heist Ops Studio</h1>
-      <p style={{ marginTop: 0 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
+      <p style={{ marginTop: 0 }}>Guild: {guildName || guildId}</p>
+      {message ? <div style={{ color: "#ffd27a", marginBottom: 8 }}>{message}</div> : null}
+
+      <EngineInsights summary={summary} details={details} />
 
       <div style={box}>
         <label><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg({ ...cfg, active: e.target.checked })} /> Heist engine active</label><br />
@@ -163,13 +131,64 @@ export default function HeistPage() {
       <div style={box}>
         <h3 style={{ marginTop: 0, color: "#ff4444" }}>Channels and Roles</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px, 1fr))", gap: 10 }}>
-          <div><label>Signup channel ID</label><input style={input} value={cfg.signupChannelId} onChange={(e) => setCfg({ ...cfg, signupChannelId: e.target.value })} /></div>
-          <div><label>Announce channel ID</label><input style={input} value={cfg.announceChannelId} onChange={(e) => setCfg({ ...cfg, announceChannelId: e.target.value })} /></div>
-          <div><label>Transcript channel ID</label><input style={input} value={cfg.transcriptChannelId} onChange={(e) => setCfg({ ...cfg, transcriptChannelId: e.target.value })} /></div>
-          <div><label>Voice channel ID</label><input style={input} value={cfg.voiceChannelId} onChange={(e) => setCfg({ ...cfg, voiceChannelId: e.target.value })} /></div>
-          <div><label>Verified role ID</label><input style={input} value={cfg.verifiedRoleId} onChange={(e) => setCfg({ ...cfg, verifiedRoleId: e.target.value })} /></div>
-          <div><label>Host role IDs (csv)</label><input style={input} value={arrToCsv(cfg.hostRoleIds)} onChange={(e) => setCfg({ ...cfg, hostRoleIds: csvToArr(e.target.value) })} /></div>
-          <div style={{ gridColumn: "1 / span 3" }}><label>Blocked role IDs (csv)</label><input style={input} value={arrToCsv(cfg.blockedRoleIds)} onChange={(e) => setCfg({ ...cfg, blockedRoleIds: csvToArr(e.target.value) })} /></div>
+          <div>
+            <label>Signup channel</label>
+            <select style={input} value={cfg.signupChannelId} onChange={(e) => setCfg((p) => ({ ...p, signupChannelId: e.target.value }))}>
+              <option value="">Select channel</option>
+              {textChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label>Announce channel</label>
+            <select style={input} value={cfg.announceChannelId} onChange={(e) => setCfg((p) => ({ ...p, announceChannelId: e.target.value }))}>
+              <option value="">Select channel</option>
+              {textChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label>Transcript channel</label>
+            <select style={input} value={cfg.transcriptChannelId} onChange={(e) => setCfg((p) => ({ ...p, transcriptChannelId: e.target.value }))}>
+              <option value="">Select channel</option>
+              {textChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label>Voice channel</label>
+            <select style={input} value={cfg.voiceChannelId} onChange={(e) => setCfg((p) => ({ ...p, voiceChannelId: e.target.value }))}>
+              <option value="">Select voice channel</option>
+              {voiceChannels.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label>Verified role</label>
+            <select style={input} value={cfg.verifiedRoleId} onChange={(e) => setCfg((p) => ({ ...p, verifiedRoleId: e.target.value }))}>
+              <option value="">Select role</option>
+              {roles.map((r) => <option key={r.id} value={r.id}>@{r.name}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 10, marginTop: 12 }}>
+          <div>
+            <div style={{ marginBottom: 6 }}>Host roles</div>
+            <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
+              {roles.map((r) => (
+                <label key={`host_${r.id}`} style={{ display: "block", marginBottom: 4 }}>
+                  <input type="checkbox" checked={cfg.hostRoleIds.includes(r.id)} onChange={() => setCfg((p) => ({ ...p, hostRoleIds: toggle(p.hostRoleIds, r.id) }))} /> @{r.name}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{ marginBottom: 6 }}>Blocked roles</div>
+            <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
+              {roles.map((r) => (
+                <label key={`blocked_${r.id}`} style={{ display: "block", marginBottom: 4 }}>
+                  <input type="checkbox" checked={cfg.blockedRoleIds.includes(r.id)} onChange={() => setCfg((p) => ({ ...p, blockedRoleIds: toggle(p.blockedRoleIds, r.id) }))} /> @{r.name}
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -203,14 +222,8 @@ export default function HeistPage() {
         <textarea style={{ ...input, minHeight: 90 }} value={cfg.notes} onChange={(e) => setCfg({ ...cfg, notes: e.target.value })} />
       </div>
 
-      {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
-
-      <div style={{
-        position: "fixed", right: 18, bottom: 18, zIndex: 40, border: "1px solid #7a0000",
-        borderRadius: 12, padding: 10, background: "rgba(20,0,0,0.95)", display: "flex", alignItems: "center", gap: 8
-      }}>
-        <span style={{ color: dirty ? "#ffd27a" : "#9effb8", fontSize: 12 }}>{dirty ? "DIRTY" : "READY"}</span>
-        <button onClick={save} disabled={saving || !dirty} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #7a0000", background: "#220000", color: "#ffd7d7" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <button onClick={() => save(cfg)} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
           {saving ? "Saving..." : "Save Heist Ops"}
         </button>
       </div>

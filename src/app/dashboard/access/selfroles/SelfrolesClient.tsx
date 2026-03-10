@@ -4,6 +4,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+type GuildChannel = { id: string; name: string; type?: number | string };
+type GuildRole = { id: string; name: string };
+
 type RoleOption = {
   roleId: string;
   label: string;
@@ -96,6 +99,8 @@ export default function SelfrolesPage() {
   const [guildId, setGuildId] = useState("");
   const [cfg, setCfg] = useState<Config>(DEFAULTS);
   const [orig, setOrig] = useState<Config>(DEFAULTS);
+  const [channels, setChannels] = useState<GuildChannel[]>([]);
+  const [roles, setRoles] = useState<GuildRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -108,11 +113,17 @@ export default function SelfrolesPage() {
       setLoading(true);
       setMsg("");
       try {
-        const r = await fetch(`/api/setup/selfroles-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" });
+        const [r, gd] = await Promise.all([
+          fetch(`/api/setup/selfroles-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
+          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
+        ]);
         const j = await r.json();
+        const g = await gd.json();
         const next = { ...DEFAULTS, ...(j?.config || {}) };
         setCfg(next);
         setOrig(next);
+        setChannels(Array.isArray(g?.channels) ? g.channels : []);
+        setRoles(Array.isArray(g?.roles) ? g.roles : []);
       } catch {
         setMsg("Failed to load selfroles.");
       } finally {
@@ -120,6 +131,11 @@ export default function SelfrolesPage() {
       }
     })();
   }, [guildId]);
+
+  const textChannels = useMemo(
+    () => channels.filter((c) => Number(c?.type) === 0 || Number(c?.type) === 5 || String(c?.type || "").toLowerCase().includes("text")),
+    [channels]
+  );
 
   const dirty = useMemo(() => JSON.stringify(cfg) !== JSON.stringify(orig), [cfg, orig]);
 
@@ -192,10 +208,22 @@ export default function SelfrolesPage() {
         <label><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg({ ...cfg, active: e.target.checked })} /> Selfroles active</label><br />
         <label><input type="checkbox" checked={cfg.requireVerification} onChange={(e) => setCfg({ ...cfg, requireVerification: e.target.checked })} /> Require verification role first</label>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(180px, 1fr))", gap: 10, marginTop: 10 }}>
-          <div><label>Verification role ID</label><input style={input} value={cfg.verificationRoleId} onChange={(e) => setCfg({ ...cfg, verificationRoleId: e.target.value })} /></div>
+          <div>
+            <label>Verification role</label>
+            <select style={input} value={cfg.verificationRoleId} onChange={(e) => setCfg({ ...cfg, verificationRoleId: e.target.value })}>
+              <option value="">Select role</option>
+              {roles.map((r) => <option key={r.id} value={r.id}>@{r.name}</option>)}
+            </select>
+          </div>
           <div><label>Max roles/user</label><input style={input} type="number" value={cfg.maxRolesPerUser} onChange={(e) => setCfg({ ...cfg, maxRolesPerUser: Number(e.target.value || 0) })} /></div>
           <div><label>Cooldown sec</label><input style={input} type="number" value={cfg.antiAbuseCooldownSec} onChange={(e) => setCfg({ ...cfg, antiAbuseCooldownSec: Number(e.target.value || 0) })} /></div>
-          <div><label>Log channel ID</label><input style={input} value={cfg.logChannelId} onChange={(e) => setCfg({ ...cfg, logChannelId: e.target.value })} /></div>
+          <div>
+            <label>Log channel</label>
+            <select style={input} value={cfg.logChannelId} onChange={(e) => setCfg({ ...cfg, logChannelId: e.target.value })}>
+              <option value="">Select channel</option>
+              {textChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -207,7 +235,10 @@ export default function SelfrolesPage() {
           <div key={p.id + pi} style={{ border: "1px solid #4f0000", borderRadius: 10, padding: 10, marginBottom: 10 }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 8, alignItems: "center" }}>
               <input style={input} value={p.messageTitle} onChange={(e) => updatePanel(pi, { messageTitle: e.target.value })} />
-              <input style={input} value={p.channelId} onChange={(e) => updatePanel(pi, { channelId: e.target.value })} placeholder="channelId" />
+              <select style={input} value={p.channelId} onChange={(e) => updatePanel(pi, { channelId: e.target.value })}>
+                <option value="">Select channel</option>
+                {textChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+              </select>
               <select style={input} value={p.mode} onChange={(e) => updatePanel(pi, { mode: e.target.value as Panel["mode"] })}>
                 <option value="buttons">buttons</option>
                 <option value="select">select</option>
@@ -228,7 +259,10 @@ export default function SelfrolesPage() {
               </button>
               {(p.options || []).map((o, oi) => (
                 <div key={oi} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 120px 140px 1fr auto", gap: 8, marginBottom: 6, alignItems: "center" }}>
-                  <input style={input} placeholder="roleId" value={o.roleId} onChange={(e) => updateOption(pi, oi, { roleId: e.target.value })} />
+                  <select style={input} value={o.roleId} onChange={(e) => updateOption(pi, oi, { roleId: e.target.value })}>
+                    <option value="">Select role</option>
+                    {roles.map((r) => <option key={r.id} value={r.id}>@{r.name}</option>)}
+                  </select>
                   <input style={input} placeholder="label" value={o.label} onChange={(e) => updateOption(pi, oi, { label: e.target.value })} />
                   <input style={input} placeholder="emoji" value={o.emoji} onChange={(e) => updateOption(pi, oi, { emoji: e.target.value })} />
                   <select style={input} value={o.style} onChange={(e) => updateOption(pi, oi, { style: e.target.value as RoleOption["style"] })}>

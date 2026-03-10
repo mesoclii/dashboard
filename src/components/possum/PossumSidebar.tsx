@@ -12,6 +12,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/bot-personalizer", label: "Bot Personalizer" },
   { href: "/dashboard/bot-masters", label: "Bot Masters" },
+  { href: "/dashboard/channels", label: "Channels" },
   { href: "/dashboard/premium-features", label: "Premium Features" },
   { href: "/dashboard/ai/learning", label: "Possum AI" },
   { href: "/dashboard/ai/persona", label: "Persona AI" },

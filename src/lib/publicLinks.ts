@@ -5,7 +5,11 @@ export function buildPublicInviteUrl(guildId?: string) {
   url.searchParams.set("client_id", DISCORD_CLIENT_ID);
   url.searchParams.set("scope", "bot applications.commands");
   url.searchParams.set("permissions", "8");
-  const redirectUri = String(process.env.NEXT_PUBLIC_DISCORD_INVITE_REDIRECT_URI || "").trim();
+  const redirectUri = String(
+    process.env.NEXT_PUBLIC_DISCORD_INVITE_REDIRECT_URI ||
+    process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI ||
+    ""
+  ).trim();
   if (redirectUri) {
     url.searchParams.set("response_type", "code");
     url.searchParams.set("redirect_uri", redirectUri);
