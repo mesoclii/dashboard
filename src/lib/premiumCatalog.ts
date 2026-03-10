@@ -18,6 +18,7 @@ export type SubscriptionPlan = {
   label: string;
   monthlyUsd: number | null;
   yearlyUsd: number | null;
+  lifetimeUsd: number | null;
   headline: string;
   included: string[];
   note: string;
@@ -78,8 +79,9 @@ export const PREMIUM_PLANS: SubscriptionPlan[] = [
   {
     id: "pro",
     label: "Pro",
-    monthlyUsd: 24.99,
-    yearlyUsd: null,
+    monthlyUsd: 9.99,
+    yearlyUsd: 99.0,
+    lifetimeUsd: 299.0,
     headline: "Premium engagement and threat protection for growing communities.",
     included: [
       "TTS Engine",
@@ -93,8 +95,9 @@ export const PREMIUM_PLANS: SubscriptionPlan[] = [
   {
     id: "business",
     label: "Business",
-    monthlyUsd: 49.99,
-    yearlyUsd: null,
+    monthlyUsd: 19.99,
+    yearlyUsd: 199.0,
+    lifetimeUsd: 499.0,
     headline: "Adds governance automation and higher included usage for active servers.",
     included: [
       "Everything in Pro",
@@ -107,8 +110,9 @@ export const PREMIUM_PLANS: SubscriptionPlan[] = [
   {
     id: "enterprise",
     label: "Enterprise",
-    monthlyUsd: 99.0,
-    yearlyUsd: null,
+    monthlyUsd: 39.99,
+    yearlyUsd: 399.0,
+    lifetimeUsd: 999.0,
     headline: "Priority control for serious communities with custom support and pooled usage.",
     included: [
       "Everything in Business",

@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       plan: String(body?.plan || (body?.active ? "PRO" : "FREE")).trim() || (body?.active ? "PRO" : "FREE"),
       premiumTier: body?.premiumTier ? String(body.premiumTier) : null,
       source: "owner_override",
-    });
+    }, actorUserId);
 
     void auditDashboardEvent({
       guildId,

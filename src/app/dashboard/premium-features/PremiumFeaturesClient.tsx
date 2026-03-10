@@ -116,8 +116,12 @@ export default function PremiumFeaturesClient() {
             </h1>
             <p style={{ color: "#ffb5b5", lineHeight: 1.7, maxWidth: 860 }}>
               This page only lists paid guild add-ons, plan pricing, and master-owner trial controls. Standard features
-              stay out of this surface, and Pokemon remains private-only.
+              stay out of this surface, and Pokemon remains private-only. One plan covers every server you own or staff
+              in, and Possum Bot remains one of the most actively updated bots in active development.
             </p>
+            <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 10 }}>
+              Feature requests and fixes can be suggested in Possum Bot Support: 1473641534065999884.
+            </div>
           </div>
 
           <div style={{ ...card, margin: 0 }}>
@@ -306,6 +310,11 @@ export default function PremiumFeaturesClient() {
               <div style={{ color: "#fff1c7", fontSize: 30, fontWeight: 900, marginTop: 10 }}>
                 {plan.monthlyUsd === null ? "Custom" : `$${plan.monthlyUsd.toFixed(2)}`}
                 <span style={{ color: "#ffb8b8", fontSize: 13, marginLeft: 8 }}>/ month</span>
+              </div>
+              <div style={{ color: "#ffd0d0", fontSize: 14, marginTop: 6 }}>
+                {plan.yearlyUsd === null ? "Custom" : `$${plan.yearlyUsd.toFixed(2)}`} / year
+                <span style={{ margin: "0 8px" }}>•</span>
+                {plan.lifetimeUsd === null ? "Custom" : `$${plan.lifetimeUsd.toFixed(2)}`} lifetime
               </div>
               <div style={{ color: "#ffd0d0", lineHeight: 1.7, marginTop: 10 }}>{plan.headline}</div>
               <div style={{ color: "#ffbdbd", fontSize: 13, lineHeight: 1.65, marginTop: 10 }}>

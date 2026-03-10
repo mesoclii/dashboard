@@ -86,8 +86,12 @@ export default function FeaturesPage() {
               <p style={{ fontSize: 16, lineHeight: 1.8, maxWidth: 920, color: "#ffd3d3" }}>
                 Public guilds start on the standard ready stack so owners only need to set channels, messages,
                 images, roles, webhooks, timers, and engine preferences. Premium features stay off until enabled by
-                plan or trial. Pokemon remains private and is never part of the public catalog.
+                plan or trial. Pokemon remains private and is never part of the public catalog. One plan covers every
+                server you own or staff in, and Possum Bot stays one of the most actively updated bots in active development.
               </p>
+              <div style={{ color: "#ffb0b0", fontSize: 13, marginTop: 10 }}>
+                Feature requests and fixes can be suggested in Possum Bot Support: 1473641534065999884.
+              </div>
             </div>
 
             <div style={{ ...card, margin: 0 }}>
@@ -154,15 +158,21 @@ export default function FeaturesPage() {
                 <div style={{ color: "#ff5a5a", fontSize: 22, fontWeight: 900, textTransform: "uppercase" }}>
                   {plan.label}
                 </div>
+                <div style={{ color: "#ffd7d7", fontSize: 18, fontWeight: 900, marginTop: 10 }}>
+                  {plan.monthlyUsd === null ? "Custom" : `$${plan.monthlyUsd.toFixed(2)}`} / month
+                </div>
+                <div style={{ color: "#ffbdbd", fontSize: 13, marginTop: 6 }}>
+                  {plan.yearlyUsd === null ? "Custom" : `$${plan.yearlyUsd.toFixed(2)}`} / year
+                  <span style={{ margin: "0 8px" }}>•</span>
+                  {plan.lifetimeUsd === null ? "Custom" : `$${plan.lifetimeUsd.toFixed(2)}`} lifetime
+                </div>
                 <div style={{ color: "#ffd4d4", lineHeight: 1.7, marginTop: 12 }}>{plan.headline}</div>
                 <div style={{ color: "#ffbdbd", fontSize: 13, lineHeight: 1.7, marginTop: 12 }}>
                   {plan.included.map((item) => (
                     <div key={item}>{item}</div>
                   ))}
                 </div>
-                <div style={{ color: "#ffb8b8", fontSize: 12, marginTop: 12 }}>
-                  Pricing is provided on request. {PRICING_FOOTNOTE}
-                </div>
+                <div style={{ color: "#ffb8b8", fontSize: 12, marginTop: 12 }}>{PRICING_FOOTNOTE}</div>
               </div>
             ))}
           </div>

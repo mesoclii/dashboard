@@ -158,6 +158,9 @@ export default function Home() {
                   ? "Login with Discord to unlock guild selection"
                   : "Discord OAuth is not configured yet on this deployment."}
             </div>
+            <div style={{ color: "#ff9a9a", fontSize: 12, marginTop: 8 }}>
+              Possum Bot is one of the most actively updated bots in development. Feature requests and fixes can be suggested in Possum Bot Support: 1473641534065999884.
+            </div>
           </div>
 
           <div

@@ -10,6 +10,10 @@ function normalizeActorUserId(actorUserId?: string) {
   return String(actorUserId || MASTER_OWNER_USER_ID).trim() || MASTER_OWNER_USER_ID;
 }
 
+function globalSubscriptionId(actorUserId?: string) {
+  return `global:${normalizeActorUserId(actorUserId)}`;
+}
+
 export function featureRequiresPremium(featureKey: string) {
   return PREMIUM_FEATURES.has(String(featureKey || "").trim());
 }
@@ -68,6 +72,24 @@ export async function getGuildSubscriptionStatus(guildId: string, actorUserId?: 
       premiumExpiresAt: null,
       developerBypass,
     };
+  }
+
+  const globalId = globalSubscriptionId(normalizedActorUserId);
+  const globalRecord = await prisma.guildSubscription.findUnique({
+    where: { guildId: globalId },
+  }).catch(() => null);
+  if (globalRecord?.active) {
+    const globalStatus = {
+      guildId: id,
+      active: true,
+      plan: normalizePlan(globalRecord.plan),
+      premiumTier: globalRecord.premiumTier || null,
+      source: "global",
+      premiumExpiresAt: globalRecord.premiumExpiresAt ? globalRecord.premiumExpiresAt.toISOString() : null,
+      developerBypass,
+    };
+    await writeGuildDiscoveryCache("subscription_status", id, globalStatus, 45).catch(() => null);
+    return globalStatus;
   }
 
   const cached = await readGuildDiscoveryCache<SubscriptionStatus>("subscription_status", id);
@@ -150,7 +172,8 @@ export async function setGuildSubscriptionStatus(
     premiumTier?: string | null;
     premiumExpiresAt?: Date | null;
     source?: string;
-  }
+  },
+  actorUserId?: string
 ): Promise<SubscriptionStatus> {
   const id = String(guildId || "").trim();
   if (!id) {
@@ -189,5 +212,31 @@ export async function setGuildSubscriptionStatus(
   };
 
   await writeGuildDiscoveryCache("subscription_status", id, status, 45).catch(() => null);
+
+  const normalizedActorUserId = normalizeActorUserId(actorUserId);
+  const globalId = globalSubscriptionId(normalizedActorUserId);
+  if (normalizedActorUserId) {
+    await prisma.guildSubscription.upsert({
+      where: { guildId: globalId },
+      update: {
+        active: Boolean(input.active),
+        plan: normalizePlan(input.plan || (input.active ? "PRO" : "FREE")),
+        premiumTier: input.premiumTier ? String(input.premiumTier) : null,
+        premiumExpiresAt: input.premiumExpiresAt ?? null,
+        source: String(input.source || "global_override").trim() || "global_override",
+        syncedAt: new Date(),
+      },
+      create: {
+        guildId: globalId,
+        active: Boolean(input.active),
+        plan: normalizePlan(input.plan || (input.active ? "PRO" : "FREE")),
+        premiumTier: input.premiumTier ? String(input.premiumTier) : null,
+        premiumExpiresAt: input.premiumExpiresAt ?? null,
+        source: String(input.source || "global_override").trim() || "global_override",
+        syncedAt: new Date(),
+      },
+    }).catch(() => null);
+  }
+
   return status;
 }
