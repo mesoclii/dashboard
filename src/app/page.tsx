@@ -159,7 +159,7 @@ export default function Home() {
                   : "Discord OAuth is not configured yet on this deployment."}
             </div>
             <div style={{ color: "#ff9a9a", fontSize: 12, marginTop: 8 }}>
-              Possum Bot is one of the most actively updated bots in development. Feature requests and fixes can be suggested in Possum Bot Support: 1473641534065999884.
+              Possum Bot is one of the most actively updated bots in development. Feature requests and fixes can be suggested in Possum Bot Support: 1480942991328809223.
             </div>
           </div>
 

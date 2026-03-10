@@ -90,7 +90,7 @@ export default function FeaturesPage() {
                 server you own or staff in, and Possum Bot stays one of the most actively updated bots in active development.
               </p>
               <div style={{ color: "#ffb0b0", fontSize: 13, marginTop: 10 }}>
-                Feature requests and fixes can be suggested in Possum Bot Support: 1473641534065999884.
+                Feature requests and fixes can be suggested in Possum Bot Support: 1480942991328809223.
               </div>
             </div>
 

@@ -120,7 +120,7 @@ export default function PremiumFeaturesClient() {
               in, and Possum Bot remains one of the most actively updated bots in active development.
             </p>
             <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 10 }}>
-              Feature requests and fixes can be suggested in Possum Bot Support: 1473641534065999884.
+              Feature requests and fixes can be suggested in Possum Bot Support: 1480942991328809223.
             </div>
           </div>
 
