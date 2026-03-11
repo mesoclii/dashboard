@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { MouseEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { buildDashboardHref } from "@/lib/dashboardContext";
@@ -16,6 +17,13 @@ function itemClass(active: boolean): string {
 function isItemActive(pathname: string | null, href: string) {
   const baseHref = href.split("?")[0].split("#")[0];
   return pathname === baseHref || pathname?.startsWith(`${baseHref}/`);
+}
+
+function handleDashboardNavClick(event: MouseEvent<HTMLAnchorElement>, href: string) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (typeof window === "undefined") return;
+  window.location.assign(buildDashboardHref(href));
 }
 
 export default function PossumSidebar() {
@@ -47,9 +55,14 @@ export default function PossumSidebar() {
           {topLinks.map((item) => {
             const active = isItemActive(pathname, item.href);
             return (
-              <Link key={item.href} href={buildDashboardHref(item.href)} className={itemClass(Boolean(active))}>
+              <a
+                key={item.href}
+                href={buildDashboardHref(item.href)}
+                onClick={(event) => handleDashboardNavClick(event, item.href)}
+                className={`${itemClass(Boolean(active))} relative z-10 cursor-pointer`}
+              >
                 {item.label}
-              </Link>
+              </a>
             );
           })}
         </div>
@@ -70,17 +83,18 @@ export default function PossumSidebar() {
                 <span>{open ? "-" : "+"}</span>
               </button>
               {open ? (
-                <div className="space-y-1 px-2 pb-2">
+                <div className="relative z-10 space-y-1 px-2 pb-2">
                   {section.items.map((item) => {
                     const active = isItemActive(pathname, item.href);
                     return (
-                      <Link
+                      <a
                         key={item.href}
                         href={buildDashboardHref(item.href)}
-                        className={itemClass(Boolean(active))}
+                        onClick={(event) => handleDashboardNavClick(event, item.href)}
+                        className={`${itemClass(Boolean(active))} relative z-10 cursor-pointer`}
                       >
                         {item.label}
-                      </Link>
+                      </a>
                     );
                   })}
                 </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { MouseEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { buildDashboardHref } from "@/lib/dashboardContext";
@@ -10,6 +11,13 @@ import { getDashboardNavSections, getDashboardNavTopLinks } from "@/lib/dashboar
 function isItemActive(pathname: string | null, href: string) {
   const baseHref = href.split("?")[0].split("#")[0];
   return pathname === baseHref || pathname?.startsWith(`${baseHref}/`);
+}
+
+function handleDashboardNavClick(event: MouseEvent<HTMLAnchorElement>, href: string) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (typeof window === "undefined") return;
+  window.location.assign(buildDashboardHref(href));
 }
 
 export default function GlobalSidebar() {
@@ -44,17 +52,18 @@ export default function GlobalSidebar() {
         {topLinks.map((item) => {
           const active = isItemActive(pathname, item.href);
           return (
-            <Link
+            <a
               key={item.href}
               href={buildDashboardHref(item.href)}
+              onClick={(event) => handleDashboardNavClick(event, item.href)}
               className={
                 active
-                  ? "block rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm font-medium text-white"
-                  : "block rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                  ? "relative z-10 block cursor-pointer rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm font-medium text-white"
+                  : "relative z-10 block cursor-pointer rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
               }
             >
               {item.label}
-            </Link>
+            </a>
           );
         })}
       </div>
@@ -73,21 +82,22 @@ export default function GlobalSidebar() {
                 <span>{open ? "-" : "+"}</span>
               </button>
               {open ? (
-                <div className="space-y-1 px-2 pb-2">
+                <div className="relative z-10 space-y-1 px-2 pb-2">
                   {section.items.map((item) => {
                     const active = isItemActive(pathname, item.href);
                     return (
-                      <Link
+                      <a
                         key={item.href}
                         href={buildDashboardHref(item.href)}
+                        onClick={(event) => handleDashboardNavClick(event, item.href)}
                         className={
                           active
-                            ? "block rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm font-medium text-white"
-                            : "block rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                            ? "relative z-10 block cursor-pointer rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm font-medium text-white"
+                            : "relative z-10 block cursor-pointer rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
                         }
                       >
                         {item.label}
-                      </Link>
+                      </a>
                     );
                   })}
                 </div>
