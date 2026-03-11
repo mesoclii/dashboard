@@ -61,7 +61,9 @@ export const ENGINE_REGISTRY: EngineDef[] = [
   { id: "truthdare", label: "Truth Dare", description: "Truth/Dare controls", group: "Games", route: "/dashboard/truthdare" },
 
   { id: "automation-studio", label: "Automation Studio", description: "Visual automation builder and runtime editor", group: "Automation", route: "/dashboard/automations/studio" },
-  { id: "commands", label: "Command Studio", description: "Custom command builder", group: "Automation", route: "/dashboard/commands" },
+  { id: "commands", label: "!Command Studio", description: "Custom bang-command builder", group: "Automation", route: "/dashboard/commands" },
+  { id: "slash-commands", label: "Slash Commands", description: "Native built-in slash command master", group: "Automation", route: "/dashboard/slash-commands" },
+  { id: "moderator", label: "Moderator", description: "Separate automod, audit, and moderation control surface", group: "Community", route: "/dashboard/moderator" },
   { id: "panel-hub", label: "Panel Hub", description: "Panel-backed engine launch and shared deploy controls", group: "Automation", route: "/dashboard/panels" },
   { id: "event-reactor", label: "Event Reactor", description: "Scheduled event reactor controls", group: "Automation", route: "/dashboard/event-reactor" },
 

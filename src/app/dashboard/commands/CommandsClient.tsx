@@ -559,7 +559,7 @@ export default function CustomCommandsPage() {
 
   return (
     <div style={{ color: "#ff6b6b", maxWidth: 1400 }}>
-      <h1 style={h1Style}>Command Studio</h1>
+      <h1 style={h1Style}>!Command Studio</h1>
       <p style={{ marginTop: 0 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
       {msg ? <p style={{ color: "#ffb3b3" }}>{msg}</p> : null}
       {loading ? <p>Loading...</p> : null}
