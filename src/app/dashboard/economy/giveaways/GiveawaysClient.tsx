@@ -15,6 +15,9 @@ type GiveawayImage = {
 
 type GiveawaysUiConfig = {
   active: boolean;
+  defaultChannelId: string;
+  channelId: string;
+  ticketChannelId: string;
   defaultDurationMin: number;
   defaultWinners: number;
   defaultPrize: string;
@@ -42,6 +45,9 @@ type GiveawaysUiConfig = {
 
 const DEFAULT_CONFIG: GiveawaysUiConfig = {
   active: true,
+  defaultChannelId: "",
+  channelId: "",
+  ticketChannelId: "",
   defaultDurationMin: 60,
   defaultWinners: 1,
   defaultPrize: "",
@@ -84,6 +90,11 @@ function cleanText(v: unknown, fallback = "", max = 4000): string {
   return String(v ?? fallback).trim().slice(0, max);
 }
 
+function cleanId(v: unknown): string {
+  const s = cleanText(v, "", 30);
+  return /^\d{16,20}$/.test(s) ? s : "";
+}
+
 function cleanUrl(v: unknown): string {
   const s = cleanText(v, "", 2000);
   if (!s) return "";
@@ -108,6 +119,9 @@ function normalize(cfg: GiveawaysUiConfig): GiveawaysUiConfig {
 
   return {
     active: !!cfg.active,
+    defaultChannelId: cleanId(cfg.defaultChannelId),
+    channelId: cleanId(cfg.channelId),
+    ticketChannelId: cleanId(cfg.ticketChannelId),
     defaultDurationMin: clampInt(cfg.defaultDurationMin, 60, 1, 43200),
     defaultWinners: clampInt(cfg.defaultWinners, 1, 1, 100),
     defaultPrize: cleanText(cfg.defaultPrize, "", 200),
@@ -278,6 +292,9 @@ export default function GiveawaysPage() {
         normalize({
           ...p,
           active: false,
+          defaultChannelId: "",
+          channelId: "",
+          ticketChannelId: "",
           requireStaffApproval: false,
           allowedRoleIds: [],
           blockedRoleIds: [],
@@ -298,6 +315,9 @@ export default function GiveawaysPage() {
           defaultDurationMin: 60,
           defaultWinners: 1,
           requireStaffApproval: false,
+          defaultChannelId: p.defaultChannelId,
+          channelId: p.channelId,
+          ticketChannelId: p.ticketChannelId,
           runtime: {
             ...p.runtime,
             maxConcurrentGiveaways: 5,
@@ -313,11 +333,14 @@ export default function GiveawaysPage() {
         ...p,
         active: true,
         defaultDurationMin: 180,
-        defaultWinners: 3,
-        requireStaffApproval: true,
-        runtime: {
-          ...p.runtime,
-          maxConcurrentGiveaways: 10,
+          defaultWinners: 3,
+          requireStaffApproval: true,
+          defaultChannelId: p.defaultChannelId,
+          channelId: p.channelId,
+          ticketChannelId: p.ticketChannelId,
+          runtime: {
+            ...p.runtime,
+            maxConcurrentGiveaways: 10,
           cooldownMinutes: 15
         }
       })
@@ -374,31 +397,19 @@ export default function GiveawaysPage() {
       const data = await res.json();
       if (!res.ok || data?.success === false) throw new Error(data?.error || "Save failed");
 
-      const enginePatch: Record<string, unknown> = {
-        defaultImageUrl: normalized.defaultImageUrl || "",
-        channelId: normalized.allowedChannelIds[0] || ""
-      };
-
-      const [a, b] = await Promise.all([
-        silentPost("/api/bot/dashboard-config", {
+        const a = await silentPost("/api/bot/dashboard-config", {
           guildId,
           patch: {
             features: {
               giveawaysEnabled: !!normalized.active
             }
           }
-        }),
-        silentPost("/api/bot/engine-config", {
-          guildId,
-          engine: "giveaways",
-          patch: enginePatch
-        })
-      ]);
+        });
 
-      setCfg(normalized);
-      setInitialSig(sig(normalized));
-      setMsg(`Saved giveaways config. Live sync ${Number(a) + Number(b)}/2.`);
-    } catch (e: any) {
+        setCfg(normalized);
+        setInitialSig(sig(normalized));
+        setMsg(`Saved giveaways config. Live sync ${Number(a)}/1.`);
+      } catch (e: any) {
       setMsg(e?.message || "Save failed.");
     } finally {
       setSaving(false);
@@ -514,6 +525,36 @@ export default function GiveawaysPage() {
               <div>
                 <div>Min Account Age (days)</div>
                 <input type="number" style={input} value={cfg.antiAbuse.minAccountAgeDays} onChange={(e) => setCfg({ ...cfg, antiAbuse: { ...cfg.antiAbuse, minAccountAgeDays: clampInt(e.target.value, 0, 0, 3650) } })} />
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginTop: 12 }}>
+              <div>
+                <div>Default Giveaway Channel</div>
+                <select style={input} value={cfg.defaultChannelId} onChange={(e) => setCfg({ ...cfg, defaultChannelId: e.target.value })}>
+                  <option value="">Select channel</option>
+                  {textChannels.map((c) => (
+                    <option key={c.id} value={c.id}>#{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div>Legacy Override Channel</div>
+                <select style={input} value={cfg.channelId} onChange={(e) => setCfg({ ...cfg, channelId: e.target.value })}>
+                  <option value="">Select channel</option>
+                  {textChannels.map((c) => (
+                    <option key={c.id} value={c.id}>#{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div>Ticket / Claim Channel</div>
+                <select style={input} value={cfg.ticketChannelId} onChange={(e) => setCfg({ ...cfg, ticketChannelId: e.target.value })}>
+                  <option value="">Select channel</option>
+                  {textChannels.map((c) => (
+                    <option key={c.id} value={c.id}>#{c.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

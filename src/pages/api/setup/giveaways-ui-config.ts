@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import fs from "fs";
 import path from "path";
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 
 type GiveawayImage = {
   url: string;
@@ -9,6 +10,9 @@ type GiveawayImage = {
 
 type GiveawaysUiConfig = {
   active: boolean;
+  defaultChannelId: string;
+  channelId: string;
+  ticketChannelId: string;
   defaultDurationMin: number;
   defaultWinners: number;
   defaultPrize: string;
@@ -38,6 +42,9 @@ const ROOT = path.join(process.cwd(), "data", "baselines");
 
 const DEFAULT_CONFIG: GiveawaysUiConfig = {
   active: true,
+  defaultChannelId: "",
+  channelId: "",
+  ticketChannelId: "",
   defaultDurationMin: 60,
   defaultWinners: 1,
   defaultPrize: "",
@@ -154,6 +161,9 @@ function sanitize(input: unknown): GiveawaysUiConfig {
 
   return {
     active: !!merged.active,
+    defaultChannelId: cleanId(merged.defaultChannelId),
+    channelId: cleanId(merged.channelId),
+    ticketChannelId: cleanId(merged.ticketChannelId),
     defaultDurationMin: cleanInt(merged.defaultDurationMin, 60, 1, 43200),
     defaultWinners: cleanInt(merged.defaultWinners, 1, 1, 100),
     defaultPrize: cleanText(merged.defaultPrize, "", 200),
@@ -197,25 +207,61 @@ function writeConfig(guildId: string, config: GiveawaysUiConfig) {
   fs.writeFileSync(fileFor(guildId), JSON.stringify(config, null, 2), "utf8");
 }
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+async function readEngineConfig(req: NextApiRequest, guildId: string) {
+  const upstream = await fetch(
+    `${BOT_API}/engine-config?guildId=${encodeURIComponent(guildId)}&engine=giveaways`,
+    { headers: buildBotApiHeaders(req), cache: "no-store" }
+  );
+  const data = await readJsonSafe(upstream);
+  const config = isObj(data?.config) ? (data.config as GiveawaysUiConfig) : {};
+  return { upstream, data, config };
+}
+
+function hasConfigPayload(config: Record<string, unknown>) {
+  return Object.keys(config || {}).length > 0;
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method === "GET") {
       const guildId = String(req.query.guildId || "").trim();
       if (!isSnowflake(guildId)) return res.status(400).json({ success: false, error: "guildId is required" });
-      return res.status(200).json({ success: true, guildId, config: readConfig(guildId) });
+      const local = readConfig(guildId);
+      const remote = await readEngineConfig(req, guildId).catch(() => null);
+      const remoteCfg = remote?.config && hasConfigPayload(remote.config as any) ? remote.config : null;
+      const config = sanitize(remoteCfg || local);
+      return res.status(200).json({ success: true, guildId, config });
     }
 
     if (req.method === "POST" || req.method === "PUT") {
       const guildId = String(req.body?.guildId || req.query.guildId || "").trim();
       if (!isSnowflake(guildId)) return res.status(400).json({ success: false, error: "guildId is required" });
 
-      const current = readConfig(guildId);
+      const local = readConfig(guildId);
+      const remote = await readEngineConfig(req, guildId).catch(() => null);
+      const base = remote?.config && hasConfigPayload(remote.config as any) ? remote.config : local;
       const incoming = req.body?.config ?? req.body?.patch ?? {};
-      const next = sanitize(mergeDeep(current, incoming));
+      const next = sanitize(mergeDeep(base, incoming));
       next.lastSavedAt = new Date().toISOString();
+
       writeConfig(guildId, next);
 
-      return res.status(200).json({ success: true, guildId, config: next });
+      const upstream = await fetch(`${BOT_API}/engine-config`, {
+        method: "POST",
+        headers: buildBotApiHeaders(req, { json: true }),
+        body: JSON.stringify({ guildId, engine: "giveaways", config: next })
+      });
+      const data = await readJsonSafe(upstream);
+      if (!upstream.ok) {
+        return res.status(upstream.status).json({
+          success: false,
+          error: data?.error || "Failed to sync giveaways to bot",
+          guildId,
+          config: next
+        });
+      }
+
+      return res.status(200).json({ success: true, guildId, config: data?.config || next });
     }
 
     return res.status(405).json({ success: false, error: "Method not allowed" });

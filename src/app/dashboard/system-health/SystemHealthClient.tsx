@@ -44,10 +44,12 @@ export default function SystemHealthPage() {
   const [snapshots, setSnapshots] = useState<any[]>([]);
   const [statusSummary, setStatusSummary] = useState<any>(null);
   const [engineCatalogSummary, setEngineCatalogSummary] = useState<{ engines: number; sections: number } | null>(null);
+  const [engineHealth, setEngineHealth] = useState<any>(null);
+  const [eventReactorFailures, setEventReactorFailures] = useState<any[]>([]);
 
   async function loadAll(gid: string) {
     if (!gid) return;
-    const [r1, r2, r3, r4, r5, r6, r7, r8] = await Promise.all([
+    const [r1, r2, r3, r4, r5, r6, r7, r8, r9, r10] = await Promise.all([
       fetch(`/api/setup/runtime-safety-config?guildId=${gid}`).then((r) => r.json()),
       fetch(`/api/setup/audit-trail-config?guildId=${gid}`).then((r) => r.json()),
       fetch(`/api/setup/audit-trail-events?guildId=${gid}&limit=200`).then((r) => r.json()),
@@ -55,7 +57,9 @@ export default function SystemHealthPage() {
       fetch(`/api/setup/snapshots`).then((r) => r.json()).catch(() => ({ snapshots: [] })),
       fetch(`/api/bot/guild-data?guildId=${gid}`).then((r) => r.json()).catch(() => ({})),
       fetch(`/api/status`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
-      fetch(`/api/bot/engine-catalog?guildId=${gid}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({}))
+      fetch(`/api/bot/engine-catalog?guildId=${gid}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
+      fetch(`/api/bot/engine-health?guildId=${gid}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
+      fetch(`/api/bot/event-reactor-failures?guildId=${gid}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({}))
     ]);
     setRuntime(r1?.config || null);
     setAuditCfg(r2?.config || null);
@@ -72,6 +76,8 @@ export default function SystemHealthPage() {
     const engineCount = Array.isArray(catalogRoot?.engines) ? catalogRoot.engines.length : 0;
     const sectionCount = Array.isArray(catalogRoot?.dashboardSections) ? catalogRoot.dashboardSections.length : 0;
     setEngineCatalogSummary({ engines: engineCount, sections: sectionCount });
+    setEngineHealth(r9?.success ? r9 : null);
+    setEventReactorFailures(Array.isArray(r10?.failures) ? r10.failures : []);
   }
 
   useEffect(() => {
@@ -122,6 +128,18 @@ export default function SystemHealthPage() {
     setSnapshots(Array.isArray(j2?.snapshots) ? j2.snapshots : []);
   }
 
+  async function clearEventReactorFailures() {
+    if (!guildId) return;
+    const r = await fetch("/api/bot/event-reactor-failures", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guildId, action: "clear" })
+    });
+    const j = await r.json();
+    setMsg(j?.success ? "Event reactor failures cleared." : j?.error || "Failed to clear event reactor failures.");
+    await loadAll(guildId);
+  }
+
   return (
     <div style={{ padding: 18, color: "#ffd7d7" }}>
       <h1 style={{ marginTop: 0, color: "#ff4d4d", letterSpacing: "0.06em" }}>System Health + Ops</h1>
@@ -159,6 +177,53 @@ export default function SystemHealthPage() {
               <div style={{ fontWeight: 800, marginTop: 6 }}>{snapshots.length}</div>
               <div style={{ fontSize: 12, marginTop: 4, color: "#ffd0d0" }}>Recent backups stored</div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {engineHealth && (
+        <div style={box}>
+          <b>Engine Health</b>
+          <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+            {[
+              ["DB", engineHealth.health?.db],
+              ["Memory DB", engineHealth.health?.memory],
+              ["AI Provider", engineHealth.health?.ai],
+              ["Services", engineHealth.health?.services],
+              ["Router", engineHealth.health?.router],
+              ["Engines", engineHealth.health?.engines],
+            ].map(([label, ok]) => (
+              <div key={String(label)} style={{ background: "#0f0f0f", borderRadius: 10, padding: 10 }}>
+                <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#ff8c8c" }}>{label}</div>
+                <div style={{ fontWeight: 800, marginTop: 6 }}>{ok ? "OK" : "WARN"}</div>
+              </div>
+            ))}
+            <div style={{ background: "#0f0f0f", borderRadius: 10, padding: 10 }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#ff8c8c" }}>Heap Used</div>
+              <div style={{ fontWeight: 800, marginTop: 6 }}>
+                {engineHealth.memory ? `${Math.round(Number(engineHealth.memory.heapUsed || 0) / 1024 / 1024)} MB` : "n/a"}
+              </div>
+              <div style={{ fontSize: 12, marginTop: 4, color: "#ffd0d0" }}>Uptime {engineHealth.uptimeSec || 0}s</div>
+            </div>
+            <div style={{ background: "#0f0f0f", borderRadius: 10, padding: 10 }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#ff8c8c" }}>Event Reactor</div>
+              <div style={{ fontWeight: 800, marginTop: 6 }}>{engineHealth.eventReactor?.failureCount || 0} failures</div>
+              <button onClick={clearEventReactorFailures} style={{ marginTop: 8 }}>Clear Failures</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {eventReactorFailures.length > 0 && (
+        <div style={box}>
+          <h3 style={{ marginTop: 0, color: "#ff4444" }}>Event Reactor Failures</h3>
+          <div style={{ maxHeight: 260, overflow: "auto", fontSize: 12, background: "#111", padding: 8, borderRadius: 8 }}>
+            {eventReactorFailures.map((f: any, i: number) => (
+              <div key={i} style={{ marginBottom: 8 }}>
+                <div><b>{f.engine || "unknown"}</b> · {f.event || "event"} · {f.at || ""}</div>
+                <div style={{ color: "#ffb0b0" }}>{f.error || f.message || "failure"}</div>
+              </div>
+            ))}
           </div>
         </div>
       )}

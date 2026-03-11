@@ -76,7 +76,31 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
     let mounted = true;
 
     (async () => {
-      const { guildId, userId, userRoleIds } = getContext();
+      const { guildId, userRoleIds } = getContext();
+      let userId = "";
+
+      try {
+        const sessionRes = await fetch("/api/auth/session", { cache: "no-store" });
+        const sessionJson = await sessionRes.json().catch(() => ({}));
+        if (!sessionJson?.loggedIn) {
+          if (!mounted) return;
+          setAllowed(false);
+          setReason("Login required. Please connect Discord before entering the dashboard.");
+          setReady(true);
+          return;
+        }
+
+        userId = String(sessionJson?.user?.id || "").trim();
+        if (userId && typeof window !== "undefined") {
+          localStorage.setItem("dashboardUserId", userId);
+        }
+      } catch {
+        if (!mounted) return;
+        setAllowed(false);
+        setReason("Login session check failed. Please reload and log in again.");
+        setReady(true);
+        return;
+      }
 
       if (!guildId) {
         if (!mounted) return;
@@ -145,13 +169,8 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
 
         if (!hasIdentity) {
           if (!mounted) return;
-          // Fail-open with explicit warning when identity context is unavailable.
-          setAllowed(true);
-          if (hasRules) {
-            setWarning(
-              "Dashboard identity context missing (userId/roleIds). Access policy was not fully enforced for this session."
-            );
-          }
+          setAllowed(false);
+          setReason("Dashboard identity context missing. Please log in again.");
           setReady(true);
           return;
         }
@@ -206,6 +225,20 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
         </h2>
         <p style={{ marginBottom: 12 }}>{reason || "Dashboard access denied by role policy."}</p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <a
+            href="/api/auth/discord/login"
+            style={{
+              border: "1px solid #7a0000",
+              borderRadius: 10,
+              padding: "8px 12px",
+              color: "#ffd0d0",
+              textDecoration: "none",
+              fontWeight: 700,
+              background: "#1a0000",
+            }}
+          >
+            Login with Discord
+          </a>
           <a
             href="/guilds"
             style={{

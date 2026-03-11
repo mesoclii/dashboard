@@ -7,6 +7,7 @@ import {
 } from "@/lib/guildPolicy";
 import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
+import { requirePremiumAccess, mapPremiumFeatureKey } from "@/lib/premiumGuard";
 
 function normalizeWriteBody(req: NextApiRequest, guildId: string) {
   const body = req.body && typeof req.body === "object" ? { ...req.body } : {};
@@ -65,6 +66,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const body = normalizeWriteBody(req, guildId);
+      if (typeof body.engine === "string" && body.engine.trim()) {
+        const featureKey = mapPremiumFeatureKey(body.engine);
+        if (["tts", "heist", "persona", "openai-platform"].includes(featureKey)) {
+          const allowed = await requirePremiumAccess(req, res, guildId, featureKey);
+          if (!allowed) return;
+        }
+      }
       const upstream = await fetch(`${BOT_API}/engine-config`, {
         method: req.method,
         headers: buildBotApiHeaders(req, { json: true }),
