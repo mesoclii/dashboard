@@ -110,7 +110,7 @@ export default function GuildsPage() {
   const [guilds, setGuilds] = useState<Guild[]>([]);
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
-  const [inviteUrl, setInviteUrl] = useState("");
+  const baseInviteUrl = useMemo(() => buildPublicInviteUrl(), []);
   const [oauthConfigured, setOauthConfigured] = useState(false);
   const [oauthLoggedIn, setOauthLoggedIn] = useState(false);
   const [oauthUser, setOauthUser] = useState<DiscordUser | null>(null);
@@ -220,7 +220,7 @@ export default function GuildsPage() {
           });
         }
 
-        setInviteUrl(buildPublicInviteUrl());
+        // Always compute invite URLs client-side to avoid stale OAuth params.
 
         for (const [guildId, guildName] of Object.entries(FALLBACK_GUILD_NAMES)) {
           if (!merged.has(guildId)) {
@@ -422,9 +422,9 @@ export default function GuildsPage() {
               </a>
             ) : null}
 
-            {inviteUrl ? (
+            {baseInviteUrl ? (
               <a
-                href={inviteUrl}
+                href={baseInviteUrl}
                 target="_blank"
                 rel="noreferrer"
                 style={{
@@ -456,7 +456,7 @@ export default function GuildsPage() {
             const isPublicBaseline = guild.id === policy.gamesBaselineGuildId;
             const isInstalled = guild.botPresent !== false;
             const iconUrl = resolveGuildIcon(guild);
-            const inviteHref = buildInviteUrl(inviteUrl, guild.id);
+            const inviteHref = buildInviteUrl(baseInviteUrl, guild.id);
 
             const baselineLabel = isPrimary
               ? "Primary Baseline"
