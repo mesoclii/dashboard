@@ -3,6 +3,7 @@
 
 
 import { useEffect, useMemo, useState } from "react";
+import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
 
 type GuildChannel = { id: string; name: string; type?: number | string };
 type GuildRole = { id: string; name: string };
@@ -284,6 +285,16 @@ export default function SelfrolesPage() {
         <label>Notes</label>
         <textarea style={{ ...input, minHeight: 90 }} value={cfg.notes} onChange={(e) => setCfg({ ...cfg, notes: e.target.value })} />
       </div>
+
+      <ConfigJsonEditor
+        title="Advanced Selfroles Config"
+        value={cfg}
+        disabled={saving}
+        onApply={async (next) => {
+          setCfg({ ...DEFAULTS, ...(next as any) });
+          await save();
+        }}
+      />
 
       {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
 

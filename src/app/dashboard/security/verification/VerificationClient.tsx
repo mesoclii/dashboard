@@ -3,6 +3,7 @@
 
 
 import { useEffect, useMemo, useState } from "react";
+import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
 import { getGuildId, loadDashboardConfig, saveDashboardPatch, styles, StatusPill } from "../_engineClient";
 
 const DEFAULTS: any = {
@@ -90,6 +91,16 @@ export default function VerificationPage() {
           <textarea style={styles.area} value={cfg.declineReplyTemplate || ""} onChange={(e) => setCfg({ ...cfg, declineReplyTemplate: e.target.value })} />
         </div>
       </div>
+
+      <ConfigJsonEditor
+        title="Advanced Verification Config"
+        value={cfg}
+        disabled={saving}
+        onApply={async (next) => {
+          setCfg({ ...DEFAULTS, ...(next as any) });
+          await save();
+        }}
+      />
 
       {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
 

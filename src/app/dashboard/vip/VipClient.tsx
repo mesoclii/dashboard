@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
 
 type Channel = { id: string; name: string; type?: number | string };
 type Role = { id: string; name: string };
@@ -251,6 +252,16 @@ export default function VipClient() {
               </Link>
             </div>
           </section>
+
+          <ConfigJsonEditor
+            title="Advanced VIP Config"
+            value={cfg}
+            disabled={saving}
+            onApply={async (next) => {
+              setCfg({ ...EMPTY, ...(next as any) });
+              await save();
+            }}
+          />
 
           <button onClick={save} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
             {saving ? "Saving..." : "Save VIP"}

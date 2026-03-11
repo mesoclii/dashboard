@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
 
 type Role = { id: string; name: string; position?: number };
 type Channel = { id: string; name: string; type: number };
@@ -654,6 +655,17 @@ export default function GiveawaysPage() {
             <h3 style={{ marginTop: 0, color: "#ff4444" }}>Notes</h3>
             <textarea style={{ ...input, minHeight: 120 }} value={cfg.notes} onChange={(e) => setCfg({ ...cfg, notes: e.target.value })} />
           </div>
+
+          <ConfigJsonEditor
+            title="Advanced Giveaways Config"
+            value={cfg}
+            disabled={saving}
+            onApply={async (next) => {
+              const normalized = normalize({ ...cloneDefaults(), ...(next as any) });
+              setCfg(normalized);
+              await saveAll();
+            }}
+          />
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
             <Link href={`/dashboard/economy?guildId=${encodeURIComponent(guildId)}`} style={{ color: "#fff" }}>

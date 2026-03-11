@@ -4,6 +4,7 @@
 
 import { useMemo } from "react";
 import EngineInsights from "@/components/possum/EngineInsights";
+import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
 type Config = {
@@ -227,6 +228,13 @@ export default function HeistPage() {
         <label>Notes</label>
         <textarea style={{ ...input, minHeight: 90 }} value={cfg.notes} onChange={(e) => setCfg({ ...cfg, notes: e.target.value })} />
       </div>
+
+      <ConfigJsonEditor
+        title="Advanced Heist Config"
+        value={cfg}
+        disabled={saving}
+        onApply={(next) => save(next as Partial<Config>)}
+      />
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
         <button onClick={() => save(cfg)} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>

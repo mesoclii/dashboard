@@ -3,6 +3,7 @@
 
 
 import { useEffect, useMemo, useState } from "react";
+import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
 import { getGuildId, loadDashboardConfig, saveDashboardPatch, styles, StatusPill } from "../_engineClient";
 
 type GuildChannel = { id: string; name: string; type?: number | string };
@@ -262,6 +263,16 @@ export default function OnboardingPage() {
           </div>
         ))}
       </div>
+
+      <ConfigJsonEditor
+        title="Advanced Onboarding Config"
+        value={cfg}
+        disabled={saving}
+        onApply={async (next) => {
+          setCfg({ ...DEFAULTS, ...(next as any) });
+          await save();
+        }}
+      />
 
       {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
 
 type Role = { id: string; name: string };
 type Channel = { id: string; name: string };
@@ -512,8 +513,19 @@ export default function StorePage() {
               </div>
             ))}
 
-            <button onClick={addItem} style={{ ...input, width: "auto", cursor: "pointer" }}>+ Add Item</button>
+          <button onClick={addItem} style={{ ...input, width: "auto", cursor: "pointer" }}>+ Add Item</button>
           </div>
+
+          <ConfigJsonEditor
+            title="Advanced Store Config"
+            value={cfg}
+            disabled={saving}
+            onApply={async (next) => {
+              const normalized = mergeConfig(next);
+              setCfg(normalized);
+              await save();
+            }}
+          />
 
           <button onClick={save} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 700 }}>
             {saving ? "Saving..." : "Save Store"}

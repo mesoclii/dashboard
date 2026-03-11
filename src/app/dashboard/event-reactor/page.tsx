@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
 
 type EventCfg = {
   active: boolean;
@@ -206,6 +207,17 @@ export default function EventReactorPage() {
               )) : <div style={{ color: "#ffbdbd", fontSize: 12 }}>No failures recorded.</div>}
             </div>
           </section>
+
+          <ConfigJsonEditor
+            title="Advanced Event Reactor Config"
+            value={cfg}
+            disabled={saving}
+            onApply={async (next) => {
+              const merged = { ...EMPTY, ...(next as any) };
+              setCfg(merged);
+              await save();
+            }}
+          />
 
           <button onClick={save} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
             {saving ? "Saving..." : "Save Event Reactor"}
