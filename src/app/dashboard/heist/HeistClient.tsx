@@ -15,6 +15,8 @@ type Config = {
   hostRoleIds: string[];
   maxPlayers: number;
   reserveSlots: number;
+  weeklyLimit: number;
+  autoBumpMinutes: number;
   joinWindowMinutes: number;
   sessionDurationMinutes: number;
   cooldownMinutes: number;
@@ -42,6 +44,8 @@ const DEFAULTS: Config = {
   hostRoleIds: [],
   maxPlayers: 8,
   reserveSlots: 2,
+  weeklyLimit: 3,
+  autoBumpMinutes: 10,
   joinWindowMinutes: 10,
   sessionDurationMinutes: 45,
   cooldownMinutes: 15,
@@ -197,6 +201,8 @@ export default function HeistPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px, 1fr))", gap: 10 }}>
           <div><label>Max players</label><input style={input} type="number" value={cfg.maxPlayers} onChange={(e) => setCfg({ ...cfg, maxPlayers: Number(e.target.value || 0) })} /></div>
           <div><label>Reserve slots</label><input style={input} type="number" value={cfg.reserveSlots} onChange={(e) => setCfg({ ...cfg, reserveSlots: Number(e.target.value || 0) })} /></div>
+          <div><label>Weekly limit</label><input style={input} type="number" value={cfg.weeklyLimit} onChange={(e) => setCfg({ ...cfg, weeklyLimit: Number(e.target.value || 0) })} /></div>
+          <div><label>Auto-bump (minutes)</label><input style={input} type="number" value={cfg.autoBumpMinutes} onChange={(e) => setCfg({ ...cfg, autoBumpMinutes: Number(e.target.value || 0) })} /></div>
           <div><label>Join window (minutes)</label><input style={input} type="number" value={cfg.joinWindowMinutes} onChange={(e) => setCfg({ ...cfg, joinWindowMinutes: Number(e.target.value || 0) })} /></div>
           <div><label>Session duration (minutes)</label><input style={input} type="number" value={cfg.sessionDurationMinutes} onChange={(e) => setCfg({ ...cfg, sessionDurationMinutes: Number(e.target.value || 0) })} /></div>
           <div><label>Cooldown (minutes)</label><input style={input} type="number" value={cfg.cooldownMinutes} onChange={(e) => setCfg({ ...cfg, cooldownMinutes: Number(e.target.value || 0) })} /></div>

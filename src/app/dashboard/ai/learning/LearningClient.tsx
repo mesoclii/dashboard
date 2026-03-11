@@ -17,12 +17,20 @@ type PossumSettings = {
   gamerMode: boolean;
   regionAware: boolean;
   escalationOn: boolean;
+  learningEnabled: boolean;
+  knowledgeStoreEnabled: boolean;
+  profileVisibility: "full" | "limited" | "hidden";
+  adaptiveReplyFrequency: number;
+  personalityLabel: string;
+  toneBank: string;
 };
 
 type ChannelModeRow = {
   channelId: string;
   mode: string;
 };
+
+const RUNTIME_ENGINE_KEY = "aiRuntime";
 
 const DEFAULT_SETTINGS: PossumSettings = {
   mode: "savage",
@@ -34,6 +42,12 @@ const DEFAULT_SETTINGS: PossumSettings = {
   gamerMode: false,
   regionAware: true,
   escalationOn: true,
+  learningEnabled: true,
+  knowledgeStoreEnabled: true,
+  profileVisibility: "full",
+  adaptiveReplyFrequency: 0.22,
+  personalityLabel: "saviors",
+  toneBank: "saviors",
 };
 
 const wrap: CSSProperties = { color: "#ffd0d0", maxWidth: 1360 };
@@ -145,6 +159,12 @@ const CHANNEL_MODE_OPTIONS = [
   { value: "monitor", label: "Monitor Only" },
 ];
 
+const TONE_BANK_OPTIONS = [
+  { value: "saviors", label: "Saviors (Default)" },
+  { value: "mentor", label: "Mentor" },
+  { value: "ruthless", label: "Ruthless" },
+];
+
 const SLIDER_FIELDS: Array<{
   key: keyof Pick<PossumSettings, "toneIntensity" | "sarcasmLevel" | "seriousness" | "verbosity">;
   label: string;
@@ -197,7 +217,7 @@ export default function LearningClient() {
       setLoading(true);
       setMessage("");
       const [runtimeRes, settingsRes, guildRes] = await Promise.all([
-        fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(targetGuildId)}&engine=runtimeRouter`, {
+        fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(targetGuildId)}&engine=${encodeURIComponent(RUNTIME_ENGINE_KEY)}`, {
           cache: "no-store",
         }),
         fetch(`/api/bot/possum-settings?guildId=${encodeURIComponent(targetGuildId)}`, {
@@ -339,7 +359,7 @@ export default function LearningClient() {
     }
   }
 
-  async function runtimeAction(actionName: "clearReplyMemory" | "wipeProfiles" | "wipeKnowledge") {
+  async function runtimeAction(actionName: "clearReplyMemory" | "wipeProfiles" | "wipeKnowledge" | "resetAdaptive" | "seedKnowledge") {
     if (!guildId) return;
     setSaving(true);
     setMessage("");
@@ -351,6 +371,9 @@ export default function LearningClient() {
           guildId,
           engine: "runtimeRouter",
           action: actionName,
+          payload: actionName === "seedKnowledge"
+            ? { toneBank: settings.toneBank, personalityLabel: settings.personalityLabel }
+            : undefined,
         }),
       });
       const json = await readJsonOrThrow(res);
@@ -560,6 +583,33 @@ export default function LearningClient() {
                 </div>
               </div>
               <div>
+                <label>Personality label</label>
+                <input
+                  style={input}
+                  value={settings.personalityLabel || ""}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, personalityLabel: e.target.value }))}
+                  placeholder="saviors"
+                />
+                <div style={{ color: "#ff9c9c", fontSize: 11, marginTop: 6 }}>
+                  Used to tag per-guild adaptive memory and seed lines.
+                </div>
+              </div>
+              <div>
+                <label>Tone bank</label>
+                <select
+                  style={input}
+                  value={settings.toneBank}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, toneBank: e.target.value }))}
+                >
+                  {TONE_BANK_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <div style={{ color: "#ff9c9c", fontSize: 11, marginTop: 6 }}>
+                  Selects the response bank used for Possum adaptive replies.
+                </div>
+              </div>
+              <div>
                 <label style={{ display: "block", marginBottom: 10 }}>
                   <input
                     type="checkbox"
@@ -567,6 +617,22 @@ export default function LearningClient() {
                     onChange={(e) => setSettings((prev) => ({ ...prev, autoReplies: e.target.checked }))}
                   />{" "}
                   Auto replies enabled
+                </label>
+                <label style={{ display: "block", marginBottom: 10 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.learningEnabled}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, learningEnabled: e.target.checked }))}
+                  />{" "}
+                  Learning writes enabled
+                </label>
+                <label style={{ display: "block", marginBottom: 10 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.knowledgeStoreEnabled}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, knowledgeStoreEnabled: e.target.checked }))}
+                  />{" "}
+                  Knowledge store enabled
                 </label>
                 <label style={{ display: "block", marginBottom: 10 }}>
                   <input
@@ -592,6 +658,39 @@ export default function LearningClient() {
                   />{" "}
                   Escalation logic enabled
                 </label>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12, marginTop: 14 }}>
+              <div>
+                <label>Profile visibility</label>
+                <select
+                  style={input}
+                  value={settings.profileVisibility}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, profileVisibility: e.target.value as PossumSettings["profileVisibility"] }))}
+                >
+                  <option value="full">Full (user + channel profiles)</option>
+                  <option value="limited">Limited (channel only)</option>
+                  <option value="hidden">Hidden (no profiles)</option>
+                </select>
+                <div style={{ color: "#ff9c9c", fontSize: 11, marginTop: 6 }}>
+                  Controls whether learned profiles are referenced in adaptive replies.
+                </div>
+              </div>
+              <div>
+                <label>Adaptive reply frequency</label>
+                <input
+                  style={input}
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={settings.adaptiveReplyFrequency}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, adaptiveReplyFrequency: Number(e.target.value || 0) }))}
+                />
+                <div style={{ color: "#ff9c9c", fontSize: 11, marginTop: 6 }}>
+                  Ambient reply chance (0.0 - 1.0). Default is 0.22.
+                </div>
               </div>
             </div>
 
@@ -644,6 +743,12 @@ export default function LearningClient() {
                 </button>
                 <button type="button" onClick={() => void runtimeAction("wipeKnowledge")} disabled={saving} style={action}>
                   Wipe Knowledge
+                </button>
+                <button type="button" onClick={() => void runtimeAction("resetAdaptive")} disabled={saving} style={action}>
+                  Reset Adaptive Data
+                </button>
+                <button type="button" onClick={() => void runtimeAction("seedKnowledge")} disabled={saving} style={action}>
+                  Seed Knowledge
                 </button>
               </div>
             </div>

@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import { requirePremiumAccess } from "@/lib/premiumGuard";
+import { normalizeEngineKey } from "@/lib/engineKeys";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -19,6 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const guildId = String(req.body?.guildId || "").trim();
     const engine = String(req.body?.engine || "").trim();
+    const normalizedEngine = normalizeEngineKey(engine);
     const patch =
       req.body?.patch && typeof req.body.patch === "object"
         ? req.body.patch
@@ -29,17 +31,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!guildId) {
       return res.status(400).json({ success: false, error: "guildId is required" });
     }
-    if (!engine) {
+    if (!normalizedEngine) {
       return res.status(400).json({ success: false, error: "engine is required" });
     }
 
-    const allowed = await requirePremiumAccess(req, res, guildId, engine);
+    const allowed = await requirePremiumAccess(req, res, guildId, normalizedEngine);
     if (allowed !== true) return allowed;
 
     const upstream = await fetch(`${BOT_API}/engine-runtime/validate`, {
       method: "POST",
       headers: buildBotApiHeaders(req, { json: true }),
-      body: JSON.stringify({ guildId, engine, patch }),
+      body: JSON.stringify({ guildId, engine: normalizedEngine, patch }),
     });
     const json = await readJsonSafe(upstream);
     return res.status(upstream.status).json(json);

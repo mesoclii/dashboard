@@ -14,5 +14,22 @@ export function isDashboardControlOwner(userId?: string | null) {
 export const FALLBACK_GUILD_NAMES: Record<string, string> = {
   "1431799056211906582": "Saviors Gaming 18+",
   "1336178965202599936": "Alexandria",
-  "1473641534065999884": "Possum Bot Support",
+  "1480942991328809223": "Possum Bot Support",
 };
+
+const EXTRA_CONTROL_GUILDS = String(process.env.CONTROL_GUILD_IDS || "")
+  .split(",")
+  .map((id) => id.trim())
+  .filter((id) => /^\d{16,20}$/.test(id));
+
+export const CONTROL_OWNER_GUILD_IDS = Array.from(
+  new Set([
+    ...Object.keys(FALLBACK_GUILD_NAMES),
+    ...EXTRA_CONTROL_GUILDS,
+  ])
+);
+
+export function isDashboardControlGuild(guildId?: string | null) {
+  const normalized = String(guildId || "").trim();
+  return Boolean(normalized && CONTROL_OWNER_GUILD_IDS.includes(normalized));
+}

@@ -4,6 +4,7 @@ import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
 import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 import { requirePremiumAccess } from "@/lib/premiumGuard";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
+import { normalizeEngineKey } from "@/lib/engineKeys";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -23,11 +24,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       req.method === "GET"
         ? String(req.query.engine || "").trim()
         : String(req.body?.engine || "").trim();
+    const normalizedEngine = normalizeEngineKey(engine);
 
     if (!guildId) {
       return res.status(400).json({ success: false, error: "guildId is required" });
     }
-    if (!engine) {
+    if (!normalizedEngine) {
       return res.status(400).json({ success: false, error: "engine is required" });
     }
 
@@ -36,13 +38,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (req.method !== "GET") {
-      const allowed = await requirePremiumAccess(req, res, guildId, engine);
+      const allowed = await requirePremiumAccess(req, res, guildId, normalizedEngine);
       if (allowed !== true) return allowed;
     }
 
     if (req.method === "GET") {
       const upstream = await fetch(
-        `${BOT_API}/engine-runtime?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
+        `${BOT_API}/engine-runtime?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(normalizedEngine)}`,
         {
           headers: buildBotApiHeaders(req),
           cache: "no-store",
@@ -58,7 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         headers: buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify({
           guildId,
-          engine,
+          engine: normalizedEngine,
           patch: req.body?.patch || req.body?.config || {},
         }),
       });
@@ -67,10 +69,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         guildId,
         actorUserId: String(req.headers["x-dashboard-user-id"] || req.body?.userId || "").trim() || null,
         area: "runtime_engine",
-        action: `${engine}:save`,
+        action: `${normalizedEngine}:save`,
         severity: upstream.ok ? "info" : "error",
         metadata: {
-          engine,
+          engine: normalizedEngine,
           keys: Object.keys(req.body?.patch || req.body?.config || {}),
         },
       });

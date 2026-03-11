@@ -1,4 +1,4 @@
-import { MASTER_OWNER_USER_ID, isDashboardControlOwner } from "@/lib/dashboardOwner";
+import { MASTER_OWNER_USER_ID, isDashboardControlGuild, isDashboardControlOwner } from "@/lib/dashboardOwner";
 import { readGuildDiscoveryCache, writeGuildDiscoveryCache } from "@/lib/guildDiscoveryCache";
 import prisma from "@/lib/prisma";
 import { buildServerBotApiHeaders, readServerBotApiJson, SERVER_BOT_API } from "@/lib/botApiServer";
@@ -20,6 +20,10 @@ export function featureRequiresPremium(featureKey: string) {
 
 export function isDeveloperPremiumBypass(actorUserId?: string) {
   return isDashboardControlOwner(normalizeActorUserId(actorUserId));
+}
+
+export function isDeveloperGuildBypass(guildId?: string) {
+  return isDashboardControlGuild(guildId);
 }
 
 type SubscriptionStatus = {
@@ -61,7 +65,7 @@ async function readBotPremium(guildId: string, actorUserId: string) {
 export async function getGuildSubscriptionStatus(guildId: string, actorUserId?: string): Promise<SubscriptionStatus> {
   const id = String(guildId || "").trim();
   const normalizedActorUserId = normalizeActorUserId(actorUserId);
-  const developerBypass = isDeveloperPremiumBypass(normalizedActorUserId);
+  const developerBypass = isDeveloperPremiumBypass(normalizedActorUserId) || isDeveloperGuildBypass(id);
   if (!id) {
     return {
       guildId: "",

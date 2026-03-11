@@ -25,7 +25,7 @@ export type SubscriptionPlan = {
 };
 
 export const PRICING_FOOTNOTE =
-  "Prices and included usage are subject to change based on availability, operating cost, and service load.";
+  "Prices are subject to change based on availability, operating cost, and service load. One license covers all guilds owned or staffed by the purchasing account.";
 
 export const PREMIUM_FEATURES: PremiumFeature[] = [
   {
@@ -36,6 +36,15 @@ export const PREMIUM_FEATURES: PremiumFeature[] = [
     premiumLabel: "Premium Feature",
     includedIn: ["Pro", "Business", "Enterprise"],
     pricingNote: "Included through paid guild plans."
+  },
+  {
+    id: "openai-platform",
+    label: "AI Platform",
+    route: "/dashboard/ai/openai-platform",
+    summary: "Model provider routing, platform toggles, and quota-aware AI delivery controls.",
+    premiumLabel: "Premium Feature",
+    includedIn: ["Pro", "Business", "Enterprise"],
+    pricingNote: "Provider controls remain separate from Possum AI."
   },
   {
     id: "persona-ai",
@@ -54,24 +63,6 @@ export const PREMIUM_FEATURES: PremiumFeature[] = [
     premiumLabel: "Premium Feature",
     includedIn: ["Pro", "Business", "Enterprise"],
     pricingNote: "Guild signup engine only."
-  },
-  {
-    id: "threat-protection-pro",
-    label: "Threat Protection Pro",
-    route: "/dashboard/security",
-    summary: "Adaptive threat intelligence with account integrity, link intel, threat detection, and risk escalation controls.",
-    premiumLabel: "Premium Feature",
-    includedIn: ["Pro", "Business", "Enterprise"],
-    pricingNote: "Best fit for active public communities."
-  },
-  {
-    id: "governance-automation",
-    label: "Governance Automation",
-    route: "/dashboard/governance",
-    summary: "Automated emergency response, containment tooling, approval workflows, and guided enforcement controls.",
-    premiumLabel: "Premium Feature",
-    includedIn: ["Business", "Enterprise"],
-    pricingNote: "Designed for larger communities and staff teams."
   }
 ];
 
@@ -87,8 +78,8 @@ export const PREMIUM_PLANS: SubscriptionPlan[] = [
       "TTS Engine",
       "Persona AI",
       "Heist Engine",
-      "Threat Protection Pro",
-      "Included monthly AI/TTS usage credit",
+      "AI Platform",
+      "Included monthly AI usage credit",
     ],
     note: PRICING_FOOTNOTE,
   },
@@ -101,9 +92,8 @@ export const PREMIUM_PLANS: SubscriptionPlan[] = [
     headline: "Adds governance automation and higher included usage for active servers.",
     included: [
       "Everything in Pro",
-      "Governance Automation",
-      "Higher included monthly AI/TTS usage credit",
-      "Better operational limits",
+      "Higher included monthly AI usage credit",
+      "Expanded concurrency limits",
     ],
     note: PRICING_FOOTNOTE,
   },
@@ -117,8 +107,8 @@ export const PREMIUM_PLANS: SubscriptionPlan[] = [
     included: [
       "Everything in Business",
       "Priority support",
-      "Higher pooled monthly AI/TTS usage credit",
-      "Forensics and staff-monitoring priority controls",
+      "Higher pooled monthly AI usage credit",
+      "Custom operational limits",
     ],
     note: `${PRICING_FOOTNOTE} Contact for custom limits and annual contracts.`,
   },
