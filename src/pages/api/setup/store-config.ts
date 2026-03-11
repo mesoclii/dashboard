@@ -1,29 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
 import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
 
 type AnyObj = Record<string, any>;
-const DATA_FILE = path.join(process.cwd(), "data", "setup", "store-config.json");
-
-function ensureDir() {
-  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-}
-
-function readAll(): AnyObj {
-  try {
-    const raw = fs.readFileSync(DATA_FILE, "utf8");
-    const parsed = JSON.parse(raw || "{}");
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeAll(all: AnyObj) {
-  ensureDir();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(all, null, 2), "utf8");
-}
 
 function defaultConfig() {
   return {
@@ -36,13 +15,13 @@ function defaultConfig() {
       buttonLabel: "Open Store",
       embedColor: "#ff3b3b",
       imageUrl: "",
-      imageLibrary: []
+      imageLibrary: [],
     },
     policies: {
       maxItemsPerPurchase: 1,
       allowRoleStacking: false,
       requireStaffApproval: false,
-      logChannelId: ""
+      logChannelId: "",
     },
     items: [
       {
@@ -54,9 +33,9 @@ function defaultConfig() {
         priceCoins: 5000,
         stock: -1,
         oneTime: true,
-        enabled: true
-      }
-    ]
+        enabled: true,
+      },
+    ],
   };
 }
 
@@ -64,64 +43,63 @@ function deepMerge(base: any, patch: any): any {
   if (Array.isArray(patch)) return patch;
   if (!patch || typeof patch !== "object") return patch ?? base;
   const out: AnyObj = { ...(base && typeof base === "object" ? base : {}) };
-  for (const k of Object.keys(patch)) out[k] = deepMerge(out[k], patch[k]);
+  for (const key of Object.keys(patch)) out[key] = deepMerge(out[key], patch[key]);
   return out;
 }
 
-async function readEngineConfig(req: NextApiRequest, guildId: string) {
-  const upstream = await fetch(
-    `${BOT_API}/engine-config?guildId=${encodeURIComponent(guildId)}&engine=store`,
-    { headers: buildBotApiHeaders(req), cache: "no-store" }
-  );
+async function readRemoteConfig(req: NextApiRequest, guildId: string) {
+  const upstream = await fetch(`${BOT_API}/engine-config?guildId=${encodeURIComponent(guildId)}&engine=store`, {
+    headers: buildBotApiHeaders(req),
+    cache: "no-store",
+  });
   const data = await readJsonSafe(upstream);
-  const config = data?.config && typeof data.config === "object" ? data.config : {};
-  return { upstream, data, config };
-}
-
-function hasConfigPayload(config: AnyObj) {
-  return Object.keys(config || {}).length > 0;
+  return {
+    upstream,
+    data,
+    config: data?.config && typeof data.config === "object" ? data.config : {},
+  };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    const guildId = String(req.query.guildId || req.body?.guildId || "").trim();
+    if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
+
     if (req.method === "GET") {
-      const guildId = String(req.query.guildId || "").trim();
-      if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
-      const local = readAll();
-      const remote = await readEngineConfig(req, guildId).catch(() => null);
-      const base = remote?.config && hasConfigPayload(remote.config) ? remote.config : (local[guildId] || {});
-      const config = deepMerge(defaultConfig(), base);
-      return res.status(200).json({ success: true, guildId, config });
+      const remote = await readRemoteConfig(req, guildId);
+      return res.status(remote.upstream.status).json({
+        success: remote.upstream.ok,
+        guildId,
+        config: deepMerge(defaultConfig(), remote.config),
+        error: remote.data?.error,
+      });
     }
 
     if (req.method === "POST" || req.method === "PUT") {
-      const guildId = String(req.body?.guildId || "").trim();
-      if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
+      if (isWriteBlockedForGuild(guildId)) {
+        return res.status(403).json(stockLockError(guildId));
+      }
 
-      const local = readAll();
-      const remote = await readEngineConfig(req, guildId).catch(() => null);
-      const base = remote?.config && hasConfigPayload(remote.config) ? remote.config : (local[guildId] || {});
+      const remote = await readRemoteConfig(req, guildId);
+      if (!remote.upstream.ok) {
+        return res.status(remote.upstream.status).json(remote.data);
+      }
 
-      const patch = req.body?.reset === true ? defaultConfig() : (req.body?.patch || {});
-      const merged = deepMerge(deepMerge(defaultConfig(), base), patch);
-      local[guildId] = merged;
-      writeAll(local);
+      const patch = req.body?.reset === true ? defaultConfig() : (req.body?.config || req.body?.patch || {});
+      const config = deepMerge(deepMerge(defaultConfig(), remote.config), patch);
 
       const upstream = await fetch(`${BOT_API}/engine-config`, {
         method: "POST",
         headers: buildBotApiHeaders(req, { json: true }),
-        body: JSON.stringify({ guildId, engine: "store", config: merged })
+        body: JSON.stringify({ guildId, engine: "store", config }),
       });
       const data = await readJsonSafe(upstream);
-      if (!upstream.ok) {
-        return res.status(upstream.status).json({
-          success: false,
-          error: data?.error || "Failed to sync store config",
-          guildId,
-          config: merged
-        });
-      }
-      return res.status(200).json({ success: true, guildId, config: data?.config || merged });
+      return res.status(upstream.status).json({
+        success: upstream.ok,
+        guildId,
+        config: deepMerge(defaultConfig(), data?.config || config),
+        error: data?.error,
+      });
     }
 
     return res.status(405).json({ success: false, error: "Method not allowed" });

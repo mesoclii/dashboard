@@ -73,12 +73,19 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const scope = String(body?.scope || "guild").trim().toLowerCase() === "global" ? "global" : "guild";
+    const trialDays = Math.max(0, Math.trunc(Number(body?.trialDays || 0)));
+    const premiumExpiresAt =
+      Boolean(body?.active) && trialDays > 0
+        ? new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000)
+        : null;
     const status = await setGuildSubscriptionStatus(guildId, {
       active: Boolean(body?.active),
       plan: String(body?.plan || (body?.active ? "PRO" : "FREE")).trim() || (body?.active ? "PRO" : "FREE"),
       premiumTier: body?.premiumTier ? String(body.premiumTier) : null,
-      source: "owner_override",
-    }, actorUserId);
+      premiumExpiresAt,
+      source: scope === "global" ? (trialDays > 0 ? "global_trial" : "global_override") : (trialDays > 0 ? "owner_trial" : "owner_override"),
+    }, actorUserId, { scope });
 
     void auditDashboardEvent({
       guildId,
@@ -91,6 +98,8 @@ export async function POST(request: NextRequest) {
         active: status.active,
         plan: status.plan,
         premiumTier: status.premiumTier,
+        scope: status.scope,
+        trialDays,
       },
     });
 

@@ -5,6 +5,51 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+const ENGINE_ROUTE_MAP: Record<string, string> = {
+  music: "/dashboard/music",
+  heist: "/dashboard/heist",
+  onboarding: "/dashboard/security/onboarding",
+  verification: "/dashboard/security/verification",
+  selfroles: "/dashboard/selfroles",
+  vip: "/dashboard/vip",
+  store: "/dashboard/economy/store",
+  giveaways: "/dashboard/giveaways",
+  eventReactor: "/dashboard/event-reactor",
+  range: "/dashboard/range",
+  tickets: "/dashboard/tickets",
+  runtimeRouter: "/dashboard/runtime-router",
+  failsafe: "/dashboard/failsafe",
+};
+
+function severityColor(status: string) {
+  if (status === "failing") return "#ff7a7a";
+  if (status === "warning") return "#ffd27a";
+  if (status === "disabled") return "#9da6b0";
+  return "#9effb8";
+}
+
+function actionStyle(tone: string) {
+  if (tone === "danger") {
+    return {
+      border: "1px solid #a41414",
+      background: "rgba(90,0,0,0.68)",
+      color: "#ffd4d4",
+    } as const;
+  }
+  if (tone === "primary") {
+    return {
+      border: "1px solid #0f7a0f",
+      background: "rgba(16,100,16,0.22)",
+      color: "#d6ffde",
+    } as const;
+  }
+  return {
+    border: "1px solid #7a0000",
+    background: "rgba(20,0,0,0.88)",
+    color: "#ffd7d7",
+  } as const;
+}
+
 function getGuildId() {
   if (typeof window === "undefined") return "";
   const url = new URLSearchParams(window.location.search).get("guildId") || "";
@@ -46,10 +91,11 @@ export default function SystemHealthPage() {
   const [engineCatalogSummary, setEngineCatalogSummary] = useState<{ engines: number; sections: number } | null>(null);
   const [engineHealth, setEngineHealth] = useState<any>(null);
   const [eventReactorFailures, setEventReactorFailures] = useState<any[]>([]);
+  const [engineFailures, setEngineFailures] = useState<any>(null);
 
   async function loadAll(gid: string) {
     if (!gid) return;
-    const [r1, r2, r3, r4, r5, r6, r7, r8, r9, r10] = await Promise.all([
+    const [r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11] = await Promise.all([
       fetch(`/api/setup/runtime-safety-config?guildId=${gid}`).then((r) => r.json()),
       fetch(`/api/setup/audit-trail-config?guildId=${gid}`).then((r) => r.json()),
       fetch(`/api/setup/audit-trail-events?guildId=${gid}&limit=200`).then((r) => r.json()),
@@ -59,7 +105,8 @@ export default function SystemHealthPage() {
       fetch(`/api/status`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
       fetch(`/api/bot/engine-catalog?guildId=${gid}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
       fetch(`/api/bot/engine-health?guildId=${gid}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
-      fetch(`/api/bot/event-reactor-failures?guildId=${gid}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({}))
+      fetch(`/api/bot/event-reactor-failures?guildId=${gid}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
+      fetch(`/api/bot/engine-failures?guildId=${gid}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({}))
     ]);
     setRuntime(r1?.config || null);
     setAuditCfg(r2?.config || null);
@@ -78,6 +125,7 @@ export default function SystemHealthPage() {
     setEngineCatalogSummary({ engines: engineCount, sections: sectionCount });
     setEngineHealth(r9?.success ? r9 : null);
     setEventReactorFailures(Array.isArray(r10?.failures) ? r10.failures : []);
+    setEngineFailures(r11?.success ? r11?.snapshot || null : null);
   }
 
   useEffect(() => {
@@ -137,6 +185,18 @@ export default function SystemHealthPage() {
     });
     const j = await r.json();
     setMsg(j?.success ? "Event reactor failures cleared." : j?.error || "Failed to clear event reactor failures.");
+    await loadAll(guildId);
+  }
+
+  async function runEngineRecovery(engine: string, action: string) {
+    if (!guildId) return;
+    const r = await fetch("/api/setup/runtime-engine-action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guildId, engine, action }),
+    });
+    const j = await r.json().catch(() => ({}));
+    setMsg(j?.success ? `${engine} ${action} completed.` : j?.error || `${engine} ${action} failed.`);
     await loadAll(guildId);
   }
 
@@ -210,6 +270,125 @@ export default function SystemHealthPage() {
               <div style={{ fontWeight: 800, marginTop: 6 }}>{engineHealth.eventReactor?.failureCount || 0} failures</div>
               <button onClick={clearEventReactorFailures} style={{ marginTop: 8 }}>Clear Failures</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {engineFailures && (
+        <div style={box}>
+          <h3 style={{ marginTop: 0, color: "#ff4444" }}>Runtime Failure Dashboard</h3>
+          <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+            {[
+              ["Monitored Engines", engineFailures.summary?.monitoredEngines || 0],
+              ["Failing", engineFailures.summary?.failing || 0],
+              ["Warnings", engineFailures.summary?.warning || 0],
+              ["Disabled", engineFailures.summary?.disabled || 0],
+              ["Process Failures", engineFailures.summary?.processFailures || 0],
+            ].map(([label, value]) => (
+              <div key={String(label)} style={{ background: "#0f0f0f", borderRadius: 10, padding: 10 }}>
+                <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#ff8c8c" }}>{label}</div>
+                <div style={{ fontWeight: 800, marginTop: 6 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+
+          {Array.isArray(engineFailures.processFailures) && engineFailures.processFailures.length > 0 ? (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ color: "#ff8c8c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                Process Failures
+              </div>
+              <div style={{ maxHeight: 220, overflow: "auto", background: "#0f0f0f", borderRadius: 10, padding: 10 }}>
+                {engineFailures.processFailures.slice(0, 12).map((item: any, index: number) => (
+                  <div key={`${item.at || index}_${index}`} style={{ marginBottom: 10, borderBottom: "1px solid #220000", paddingBottom: 8 }}>
+                    <div style={{ color: "#ffdada", fontWeight: 700 }}>{item.source || "runtime"} {item.label ? `· ${item.label}` : ""}</div>
+                    <div style={{ color: "#ffbdbd", fontSize: 12, marginTop: 4 }}>{item.error}</div>
+                    <div style={{ color: "#caa", fontSize: 11, marginTop: 4 }}>{item.at || "Unknown time"}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 12 }}>
+            {[...(engineFailures.engines || [])]
+              .sort((a: any, b: any) => {
+                const rank = (status: string) => ({ failing: 0, warning: 1, healthy: 2, disabled: 3 }[status] ?? 4);
+                return rank(a?.status) - rank(b?.status);
+              })
+              .map((engine: any) => (
+                <div key={engine.engine} style={{ background: "#0f0f0f", borderRadius: 12, padding: 12, border: "1px solid #300000" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ color: "#ffdada", fontWeight: 800 }}>{engine.displayName}</div>
+                      <div style={{ color: severityColor(engine.status), fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 4 }}>
+                        {engine.status}
+                      </div>
+                    </div>
+                    <div style={{ color: "#ffbdbd", fontSize: 12 }}>
+                      {engine.failureCount || 0} failures · {engine.issueCount || 0} issues
+                    </div>
+                  </div>
+
+                  {Array.isArray(engine.issues) && engine.issues.length ? (
+                    <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                      {engine.issues.slice(0, 4).map((entry: any, index: number) => (
+                        <div key={`${engine.engine}_${entry.title}_${index}`} style={{ border: "1px solid #240000", borderRadius: 8, padding: 8 }}>
+                          <div style={{ color: severityColor(entry.severity === "error" ? "failing" : entry.severity === "warning" ? "warning" : "healthy"), fontWeight: 700 }}>
+                            {entry.title}
+                          </div>
+                          <div style={{ color: "#ffbdbd", fontSize: 12, marginTop: 4 }}>{entry.detail}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 10, color: "#9effb8", fontSize: 12 }}>No current blockers detected.</div>
+                  )}
+
+                  {Array.isArray(engine.failures) && engine.failures.length ? (
+                    <div style={{ marginTop: 10, border: "1px solid #240000", borderRadius: 8, padding: 8 }}>
+                      {engine.failures.slice(0, 3).map((failure: any, index: number) => (
+                        <div key={`${engine.engine}_failure_${index}`} style={{ marginBottom: index < Math.min(engine.failures.length, 3) - 1 ? 8 : 0 }}>
+                          <div style={{ color: "#ffdada", fontWeight: 700 }}>{failure.event || "runtime"}</div>
+                          <div style={{ color: "#ffbdbd", fontSize: 12, marginTop: 4 }}>{failure.error}</div>
+                          <div style={{ color: "#caa", fontSize: 11, marginTop: 4 }}>{failure.at || "Unknown time"}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {(engine.recoveryActions || []).map((action: any) => (
+                      <button
+                        key={`${engine.engine}_${action.action}`}
+                        onClick={() => void runEngineRecovery(engine.engine, action.action)}
+                        style={{
+                          borderRadius: 999,
+                          padding: "7px 11px",
+                          fontSize: 12,
+                          cursor: "pointer",
+                          ...actionStyle(action.tone || "secondary"),
+                        }}
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                    {ENGINE_ROUTE_MAP[engine.engine] ? (
+                      <Link
+                        href={`${ENGINE_ROUTE_MAP[engine.engine]}?guildId=${encodeURIComponent(guildId)}`}
+                        style={{
+                          borderRadius: 999,
+                          padding: "7px 11px",
+                          fontSize: 12,
+                          textDecoration: "none",
+                          ...actionStyle("secondary"),
+                        }}
+                      >
+                        Open Engine
+                      </Link>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
       )}

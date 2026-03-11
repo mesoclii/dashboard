@@ -1,64 +1,70 @@
 "use client";
 
-
-
-import { useEffect, useMemo, useState } from "react";
 import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
-import { getGuildId, loadDashboardConfig, saveDashboardPatch, styles, StatusPill } from "../_engineClient";
+import EngineInsights from "@/components/possum/EngineInsights";
+import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
-const DEFAULTS: any = {
+type VerificationConfig = {
+  enabled: boolean;
+  autoKickOnDecline: boolean;
+  autoKickOnTimeout: boolean;
+  declineAction?: "kick" | "ban" | "none";
+  declineKickReason: string;
+  timeoutKickReason: string;
+  declineReplyTemplate: string;
+};
+
+const DEFAULTS: VerificationConfig = {
   enabled: true,
   autoKickOnDecline: true,
   autoKickOnTimeout: true,
+  declineAction: "kick",
   declineKickReason: "Declined ID verification",
   timeoutKickReason: "ID submission timeout",
   declineReplyTemplate: "You declined ID verification.",
 };
 
+const styles = {
+  page: { color: "#ffb3b3", padding: 14, maxWidth: 1200 },
+  card: {
+    border: "1px solid #5f0000",
+    borderRadius: 12,
+    padding: 14,
+    background: "rgba(120,0,0,0.10)",
+    marginBottom: 12,
+  },
+  input: {
+    width: "100%",
+    padding: 10,
+    borderRadius: 8,
+    border: "1px solid #6f0000",
+    background: "#0a0a0a",
+    color: "#ffd7d7",
+  },
+  area: {
+    width: "100%",
+    minHeight: 92,
+    padding: 10,
+    borderRadius: 8,
+    border: "1px solid #6f0000",
+    background: "#0a0a0a",
+    color: "#ffd7d7",
+  },
+};
+
 export default function VerificationPage() {
-  const [guildId, setGuildId] = useState("");
-  const [cfg, setCfg] = useState<any>(DEFAULTS);
-  const [orig, setOrig] = useState<any>(DEFAULTS);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  useEffect(() => setGuildId(getGuildId()), []);
-
-  useEffect(() => {
-    if (!guildId) return;
-    (async () => {
-      setLoading(true);
-      setMsg("");
-      try {
-        const all = await loadDashboardConfig(guildId);
-        const next = { ...DEFAULTS, ...(all?.security?.verification || {}) };
-        setCfg(next);
-        setOrig(next);
-      } catch (e: any) {
-        setMsg(e?.message || "Failed to load verification settings.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [guildId]);
-
-  const dirty = useMemo(() => JSON.stringify(cfg) !== JSON.stringify(orig), [cfg, orig]);
-
-  async function save() {
-    if (!guildId) return;
-    setSaving(true);
-    setMsg("");
-    try {
-      await saveDashboardPatch(guildId, { security: { verification: cfg } });
-      setOrig(cfg);
-      setMsg("Saved verification.");
-    } catch (e: any) {
-      setMsg(e?.message || "Save failed.");
-    } finally {
-      setSaving(false);
-    }
-  }
+  const {
+    guildId,
+    guildName,
+    config: cfg,
+    setConfig: setCfg,
+    summary,
+    details,
+    loading,
+    saving,
+    message,
+    save,
+  } = useGuildEngineEditor<VerificationConfig>("verification", DEFAULTS);
 
   if (!guildId) return <div style={{ color: "#ff8a8a", padding: 20 }}>Missing guildId. Open from /guilds.</div>;
   if (loading) return <div style={{ color: "#ff8a8a", padding: 20 }}>Loading verification...</div>;
@@ -67,14 +73,24 @@ export default function VerificationPage() {
     <div style={styles.page}>
       <h1 style={{ marginTop: 0, color: "#ff3b3b", letterSpacing: "0.08em", textTransform: "uppercase" }}>
         Verification
-        <StatusPill on={!!cfg.enabled} />
       </h1>
-      <p style={{ marginTop: 0 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
+      <p style={{ marginTop: 0 }}>Guild: {guildName || guildId}</p>
+      {message ? <div style={{ color: "#ffd27a", marginBottom: 8 }}>{message}</div> : null}
+
+      <EngineInsights summary={summary} details={details} />
 
       <div style={styles.card}>
         <label><input type="checkbox" checked={!!cfg.enabled} onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })} /> Engine enabled</label><br />
         <label><input type="checkbox" checked={!!cfg.autoKickOnDecline} onChange={(e) => setCfg({ ...cfg, autoKickOnDecline: e.target.checked })} /> Auto-kick on decline</label><br />
         <label><input type="checkbox" checked={!!cfg.autoKickOnTimeout} onChange={(e) => setCfg({ ...cfg, autoKickOnTimeout: e.target.checked })} /> Auto-kick on timeout</label>
+        <div style={{ marginTop: 10, maxWidth: 260 }}>
+          <label>Decline action</label>
+          <select style={styles.input} value={cfg.declineAction || "kick"} onChange={(e) => setCfg({ ...cfg, declineAction: e.target.value as VerificationConfig["declineAction"] })}>
+            <option value="kick">kick</option>
+            <option value="ban">ban</option>
+            <option value="none">none</option>
+          </select>
+        </div>
       </div>
 
       <div style={styles.card}>
@@ -96,20 +112,12 @@ export default function VerificationPage() {
         title="Advanced Verification Config"
         value={cfg}
         disabled={saving}
-        onApply={async (next) => {
-          setCfg({ ...DEFAULTS, ...(next as any) });
-          await save();
-        }}
+        onApply={(next) => setCfg({ ...DEFAULTS, ...(next as VerificationConfig) })}
       />
 
-      {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
-
-      <div style={styles.saveDock}>
-        <span style={{ color: dirty ? "#ffd27a" : "#9effb8", fontSize: 12 }}>{dirty ? "DIRTY" : "READY"}</span>
-        <button onClick={save} disabled={saving || !dirty} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #7a0000", background: "#220000", color: "#ffd7d7" }}>
-          {saving ? "Saving..." : "Save Verification"}
-        </button>
-      </div>
+      <button onClick={() => void save()} disabled={saving} style={{ ...styles.input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
+        {saving ? "Saving..." : "Save Verification"}
+      </button>
     </div>
   );
 }

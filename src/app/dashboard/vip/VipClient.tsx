@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
+import EngineInsights from "@/components/possum/EngineInsights";
+import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
 type Channel = { id: string; name: string; type?: number | string };
 type Role = { id: string; name: string };
@@ -31,15 +31,6 @@ const EMPTY: VipConfig = {
   notes: "",
 };
 
-function getGuildId() {
-  if (typeof window === "undefined") return "";
-  const q = new URLSearchParams(window.location.search).get("guildId") || "";
-  const s = localStorage.getItem("activeGuildId") || "";
-  const id = (q || s).trim();
-  if (id) localStorage.setItem("activeGuildId", id);
-  return id;
-}
-
 function withGuild(href: string, guildId: string) {
   if (!guildId) return href;
   const sep = href.includes("?") ? "&" : "?";
@@ -63,65 +54,23 @@ const input = {
 };
 
 export default function VipClient() {
-  const [guildId, setGuildId] = useState("");
-  const [cfg, setCfg] = useState<VipConfig>(EMPTY);
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
+  const {
+    guildId,
+    guildName,
+    config: cfg,
+    setConfig: setCfg,
+    channels,
+    roles,
+    summary,
+    details,
+    loading,
+    saving,
+    message,
+    save,
+    runAction,
+  } = useGuildEngineEditor<VipConfig>("vip", EMPTY);
 
-  useEffect(() => setGuildId(getGuildId()), []);
-
-  useEffect(() => {
-    if (!guildId) {
-      setLoading(false);
-      return;
-    }
-
-    (async () => {
-      setLoading(true);
-      setMsg("");
-      try {
-        const [cfgRes, gdRes] = await Promise.all([
-          fetch(`/api/setup/vip-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
-          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
-        ]);
-
-        const cfgJson = await cfgRes.json().catch(() => ({}));
-        const gdJson = await gdRes.json().catch(() => ({}));
-
-        setCfg({ ...EMPTY, ...(cfgJson?.config || {}) });
-        setChannels((Array.isArray(gdJson?.channels) ? gdJson.channels : []).filter((c: any) => Number(c?.type) === 0));
-        setRoles(Array.isArray(gdJson?.roles) ? gdJson.roles : []);
-      } catch (e: any) {
-        setMsg(e?.message || "Failed to load VIP config.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [guildId]);
-
-  async function save() {
-    if (!guildId) return;
-    setSaving(true);
-    setMsg("");
-    try {
-      const r = await fetch("/api/setup/vip-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, patch: cfg }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok || j?.success === false) throw new Error(j?.error || "Save failed");
-      setCfg({ ...EMPTY, ...(j?.config || cfg) });
-      setMsg("VIP engine settings saved.");
-    } catch (e: any) {
-      setMsg(e?.message || "Save failed.");
-    } finally {
-      setSaving(false);
-    }
-  }
+  const textChannels = (channels as Channel[]).filter((channel) => Number(channel?.type) === 0 || Number(channel?.type) === 5);
 
   if (!guildId) {
     return <div style={{ color: "#ff8080", padding: 24 }}>Missing guildId. Open from /guilds first.</div>;
@@ -130,23 +79,25 @@ export default function VipClient() {
   return (
     <div style={{ color: "#ffd0d0", padding: 18, maxWidth: 1200 }}>
       <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>VIP Engine</h1>
-      <div style={{ color: "#ff9999", marginTop: 6, marginBottom: 12 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
+      <div style={{ color: "#ff9999", marginTop: 6, marginBottom: 12 }}>Guild: {guildName || guildId}</div>
       <div style={{ color: "#ffb0b0", fontSize: 12, marginBottom: 12 }}>
-        VIP is a separate engine. Loyalty is a linked engine and is configured directly from the dedicated Loyalty page.
+        VIP is now reconciled directly against the live engine runtime. Loyalty stays linked, but its controls remain on the dedicated page.
       </div>
 
-      {msg ? <div style={{ marginBottom: 10, color: "#ffd27a" }}>{msg}</div> : null}
+      {message ? <div style={{ marginBottom: 10, color: "#ffd27a" }}>{message}</div> : null}
 
       {loading ? (
         <div>Loading...</div>
       ) : (
         <div style={{ display: "grid", gap: 12 }}>
+          <EngineInsights summary={summary} details={details} />
+
           <section style={card}>
             <label>
               <input
                 type="checkbox"
                 checked={cfg.active}
-                onChange={(e) => setCfg((p) => ({ ...p, active: e.target.checked }))}
+                onChange={(e) => setCfg((prev) => ({ ...prev, active: e.target.checked }))}
               />{" "}
               VIP Engine Enabled
             </label>
@@ -154,48 +105,44 @@ export default function VipClient() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
               <div>
                 <div>VIP Role</div>
-                <select style={input} value={cfg.vipRoleId} onChange={(e) => setCfg((p) => ({ ...p, vipRoleId: e.target.value }))}>
+                <select style={input} value={cfg.vipRoleId} onChange={(e) => setCfg((prev) => ({ ...prev, vipRoleId: e.target.value }))}>
                   <option value="">Select role</option>
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      @{r.name}
+                  {(roles as Role[]).map((role) => (
+                    <option key={role.id} value={role.id}>
+                      @{role.name}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
                 <div>Supporter Role</div>
-                <select style={input} value={cfg.supporterRoleId} onChange={(e) => setCfg((p) => ({ ...p, supporterRoleId: e.target.value }))}>
+                <select style={input} value={cfg.supporterRoleId} onChange={(e) => setCfg((prev) => ({ ...prev, supporterRoleId: e.target.value }))}>
                   <option value="">Select role</option>
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      @{r.name}
+                  {(roles as Role[]).map((role) => (
+                    <option key={role.id} value={role.id}>
+                      @{role.name}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
                 <div>Nitro Booster Role</div>
-                <select style={input} value={cfg.nitroRoleId} onChange={(e) => setCfg((p) => ({ ...p, nitroRoleId: e.target.value }))}>
+                <select style={input} value={cfg.nitroRoleId} onChange={(e) => setCfg((prev) => ({ ...prev, nitroRoleId: e.target.value }))}>
                   <option value="">Select role</option>
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      @{r.name}
+                  {(roles as Role[]).map((role) => (
+                    <option key={role.id} value={role.id}>
+                      @{role.name}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
                 <div>Grant Log Channel</div>
-                <select
-                  style={input}
-                  value={cfg.grantLogChannelId || ""}
-                  onChange={(e) => setCfg((p) => ({ ...p, grantLogChannelId: e.target.value }))}
-                >
+                <select style={input} value={cfg.grantLogChannelId} onChange={(e) => setCfg((prev) => ({ ...prev, grantLogChannelId: e.target.value }))}>
                   <option value="">Select channel</option>
-                  {channels.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      #{c.name}
+                  {textChannels.map((channel) => (
+                    <option key={channel.id} value={channel.id}>
+                      #{channel.name}
                     </option>
                   ))}
                 </select>
@@ -207,7 +154,7 @@ export default function VipClient() {
                 <input
                   type="checkbox"
                   checked={cfg.autoExpire}
-                  onChange={(e) => setCfg((p) => ({ ...p, autoExpire: e.target.checked }))}
+                  onChange={(e) => setCfg((prev) => ({ ...prev, autoExpire: e.target.checked }))}
                 />{" "}
                 Auto Expire VIP
               </label>
@@ -216,8 +163,9 @@ export default function VipClient() {
                 <input
                   style={input}
                   type="number"
+                  min={1}
                   value={cfg.expiryDays}
-                  onChange={(e) => setCfg((p) => ({ ...p, expiryDays: Number(e.target.value || 0) }))}
+                  onChange={(e) => setCfg((prev) => ({ ...prev, expiryDays: Number(e.target.value || 1) }))}
                 />
               </div>
             </div>
@@ -227,7 +175,7 @@ export default function VipClient() {
                 <input
                   type="checkbox"
                   checked={cfg.syncWithLoyalty}
-                  onChange={(e) => setCfg((p) => ({ ...p, syncWithLoyalty: e.target.checked }))}
+                  onChange={(e) => setCfg((prev) => ({ ...prev, syncWithLoyalty: e.target.checked }))}
                 />{" "}
                 Sync VIP with Loyalty Engine
               </label>
@@ -235,7 +183,31 @@ export default function VipClient() {
 
             <div style={{ marginTop: 10 }}>
               <div>Notes</div>
-              <textarea style={{ ...input, minHeight: 100 }} value={cfg.notes} onChange={(e) => setCfg((p) => ({ ...p, notes: e.target.value }))} />
+              <textarea style={{ ...input, minHeight: 100 }} value={cfg.notes} onChange={(e) => setCfg((prev) => ({ ...prev, notes: e.target.value }))} />
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ fontWeight: 900, marginBottom: 8, color: "#ff6b6b", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              Lifecycle Recovery
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => void runAction("cleanupExpired")}
+                disabled={saving}
+                style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}
+              >
+                Expire Stale Grants
+              </button>
+              <button
+                type="button"
+                onClick={() => void save()}
+                disabled={saving}
+                style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}
+              >
+                {saving ? "Saving..." : "Save VIP"}
+              </button>
             </div>
           </section>
 
@@ -252,20 +224,6 @@ export default function VipClient() {
               </Link>
             </div>
           </section>
-
-          <ConfigJsonEditor
-            title="Advanced VIP Config"
-            value={cfg}
-            disabled={saving}
-            onApply={async (next) => {
-              setCfg({ ...EMPTY, ...(next as any) });
-              await save();
-            }}
-          />
-
-          <button onClick={save} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
-            {saving ? "Saving..." : "Save VIP"}
-          </button>
         </div>
       )}
     </div>

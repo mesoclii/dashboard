@@ -86,7 +86,7 @@ async function saveDashboardFeature(guildId: string, key: string, value: boolean
 
 async function getEngineConfig(guildId: string, engine: string) {
   const res = await fetch(
-    `/api/bot/engine-config?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
+    `/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
     { cache: "no-store" }
   );
   const json = await readJsonOrThrow(res);
@@ -94,7 +94,7 @@ async function getEngineConfig(guildId: string, engine: string) {
 }
 
 async function saveEngineConfig(guildId: string, engine: string, patch: Record<string, unknown>) {
-  const res = await fetch("/api/bot/engine-config", {
+  const res = await fetch("/api/setup/runtime-engine", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guildId, engine, patch }),
@@ -172,7 +172,18 @@ function engineController(engine: string, fieldPath: string[] = ["enabled"]): To
       return readBoolPath(config, fieldPath, false);
     },
     async write(guildId, next) {
-      await saveEngineConfig(guildId, engine, buildPatch(fieldPath, next));
+      const current = await getEngineConfig(guildId, engine);
+      const patch = buildPatch(fieldPath, next);
+      if (
+        fieldPath.length === 1 &&
+        (fieldPath[0] === "active" || fieldPath[0] === "enabled") &&
+        typeof current?.active === "boolean" &&
+        typeof current?.enabled === "boolean"
+      ) {
+        patch.active = next;
+        patch.enabled = next;
+      }
+      await saveEngineConfig(guildId, engine, patch);
     },
   };
 }
@@ -267,22 +278,6 @@ const birthdayController: ToggleController = {
   async write(guildId, next) {
     await saveDashboardFeature(guildId, "birthdayEnabled", next);
     await saveSetupPatch(guildId, "/api/setup/radio-birthday-config", buildPatch(["birthday", "enabled"], next));
-  },
-};
-
-const giveawaysController: ToggleController = {
-  async read(guildId) {
-    const [uiConfig, engineConfig] = await Promise.all([
-      getSetupConfig(guildId, "/api/setup/giveaways-ui-config"),
-      getEngineConfig(guildId, "giveaways"),
-    ]);
-    return readBoolPath(uiConfig, ["active"], false) && readBoolPath(engineConfig, ["enabled"], false);
-  },
-  async write(guildId, next) {
-    await Promise.all([
-      saveSetupPatch(guildId, "/api/setup/giveaways-ui-config", buildPatch(["active"], next)),
-      saveEngineConfig(guildId, "giveaways", { enabled: next }),
-    ]);
   },
 };
 
@@ -381,12 +376,12 @@ const CARDS: Card[] = [
   { href: "/dashboard/invite-tracker", title: "Invite Tracker", description: "Invite tracking tiers and command behavior.", toggle: engineController("inviteTracker") },
   { href: "/dashboard/tts", title: "TTS", description: "Voice route and TTS runtime control.", toggle: featureController("ttsEnabled"), premiumRequired: true, category: "premium" },
   { href: "/dashboard/economy", title: "Economy", description: "Economy baseline and related systems.", toggle: featureController("economyEnabled") },
-  { href: "/dashboard/economy/store", title: "Store", description: "Catalog, prices, stock, and role grants.", toggle: setupPatchController("/api/setup/store-config", ["active"]) },
+  { href: "/dashboard/economy/store", title: "Store", description: "Catalog, prices, stock, and role grants.", toggle: engineController("store", ["active"]) },
   { href: "/dashboard/economy/progression", title: "Progression", description: "XP intake, level formulas, reward ladders, and progression multipliers.", toggle: setupPatchController("/api/setup/progression-config", ["active"]) },
   { href: "/dashboard/prestige", title: "Prestige", description: "Capstone reset loop, role rewards, and long-tail prestige elevation.", toggle: engineController("prestige") },
   { href: "/dashboard/economy/radio-birthday", title: "Birthdays", description: "Birthday engine settings and reward flow.", toggle: birthdayController },
   { href: "/dashboard/music", title: "Music", description: "Always-free multi-route music playback, route binding, and live queue control.", toggle: musicController },
-  { href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway lifecycle, entrants, rerolls, and controls.", toggle: giveawaysController },
+  { href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway lifecycle, entrants, rerolls, and controls.", toggle: engineController("giveaways", ["active"]) },
   { href: "/dashboard/heist", title: "Heist", description: "Heist signup engine controls.", toggle: engineController("heist", ["active"]), premiumRequired: true, category: "premium" },
   { href: "/dashboard/gta-ops", title: "GTA Ops", description: "GTA operations entity, separate from Heist.", toggle: moduleController("games") },
   { href: "/dashboard/crew", title: "Crew", description: "Crew create/join/leave/vault controls.", toggle: engineController("crew") },

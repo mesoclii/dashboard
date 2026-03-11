@@ -1,13 +1,13 @@
 "use client";
 
-
-
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
+import EngineInsights from "@/components/possum/EngineInsights";
+import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
 type Role = { id: string; name: string; position?: number };
-type Channel = { id: string; name: string; type: number };
+type Channel = { id: string; name: string; type: number | string };
 
 type GiveawayImage = {
   url: string;
@@ -16,6 +16,7 @@ type GiveawayImage = {
 
 type GiveawaysUiConfig = {
   active: boolean;
+  enabled?: boolean;
   defaultChannelId: string;
   channelId: string;
   ticketChannelId: string;
@@ -46,6 +47,7 @@ type GiveawaysUiConfig = {
 
 const DEFAULT_CONFIG: GiveawaysUiConfig = {
   active: true,
+  enabled: true,
   defaultChannelId: "",
   channelId: "",
   ticketChannelId: "",
@@ -64,14 +66,14 @@ const DEFAULT_CONFIG: GiveawaysUiConfig = {
   imageLibrary: [],
   antiAbuse: {
     minAccountAgeDays: 0,
-    ignoreBotEntries: true
+    ignoreBotEntries: true,
   },
   runtime: {
     maxConcurrentGiveaways: 5,
-    cooldownMinutes: 0
+    cooldownMinutes: 0,
   },
   notes: "",
-  lastSavedAt: ""
+  lastSavedAt: "",
 };
 
 function cloneDefaults(): GiveawaysUiConfig {
@@ -107,45 +109,60 @@ function uniqIds(ids: string[]): string[] {
   return [...new Set((ids || []).filter(Boolean))];
 }
 
-function normalize(cfg: GiveawaysUiConfig): GiveawaysUiConfig {
-  const lib: GiveawayImage[] = [];
+function normalize(cfg: Partial<GiveawaysUiConfig> | null | undefined): GiveawaysUiConfig {
+  const merged = {
+    ...cloneDefaults(),
+    ...(cfg || {}),
+    antiAbuse: {
+      ...DEFAULT_CONFIG.antiAbuse,
+      ...(cfg?.antiAbuse || {}),
+    },
+    runtime: {
+      ...DEFAULT_CONFIG.runtime,
+      ...(cfg?.runtime || {}),
+    },
+  };
+
+  const library: GiveawayImage[] = [];
   const seen = new Set<string>();
-  for (const row of cfg.imageLibrary || []) {
+  for (const row of merged.imageLibrary || []) {
     const url = cleanUrl(row?.url);
     if (!url || seen.has(url)) continue;
     seen.add(url);
-    lib.push({ url, label: cleanText(row?.label, "", 120) });
-    if (lib.length >= 80) break;
+    library.push({ url, label: cleanText(row?.label, "", 120) });
+    if (library.length >= 80) break;
   }
 
+  const active = !!merged.active && merged.enabled !== false;
   return {
-    active: !!cfg.active,
-    defaultChannelId: cleanId(cfg.defaultChannelId),
-    channelId: cleanId(cfg.channelId),
-    ticketChannelId: cleanId(cfg.ticketChannelId),
-    defaultDurationMin: clampInt(cfg.defaultDurationMin, 60, 1, 43200),
-    defaultWinners: clampInt(cfg.defaultWinners, 1, 1, 100),
-    defaultPrize: cleanText(cfg.defaultPrize, "", 200),
-    defaultImageUrl: cleanUrl(cfg.defaultImageUrl),
-    announceTemplate: cleanText(cfg.announceTemplate, DEFAULT_CONFIG.announceTemplate, 4000),
-    rerollTemplate: cleanText(cfg.rerollTemplate, DEFAULT_CONFIG.rerollTemplate, 4000),
-    endTemplate: cleanText(cfg.endTemplate, DEFAULT_CONFIG.endTemplate, 4000),
-    requireStaffApproval: !!cfg.requireStaffApproval,
-    allowedRoleIds: uniqIds(cfg.allowedRoleIds || []),
-    blockedRoleIds: uniqIds(cfg.blockedRoleIds || []),
-    hostRoleIds: uniqIds(cfg.hostRoleIds || []),
-    allowedChannelIds: uniqIds(cfg.allowedChannelIds || []),
-    imageLibrary: lib,
+    active,
+    enabled: active,
+    defaultChannelId: cleanId(merged.defaultChannelId),
+    channelId: cleanId(merged.channelId),
+    ticketChannelId: cleanId(merged.ticketChannelId),
+    defaultDurationMin: clampInt(merged.defaultDurationMin, 60, 1, 43200),
+    defaultWinners: clampInt(merged.defaultWinners, 1, 1, 100),
+    defaultPrize: cleanText(merged.defaultPrize, "", 200),
+    defaultImageUrl: cleanUrl(merged.defaultImageUrl),
+    announceTemplate: cleanText(merged.announceTemplate, DEFAULT_CONFIG.announceTemplate, 4000),
+    rerollTemplate: cleanText(merged.rerollTemplate, DEFAULT_CONFIG.rerollTemplate, 4000),
+    endTemplate: cleanText(merged.endTemplate, DEFAULT_CONFIG.endTemplate, 4000),
+    requireStaffApproval: !!merged.requireStaffApproval,
+    allowedRoleIds: uniqIds(merged.allowedRoleIds || []),
+    blockedRoleIds: uniqIds(merged.blockedRoleIds || []),
+    hostRoleIds: uniqIds(merged.hostRoleIds || []),
+    allowedChannelIds: uniqIds(merged.allowedChannelIds || []),
+    imageLibrary: library,
     antiAbuse: {
-      minAccountAgeDays: clampInt(cfg.antiAbuse?.minAccountAgeDays, 0, 0, 3650),
-      ignoreBotEntries: !!cfg.antiAbuse?.ignoreBotEntries
+      minAccountAgeDays: clampInt(merged.antiAbuse?.minAccountAgeDays, 0, 0, 3650),
+      ignoreBotEntries: !!merged.antiAbuse?.ignoreBotEntries,
     },
     runtime: {
-      maxConcurrentGiveaways: clampInt(cfg.runtime?.maxConcurrentGiveaways, 5, 1, 100),
-      cooldownMinutes: clampInt(cfg.runtime?.cooldownMinutes, 0, 0, 10080)
+      maxConcurrentGiveaways: clampInt(merged.runtime?.maxConcurrentGiveaways, 5, 1, 100),
+      cooldownMinutes: clampInt(merged.runtime?.cooldownMinutes, 0, 0, 10080),
     },
-    notes: cleanText(cfg.notes, "", 4000),
-    lastSavedAt: cleanText(cfg.lastSavedAt, "", 64)
+    notes: cleanText(merged.notes, "", 4000),
+    lastSavedAt: cleanText(merged.lastSavedAt, "", 64),
   };
 }
 
@@ -171,7 +188,7 @@ function IdPicker({
   items,
   selected,
   onChange,
-  hash
+  hash,
 }: {
   label: string;
   items: PickerItem[];
@@ -185,25 +202,25 @@ function IdPicker({
         {label} ({selected.length})
       </summary>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10, maxHeight: 170, overflowY: "auto" }}>
-        {items.map((r) => {
-          const on = selected.includes(r.id);
+        {items.map((item) => {
+          const active = selected.includes(item.id);
           return (
             <button
-              key={r.id}
+              key={item.id}
               type="button"
-              onClick={() => onChange(toggleId(selected, r.id))}
+              onClick={() => onChange(toggleId(selected, item.id))}
               style={{
                 borderRadius: 999,
-                border: on ? "1px solid #ff4a4a" : "1px solid #553030",
+                border: active ? "1px solid #ff4a4a" : "1px solid #553030",
                 padding: "6px 10px",
-                background: on ? "rgba(255,0,0,0.20)" : "rgba(255,255,255,0.03)",
-                color: on ? "#fff" : "#ffb7b7",
+                background: active ? "rgba(255,0,0,0.20)" : "rgba(255,255,255,0.03)",
+                color: active ? "#fff" : "#ffb7b7",
                 cursor: "pointer",
-                fontSize: 12
+                fontSize: 12,
               }}
             >
               {hash ? "#" : ""}
-              {r.name}
+              {item.name}
             </button>
           );
         })}
@@ -213,86 +230,47 @@ function IdPicker({
 }
 
 export default function GiveawaysPage() {
-  const [guildId, setGuildId] = useState("");
-  const [guildName, setGuildName] = useState("");
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [cfg, setCfg] = useState<GiveawaysUiConfig>(cloneDefaults());
-  const [initialSig, setInitialSig] = useState("");
+  const {
+    guildId,
+    guildName,
+    config: rawCfg,
+    setConfig: setCfg,
+    roles,
+    channels,
+    summary,
+    details,
+    loading,
+    saving,
+    message,
+    save,
+  } = useGuildEngineEditor<GiveawaysUiConfig>("giveaways", cloneDefaults());
+
+  const cfg = normalize(rawCfg);
+  const [baselineSig, setBaselineSig] = useState("");
   const [newImgUrl, setNewImgUrl] = useState("");
   const [newImgLabel, setNewImgLabel] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [localMsg, setLocalMsg] = useState("");
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const fromUrl = new URLSearchParams(window.location.search).get("guildId") || "";
-    const fromStore = localStorage.getItem("activeGuildId") || "";
-    const gid = (fromUrl || fromStore).trim();
-    if (gid) {
-      localStorage.setItem("activeGuildId", gid);
-      setGuildId(gid);
-    }
-  }, []);
+    if (!guildId || loading) return;
+    setBaselineSig(sig(cfg));
+  }, [guildId, loading]);
 
-  useEffect(() => {
-    if (!guildId) {
-      setLoading(false);
-      return;
-    }
-
-    (async () => {
-      try {
-        setLoading(true);
-        setMsg("");
-
-        const [gRes, cRes] = await Promise.all([
-          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`),
-          fetch(`/api/setup/giveaways-ui-config?guildId=${encodeURIComponent(guildId)}`)
-        ]);
-
-        const g = await gRes.json();
-        const c = await cRes.json();
-        const loaded = normalize({ ...cloneDefaults(), ...(c?.config || {}) });
-
-        setGuildName(g?.guild?.name || guildId);
-        setRoles((Array.isArray(g?.roles) ? g.roles : []).sort((a: Role, b: Role) => Number(b.position || 0) - Number(a.position || 0)));
-        setChannels(Array.isArray(g?.channels) ? g.channels : []);
-        setCfg(loaded);
-        setInitialSig(sig(loaded));
-      } catch {
-        setMsg("Failed to load giveaways config.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [guildId]);
-
-  const textChannels = useMemo(() => channels.filter((c) => c.type === 0 || c.type === 5), [channels]);
-  const dirty = useMemo(() => sig(cfg) !== initialSig, [cfg, initialSig]);
-
-  async function silentPost(url: string, body: any): Promise<boolean> {
-    try {
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      if (!r.ok) return false;
-      const j = await r.json().catch(() => ({}));
-      return j?.success !== false;
-    } catch {
-      return false;
-    }
-  }
+  const textChannels = useMemo(
+    () => (channels as Channel[]).filter((channel) => Number(channel.type) === 0 || Number(channel.type) === 5),
+    [channels]
+  );
+  const dirty = useMemo(() => sig(cfg) !== baselineSig, [cfg, baselineSig]);
+  const visibleMessage = localMsg || message;
 
   function applyPreset(name: "blank" | "starter" | "promo") {
+    setLocalMsg("");
     if (name === "blank") {
-      setCfg((p) =>
+      setCfg((prev) =>
         normalize({
-          ...p,
+          ...prev,
           active: false,
+          enabled: false,
           defaultChannelId: "",
           channelId: "",
           ticketChannelId: "",
@@ -302,48 +280,44 @@ export default function GiveawaysPage() {
           hostRoleIds: [],
           allowedChannelIds: [],
           imageLibrary: [],
-          defaultImageUrl: ""
+          defaultImageUrl: "",
         })
       );
       return;
     }
 
     if (name === "starter") {
-      setCfg((p) =>
+      setCfg((prev) =>
         normalize({
-          ...p,
+          ...prev,
           active: true,
+          enabled: true,
           defaultDurationMin: 60,
           defaultWinners: 1,
           requireStaffApproval: false,
-          defaultChannelId: p.defaultChannelId,
-          channelId: p.channelId,
-          ticketChannelId: p.ticketChannelId,
           runtime: {
-            ...p.runtime,
+            ...prev.runtime,
             maxConcurrentGiveaways: 5,
-            cooldownMinutes: 0
-          }
+            cooldownMinutes: 0,
+          },
         })
       );
       return;
     }
 
-    setCfg((p) =>
+    setCfg((prev) =>
       normalize({
-        ...p,
+        ...prev,
         active: true,
+        enabled: true,
         defaultDurationMin: 180,
-          defaultWinners: 3,
-          requireStaffApproval: true,
-          defaultChannelId: p.defaultChannelId,
-          channelId: p.channelId,
-          ticketChannelId: p.ticketChannelId,
-          runtime: {
-            ...p.runtime,
-            maxConcurrentGiveaways: 10,
-          cooldownMinutes: 15
-        }
+        defaultWinners: 3,
+        requireStaffApproval: true,
+        runtime: {
+          ...prev.runtime,
+          maxConcurrentGiveaways: 10,
+          cooldownMinutes: 15,
+        },
       })
     );
   }
@@ -351,70 +325,44 @@ export default function GiveawaysPage() {
   function addImage() {
     const url = cleanUrl(newImgUrl);
     if (!url) {
-      setMsg("Image URL must start with http or https.");
+      setLocalMsg("Image URL must start with http or https.");
       return;
     }
-    if (cfg.imageLibrary.some((x) => x.url === url)) {
-      setMsg("That image URL is already in the library.");
+    if (cfg.imageLibrary.some((item) => item.url === url)) {
+      setLocalMsg("That image URL is already in the library.");
       return;
     }
 
     const next = normalize({
       ...cfg,
-      imageLibrary: [...cfg.imageLibrary, { url, label: cleanText(newImgLabel, "", 120) }]
+      imageLibrary: [...cfg.imageLibrary, { url, label: cleanText(newImgLabel, "", 120) }],
+      defaultImageUrl: cfg.defaultImageUrl || url,
     });
 
     setCfg(next);
-    if (!next.defaultImageUrl) {
-      setCfg({ ...next, defaultImageUrl: url });
-    }
     setNewImgUrl("");
     setNewImgLabel("");
-    setMsg("");
+    setLocalMsg("");
   }
 
   function removeImage(url: string) {
-    const next = normalize({
-      ...cfg,
-      imageLibrary: cfg.imageLibrary.filter((x) => x.url !== url),
-      defaultImageUrl: cfg.defaultImageUrl === url ? "" : cfg.defaultImageUrl
-    });
-    setCfg(next);
+    setCfg(
+      normalize({
+        ...cfg,
+        imageLibrary: cfg.imageLibrary.filter((item) => item.url !== url),
+        defaultImageUrl: cfg.defaultImageUrl === url ? "" : cfg.defaultImageUrl,
+      })
+    );
+    setLocalMsg("");
   }
 
-  async function saveAll() {
-    if (!guildId) return;
-    try {
-      setSaving(true);
-      setMsg("");
-
-      const normalized = normalize(cfg);
-
-      const res = await fetch("/api/setup/giveaways-ui-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, config: normalized })
-      });
-      const data = await res.json();
-      if (!res.ok || data?.success === false) throw new Error(data?.error || "Save failed");
-
-        const a = await silentPost("/api/bot/dashboard-config", {
-          guildId,
-          patch: {
-            features: {
-              giveawaysEnabled: !!normalized.active
-            }
-          }
-        });
-
-        setCfg(normalized);
-        setInitialSig(sig(normalized));
-        setMsg(`Saved giveaways config. Live sync ${Number(a)}/1.`);
-      } catch (e: any) {
-      setMsg(e?.message || "Save failed.");
-    } finally {
-      setSaving(false);
-    }
+  async function saveAll(nextConfig: GiveawaysUiConfig = cfg) {
+    setLocalMsg("");
+    const normalized = normalize(nextConfig);
+    const result = await save(normalized);
+    if (!result) return;
+    setCfg(normalized);
+    setBaselineSig(sig(normalized));
   }
 
   const card: React.CSSProperties = {
@@ -422,7 +370,7 @@ export default function GiveawaysPage() {
     borderRadius: 12,
     padding: 14,
     background: "rgba(120,0,0,0.08)",
-    marginBottom: 12
+    marginBottom: 12,
   };
 
   const input: React.CSSProperties = {
@@ -431,7 +379,7 @@ export default function GiveawaysPage() {
     color: "#ffd0d0",
     border: "1px solid #7f0000",
     borderRadius: 8,
-    padding: "10px 12px"
+    padding: "10px 12px",
   };
 
   const pill = (on: boolean) => ({
@@ -441,7 +389,7 @@ export default function GiveawaysPage() {
     color: on ? "#7dff9c" : "#ff9a9a",
     fontSize: 12,
     fontWeight: 700,
-    letterSpacing: "0.06em"
+    letterSpacing: "0.06em",
   });
 
   if (!guildId) {
@@ -461,27 +409,33 @@ export default function GiveawaysPage() {
           <div style={{ color: "#ff9f9f", marginTop: 4 }}>Last saved: {toLocal(cfg.lastSavedAt)}</div>
         </div>
         <button
-          onClick={saveAll}
+          onClick={() => void saveAll()}
           disabled={saving || loading}
           style={{ border: "1px solid #ff3636", background: "#190000", color: "#fff", borderRadius: 10, padding: "10px 14px", fontWeight: 800, cursor: "pointer" }}
+          type="button"
         >
           {saving ? "Saving..." : "Save Giveaways"}
         </button>
       </div>
 
-      <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <span style={pill(cfg.active)}>MODULE {cfg.active ? "ON" : "OFF"}</span>
-        <span style={pill(cfg.requireStaffApproval)}>STAFF APPROVAL {cfg.requireStaffApproval ? "ON" : "OFF"}</span>
-        <span style={pill(cfg.imageLibrary.length > 0)}>IMAGE LIBRARY {cfg.imageLibrary.length}</span>
-        <span style={pill(!dirty)}>{dirty ? "UNSAVED" : "SAVED"}</span>
+      <div style={{ color: "#ffb8b8", lineHeight: 1.6, maxWidth: 980, marginTop: 10 }}>
+        Giveaways now edits the live runtime path the bot uses for tribute setup, anti-abuse rules, channel routing, templates, and image defaults.
       </div>
-
-      {msg ? <div style={{ marginTop: 10, color: "#ffd3d3" }}>{msg}</div> : null}
+      {visibleMessage ? <div style={{ marginTop: 10, color: "#ffd3d3" }}>{visibleMessage}</div> : null}
 
       {loading ? (
         <div style={{ marginTop: 16 }}>Loading...</div>
       ) : (
         <div style={{ marginTop: 16 }}>
+          <EngineInsights summary={summary} details={details} />
+
+          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <span style={pill(cfg.active)}>MODULE {cfg.active ? "ON" : "OFF"}</span>
+            <span style={pill(cfg.requireStaffApproval)}>STAFF APPROVAL {cfg.requireStaffApproval ? "ON" : "OFF"}</span>
+            <span style={pill(cfg.imageLibrary.length > 0)}>IMAGE LIBRARY {cfg.imageLibrary.length}</span>
+            <span style={pill(!dirty)}>{dirty ? "UNSAVED" : "SAVED"}</span>
+          </div>
+
           <div style={card}>
             <h3 style={{ marginTop: 0, color: "#ff4444" }}>Quick Presets</h3>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -494,66 +448,66 @@ export default function GiveawaysPage() {
           <div style={card}>
             <h3 style={{ marginTop: 0, color: "#ff4444" }}>Core</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
-              <label><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg({ ...cfg, active: e.target.checked })} /> Enabled</label>
-              <label><input type="checkbox" checked={cfg.requireStaffApproval} onChange={(e) => setCfg({ ...cfg, requireStaffApproval: e.target.checked })} /> Staff approval required</label>
-              <label><input type="checkbox" checked={cfg.antiAbuse.ignoreBotEntries} onChange={(e) => setCfg({ ...cfg, antiAbuse: { ...cfg.antiAbuse, ignoreBotEntries: e.target.checked } })} /> Ignore bot entries</label>
+              <label><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg(normalize({ ...cfg, active: e.target.checked, enabled: e.target.checked }))} /> Enabled</label>
+              <label><input type="checkbox" checked={cfg.requireStaffApproval} onChange={(e) => setCfg(normalize({ ...cfg, requireStaffApproval: e.target.checked }))} /> Staff approval required</label>
+              <label><input type="checkbox" checked={cfg.antiAbuse.ignoreBotEntries} onChange={(e) => setCfg(normalize({ ...cfg, antiAbuse: { ...cfg.antiAbuse, ignoreBotEntries: e.target.checked } }))} /> Ignore bot entries</label>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
               <div>
                 <div>Default Duration (minutes)</div>
-                <input type="number" style={input} value={cfg.defaultDurationMin} onChange={(e) => setCfg({ ...cfg, defaultDurationMin: clampInt(e.target.value, 60, 1, 43200) })} />
+                <input type="number" style={input} value={cfg.defaultDurationMin} onChange={(e) => setCfg(normalize({ ...cfg, defaultDurationMin: clampInt(e.target.value, 60, 1, 43200) }))} />
               </div>
               <div>
                 <div>Default Winners</div>
-                <input type="number" style={input} value={cfg.defaultWinners} onChange={(e) => setCfg({ ...cfg, defaultWinners: clampInt(e.target.value, 1, 1, 100) })} />
+                <input type="number" style={input} value={cfg.defaultWinners} onChange={(e) => setCfg(normalize({ ...cfg, defaultWinners: clampInt(e.target.value, 1, 1, 100) }))} />
               </div>
               <div>
                 <div>Max Concurrent Giveaways</div>
-                <input type="number" style={input} value={cfg.runtime.maxConcurrentGiveaways} onChange={(e) => setCfg({ ...cfg, runtime: { ...cfg.runtime, maxConcurrentGiveaways: clampInt(e.target.value, 5, 1, 100) } })} />
+                <input type="number" style={input} value={cfg.runtime.maxConcurrentGiveaways} onChange={(e) => setCfg(normalize({ ...cfg, runtime: { ...cfg.runtime, maxConcurrentGiveaways: clampInt(e.target.value, 5, 1, 100) } }))} />
               </div>
               <div>
                 <div>Cooldown (minutes)</div>
-                <input type="number" style={input} value={cfg.runtime.cooldownMinutes} onChange={(e) => setCfg({ ...cfg, runtime: { ...cfg.runtime, cooldownMinutes: clampInt(e.target.value, 0, 0, 10080) } })} />
+                <input type="number" style={input} value={cfg.runtime.cooldownMinutes} onChange={(e) => setCfg(normalize({ ...cfg, runtime: { ...cfg.runtime, cooldownMinutes: clampInt(e.target.value, 0, 0, 10080) } }))} />
               </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginTop: 10 }}>
               <div>
                 <div>Default Prize</div>
-                <input style={input} value={cfg.defaultPrize} onChange={(e) => setCfg({ ...cfg, defaultPrize: e.target.value })} placeholder="Example: Nitro 1 month" />
+                <input style={input} value={cfg.defaultPrize} onChange={(e) => setCfg(normalize({ ...cfg, defaultPrize: e.target.value }))} placeholder="Example: Nitro 1 month" />
               </div>
               <div>
                 <div>Min Account Age (days)</div>
-                <input type="number" style={input} value={cfg.antiAbuse.minAccountAgeDays} onChange={(e) => setCfg({ ...cfg, antiAbuse: { ...cfg.antiAbuse, minAccountAgeDays: clampInt(e.target.value, 0, 0, 3650) } })} />
+                <input type="number" style={input} value={cfg.antiAbuse.minAccountAgeDays} onChange={(e) => setCfg(normalize({ ...cfg, antiAbuse: { ...cfg.antiAbuse, minAccountAgeDays: clampInt(e.target.value, 0, 0, 3650) } }))} />
               </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginTop: 12 }}>
               <div>
                 <div>Default Giveaway Channel</div>
-                <select style={input} value={cfg.defaultChannelId} onChange={(e) => setCfg({ ...cfg, defaultChannelId: e.target.value })}>
+                <select style={input} value={cfg.defaultChannelId} onChange={(e) => setCfg(normalize({ ...cfg, defaultChannelId: e.target.value }))}>
                   <option value="">Select channel</option>
-                  {textChannels.map((c) => (
-                    <option key={c.id} value={c.id}>#{c.name}</option>
+                  {textChannels.map((channel) => (
+                    <option key={channel.id} value={channel.id}>#{channel.name}</option>
                   ))}
                 </select>
               </div>
               <div>
                 <div>Legacy Override Channel</div>
-                <select style={input} value={cfg.channelId} onChange={(e) => setCfg({ ...cfg, channelId: e.target.value })}>
+                <select style={input} value={cfg.channelId} onChange={(e) => setCfg(normalize({ ...cfg, channelId: e.target.value }))}>
                   <option value="">Select channel</option>
-                  {textChannels.map((c) => (
-                    <option key={c.id} value={c.id}>#{c.name}</option>
+                  {textChannels.map((channel) => (
+                    <option key={channel.id} value={channel.id}>#{channel.name}</option>
                   ))}
                 </select>
               </div>
               <div>
                 <div>Ticket / Claim Channel</div>
-                <select style={input} value={cfg.ticketChannelId} onChange={(e) => setCfg({ ...cfg, ticketChannelId: e.target.value })}>
+                <select style={input} value={cfg.ticketChannelId} onChange={(e) => setCfg(normalize({ ...cfg, ticketChannelId: e.target.value }))}>
                   <option value="">Select channel</option>
-                  {textChannels.map((c) => (
-                    <option key={c.id} value={c.id}>#{c.name}</option>
+                  {textChannels.map((channel) => (
+                    <option key={channel.id} value={channel.id}>#{channel.name}</option>
                   ))}
                 </select>
               </div>
@@ -564,15 +518,15 @@ export default function GiveawaysPage() {
             <h3 style={{ marginTop: 0, color: "#ff4444" }}>Templates</h3>
             <div style={{ marginBottom: 10 }}>
               <div>Announce Template</div>
-              <textarea style={{ ...input, minHeight: 80 }} value={cfg.announceTemplate} onChange={(e) => setCfg({ ...cfg, announceTemplate: e.target.value })} />
+              <textarea style={{ ...input, minHeight: 80 }} value={cfg.announceTemplate} onChange={(e) => setCfg(normalize({ ...cfg, announceTemplate: e.target.value }))} />
             </div>
             <div style={{ marginBottom: 10 }}>
               <div>Reroll Template</div>
-              <textarea style={{ ...input, minHeight: 80 }} value={cfg.rerollTemplate} onChange={(e) => setCfg({ ...cfg, rerollTemplate: e.target.value })} />
+              <textarea style={{ ...input, minHeight: 80 }} value={cfg.rerollTemplate} onChange={(e) => setCfg(normalize({ ...cfg, rerollTemplate: e.target.value }))} />
             </div>
             <div>
               <div>End Template</div>
-              <textarea style={{ ...input, minHeight: 80 }} value={cfg.endTemplate} onChange={(e) => setCfg({ ...cfg, endTemplate: e.target.value })} />
+              <textarea style={{ ...input, minHeight: 80 }} value={cfg.endTemplate} onChange={(e) => setCfg(normalize({ ...cfg, endTemplate: e.target.value }))} />
             </div>
           </div>
 
@@ -581,30 +535,30 @@ export default function GiveawaysPage() {
 
             <IdPicker
               label="Allowed Roles (entry)"
-              items={roles.map((r) => ({ id: r.id, name: r.name }))}
+              items={(roles as Role[]).map((role) => ({ id: role.id, name: role.name }))}
               selected={cfg.allowedRoleIds}
-              onChange={(ids) => setCfg({ ...cfg, allowedRoleIds: ids })}
+              onChange={(ids) => setCfg(normalize({ ...cfg, allowedRoleIds: ids }))}
             />
 
             <IdPicker
               label="Blocked Roles (entry)"
-              items={roles.map((r) => ({ id: r.id, name: r.name }))}
+              items={(roles as Role[]).map((role) => ({ id: role.id, name: role.name }))}
               selected={cfg.blockedRoleIds}
-              onChange={(ids) => setCfg({ ...cfg, blockedRoleIds: ids })}
+              onChange={(ids) => setCfg(normalize({ ...cfg, blockedRoleIds: ids }))}
             />
 
             <IdPicker
               label="Host Roles (can start/reroll/end)"
-              items={roles.map((r) => ({ id: r.id, name: r.name }))}
+              items={(roles as Role[]).map((role) => ({ id: role.id, name: role.name }))}
               selected={cfg.hostRoleIds}
-              onChange={(ids) => setCfg({ ...cfg, hostRoleIds: ids })}
+              onChange={(ids) => setCfg(normalize({ ...cfg, hostRoleIds: ids }))}
             />
 
             <IdPicker
               label="Allowed Channels"
-              items={textChannels.map((c) => ({ id: c.id, name: c.name }))}
+              items={textChannels.map((channel) => ({ id: channel.id, name: channel.name }))}
               selected={cfg.allowedChannelIds}
-              onChange={(ids) => setCfg({ ...cfg, allowedChannelIds: ids })}
+              onChange={(ids) => setCfg(normalize({ ...cfg, allowedChannelIds: ids }))}
               hash
             />
           </div>
@@ -622,7 +576,7 @@ export default function GiveawaysPage() {
 
             <div style={{ marginBottom: 10 }}>
               <div>Default Image URL</div>
-              <select style={input} value={cfg.defaultImageUrl} onChange={(e) => setCfg({ ...cfg, defaultImageUrl: e.target.value })}>
+              <select style={input} value={cfg.defaultImageUrl} onChange={(e) => setCfg(normalize({ ...cfg, defaultImageUrl: e.target.value }))}>
                 <option value="">None</option>
                 {cfg.imageLibrary.map((img) => (
                   <option key={img.url} value={img.url}>
@@ -653,7 +607,7 @@ export default function GiveawaysPage() {
 
           <div style={card}>
             <h3 style={{ marginTop: 0, color: "#ff4444" }}>Notes</h3>
-            <textarea style={{ ...input, minHeight: 120 }} value={cfg.notes} onChange={(e) => setCfg({ ...cfg, notes: e.target.value })} />
+            <textarea style={{ ...input, minHeight: 120 }} value={cfg.notes} onChange={(e) => setCfg(normalize({ ...cfg, notes: e.target.value }))} />
           </div>
 
           <ConfigJsonEditor
@@ -661,9 +615,9 @@ export default function GiveawaysPage() {
             value={cfg}
             disabled={saving}
             onApply={async (next) => {
-              const normalized = normalize({ ...cloneDefaults(), ...(next as any) });
+              const normalized = normalize(next as GiveawaysUiConfig);
               setCfg(normalized);
-              await saveAll();
+              await saveAll(normalized);
             }}
           />
 
@@ -672,9 +626,10 @@ export default function GiveawaysPage() {
               Back to Economy
             </Link>
             <button
-              onClick={saveAll}
+              onClick={() => void saveAll()}
               disabled={saving}
               style={{ border: "1px solid #ff3636", background: "#190000", color: "#fff", borderRadius: 10, padding: "10px 14px", fontWeight: 800, cursor: "pointer" }}
+              type="button"
             >
               {saving ? "Saving..." : "Save Giveaways"}
             </button>

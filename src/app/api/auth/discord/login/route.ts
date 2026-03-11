@@ -4,8 +4,10 @@ import { auditDashboardEvent } from "@/lib/dashboardAudit";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import {
   DASHBOARD_OAUTH_STATE_COOKIE,
+  DASHBOARD_RETURN_TO_COOKIE,
   createOauthState,
   isDashboardSessionConfigured,
+  sanitizeDashboardReturnTo,
   useSecureCookies,
 } from "@/lib/session";
 
@@ -39,9 +41,27 @@ export async function GET(request: NextRequest) {
   }
 
   const state = createOauthState();
+  const referer = String(request.headers.get("referer") || "").trim();
+  let inferredReturnTo = request.nextUrl.searchParams.get("returnTo") || "";
+  if (!inferredReturnTo && referer) {
+    try {
+      const refererUrl = new URL(referer);
+      if (refererUrl.origin === request.nextUrl.origin) {
+        inferredReturnTo = `${refererUrl.pathname}${refererUrl.search}${refererUrl.hash}`;
+      }
+    } catch {}
+  }
+  const returnTo = sanitizeDashboardReturnTo(inferredReturnTo);
   const response = NextResponse.redirect(buildDiscordOauthUrl(state));
 
   response.cookies.set(DASHBOARD_OAUTH_STATE_COOKIE, state, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: useSecureCookies(),
+    path: "/",
+    maxAge: 60 * 10,
+  });
+  response.cookies.set(DASHBOARD_RETURN_TO_COOKIE, returnTo, {
     httpOnly: true,
     sameSite: "lax",
     secure: useSecureCookies(),
@@ -53,6 +73,7 @@ export async function GET(request: NextRequest) {
     area: "oauth",
     action: "discord_login_redirect",
     severity: "info",
+    metadata: { returnTo },
   });
 
   return response;

@@ -10,8 +10,10 @@ import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import {
   createDashboardSessionValue,
   DASHBOARD_OAUTH_STATE_COOKIE,
+  DASHBOARD_RETURN_TO_COOKIE,
   DASHBOARD_SESSION_COOKIE,
   isDashboardSessionConfigured,
+  sanitizeDashboardReturnTo,
   useSecureCookies,
 } from "@/lib/session";
 
@@ -37,6 +39,7 @@ export async function GET(request: NextRequest) {
   const code = String(request.nextUrl.searchParams.get("code") || "").trim();
   const state = String(request.nextUrl.searchParams.get("state") || "").trim();
   const storedState = String(request.cookies.get(DASHBOARD_OAUTH_STATE_COOKIE)?.value || "").trim();
+  const returnTo = sanitizeDashboardReturnTo(request.cookies.get(DASHBOARD_RETURN_TO_COOKIE)?.value);
 
   if (!code) {
     return NextResponse.json({ success: false, error: "Missing OAuth code." }, { status: 400 });
@@ -61,8 +64,10 @@ export async function GET(request: NextRequest) {
     expiresAt: Date.now() + Number(token.expires_in || 604800) * 1000,
   });
 
-  const redirectUrl = buildDashboardUrl("/guilds", request);
-  redirectUrl.searchParams.set("userId", String(user.id));
+  const redirectUrl = buildDashboardUrl(returnTo, request);
+  if (!redirectUrl.searchParams.get("userId")) {
+    redirectUrl.searchParams.set("userId", String(user.id));
+  }
 
   const response = NextResponse.redirect(redirectUrl);
   response.cookies.set(DASHBOARD_SESSION_COOKIE, sessionValue, {
@@ -73,6 +78,7 @@ export async function GET(request: NextRequest) {
     maxAge: Math.max(60, Number(token.expires_in || 604800)),
   });
   response.cookies.delete(DASHBOARD_OAUTH_STATE_COOKIE);
+  response.cookies.delete(DASHBOARD_RETURN_TO_COOKIE);
 
   void auditDashboardEvent({
     actorUserId: String(user.id),

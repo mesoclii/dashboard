@@ -11,6 +11,9 @@ type SubscriptionStatus = {
   plan: string;
   premiumTier: string | null;
   source: string;
+  premiumExpiresAt: string | null;
+  scope: "guild" | "global";
+  inheritedFrom: string | null;
   developerBypass?: boolean;
 };
 
@@ -39,6 +42,8 @@ export default function PremiumFeaturesClient() {
   const [statusMsg, setStatusMsg] = useState("");
   const [canManagePremium, setCanManagePremium] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [grantScope, setGrantScope] = useState<"guild" | "global">("guild");
+  const [trialDays, setTrialDays] = useState(0);
 
   async function loadStatus() {
     if (!guildId) return;
@@ -51,6 +56,7 @@ export default function PremiumFeaturesClient() {
       return;
     }
     setStatus(json?.status || null);
+    setGrantScope(json?.status?.scope === "global" ? "global" : "guild");
     setCanManagePremium(Boolean(json?.canManagePremium));
     setStatusMsg("");
   }
@@ -72,6 +78,8 @@ export default function PremiumFeaturesClient() {
           active,
           plan,
           premiumTier: active ? plan : null,
+          scope: grantScope,
+          trialDays: active ? trialDays : 0,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -80,7 +88,11 @@ export default function PremiumFeaturesClient() {
       }
       setStatus(json?.status || null);
       setCanManagePremium(Boolean(json?.canManagePremium));
-      setStatusMsg(active ? `${plan} enabled for this guild.` : "Premium disabled for this guild.");
+      setStatusMsg(
+        active
+          ? `${plan} enabled for ${grantScope === "global" ? "the admin trial scope" : "this guild"}${trialDays > 0 ? ` for ${trialDays} day(s)` : ""}.`
+          : `Premium disabled for ${grantScope === "global" ? "the admin trial scope" : "this guild"}.`
+      );
     } catch (error: any) {
       setStatusMsg(error?.message || "Failed to update premium plan.");
     } finally {
@@ -91,7 +103,7 @@ export default function PremiumFeaturesClient() {
   const stateLabel = status?.developerBypass
     ? "Developer Access"
     : status?.active
-      ? `${status.plan} Active`
+      ? `${status.plan} Active (${status.scope === "global" ? "Global Trial" : "Guild"})`
       : "Premium Off";
 
   return (
@@ -116,8 +128,8 @@ export default function PremiumFeaturesClient() {
             </h1>
             <p style={{ color: "#ffb5b5", lineHeight: 1.7, maxWidth: 860 }}>
               This page only lists paid guild add-ons, plan pricing, and master-owner trial controls. Standard features
-              stay out of this surface, and Pokemon remains private-only. One plan covers every server you own or staff
-              in, and Possum Bot remains one of the most actively updated bots in active development.
+              stay out of this surface, and Pokemon remains private-only. Paid plans are enforced per guild. Global
+              grants on this page are internal master-owner trial tools, not customer billing behavior.
             </p>
             <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 10 }}>
               Feature requests and fixes can be suggested in Possum Bot Support: 1480942991328809223.
@@ -133,6 +145,16 @@ export default function PremiumFeaturesClient() {
               {stateLabel}
               {status?.premiumTier ? ` | ${status.premiumTier}` : ""}
             </div>
+            {status?.premiumExpiresAt ? (
+              <div style={{ color: "#ffb7b7", fontSize: 12, marginTop: 6 }}>
+                Expires: {new Date(status.premiumExpiresAt).toLocaleString()}
+              </div>
+            ) : null}
+            {status?.scope === "global" && status?.inheritedFrom ? (
+              <div style={{ color: "#ffb7b7", fontSize: 12, marginTop: 6 }}>
+                This guild is inheriting an internal global admin entitlement.
+              </div>
+            ) : null}
             {statusMsg ? <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 8 }}>{statusMsg}</div> : null}
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
               <a
@@ -171,6 +193,47 @@ export default function PremiumFeaturesClient() {
             }}
           >
             Master Owner Trial Controls
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => setGrantScope("guild")}
+              style={{
+                ...action,
+                cursor: saving ? "wait" : "pointer",
+                color: grantScope === "guild" ? "#190000" : "#ffd7d7",
+                background: grantScope === "guild" ? "linear-gradient(90deg, #ff4141, #ff8c40)" : "#130707",
+                border: "1px solid rgba(255,0,0,.45)",
+              }}
+            >
+              Guild Scope
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => setGrantScope("global")}
+              style={{
+                ...action,
+                cursor: saving ? "wait" : "pointer",
+                color: grantScope === "global" ? "#190000" : "#ffd7d7",
+                background: grantScope === "global" ? "linear-gradient(90deg, #ff4141, #ff8c40)" : "#130707",
+                border: "1px solid rgba(255,0,0,.45)",
+              }}
+            >
+              Global Trial
+            </button>
+            <label style={{ color: "#ffbdbd", fontSize: 12 }}>
+              Trial Days
+              <input
+                type="number"
+                min={0}
+                max={365}
+                value={trialDays}
+                onChange={(e) => setTrialDays(Math.max(0, Math.min(365, Math.trunc(Number(e.target.value || 0)))))}
+                style={{ marginLeft: 8, width: 90, padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(255,0,0,.45)", background: "#130707", color: "#ffd7d7" }}
+              />
+            </label>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button
@@ -229,6 +292,9 @@ export default function PremiumFeaturesClient() {
             >
               Set Free
             </button>
+          </div>
+          <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 10 }}>
+            Guild Scope writes a single guild entitlement. Global Trial writes the internal account-wide admin trial record for your current owner account.
           </div>
         </section>
       ) : null}

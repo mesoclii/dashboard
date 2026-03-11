@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
 import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
 
 type GiveawayImage = {
   url: string;
@@ -38,8 +37,6 @@ type GiveawaysUiConfig = {
   lastSavedAt: string;
 };
 
-const ROOT = path.join(process.cwd(), "data", "baselines");
-
 const DEFAULT_CONFIG: GiveawaysUiConfig = {
   active: true,
   defaultChannelId: "",
@@ -60,18 +57,18 @@ const DEFAULT_CONFIG: GiveawaysUiConfig = {
   imageLibrary: [],
   antiAbuse: {
     minAccountAgeDays: 0,
-    ignoreBotEntries: true
+    ignoreBotEntries: true,
   },
   runtime: {
     maxConcurrentGiveaways: 5,
-    cooldownMinutes: 0
+    cooldownMinutes: 0,
   },
   notes: "",
-  lastSavedAt: ""
+  lastSavedAt: "",
 };
 
-function isObj(v: unknown): v is Record<string, unknown> {
-  return !!v && typeof v === "object" && !Array.isArray(v);
+function isObj(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function mergeDeep<T>(base: T, incoming: unknown): T {
@@ -85,18 +82,6 @@ function mergeDeep<T>(base: T, incoming: unknown): T {
     else out[key] = nextVal;
   }
   return out as T;
-}
-
-function ensureRoot() {
-  if (!fs.existsSync(ROOT)) fs.mkdirSync(ROOT, { recursive: true });
-}
-
-function fileFor(guildId: string) {
-  return path.join(ROOT, `giveaways-ui.${guildId}.json`);
-}
-
-function isSnowflake(v: string): boolean {
-  return /^\d{16,20}$/.test(String(v || "").trim());
 }
 
 function cleanText(v: unknown, fallback = "", max = 4000): string {
@@ -114,49 +99,29 @@ function cleanInt(v: unknown, fallback: number, min: number, max: number): numbe
 
 function cleanId(v: unknown): string {
   const s = cleanText(v, "", 30);
-  return s && isSnowflake(s) ? s : "";
+  return /^\d{16,20}$/.test(s) ? s : "";
 }
 
 function cleanIds(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
-  const set = new Set<string>();
-  for (const item of v) {
-    const id = cleanId(item);
-    if (id) set.add(id);
-  }
-  return [...set];
+  return [...new Set(v.map((item) => cleanId(item)).filter(Boolean))];
 }
 
 function cleanUrl(v: unknown): string {
   const s = cleanText(v, "", 2000);
-  if (!s) return "";
-  if (!/^https?:\/\//i.test(s)) return "";
-  return s;
-}
-
-function cleanImage(v: unknown): GiveawayImage | null {
-  if (!isObj(v)) return null;
-  const url = cleanUrl((v as any).url);
-  if (!url) return null;
-  return {
-    url,
-    label: cleanText((v as any).label, "", 120)
-  };
+  return /^https?:\/\//i.test(s) ? s : "";
 }
 
 function sanitize(input: unknown): GiveawaysUiConfig {
   const merged = mergeDeep<GiveawaysUiConfig>(DEFAULT_CONFIG, input);
-
-  const rawLib = Array.isArray(merged.imageLibrary) ? merged.imageLibrary : [];
-  const lib: GiveawayImage[] = [];
+  const library: GiveawayImage[] = [];
   const seen = new Set<string>();
-  for (const row of rawLib) {
-    const img = cleanImage(row);
-    if (!img) continue;
-    if (seen.has(img.url)) continue;
-    seen.add(img.url);
-    lib.push(img);
-    if (lib.length >= 80) break;
+  for (const row of Array.isArray(merged.imageLibrary) ? merged.imageLibrary : []) {
+    const url = cleanUrl(row?.url);
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    library.push({ url, label: cleanText(row?.label, "", 120) });
+    if (library.length >= 80) break;
   }
 
   return {
@@ -176,92 +141,74 @@ function sanitize(input: unknown): GiveawaysUiConfig {
     blockedRoleIds: cleanIds(merged.blockedRoleIds),
     hostRoleIds: cleanIds(merged.hostRoleIds),
     allowedChannelIds: cleanIds(merged.allowedChannelIds),
-    imageLibrary: lib,
+    imageLibrary: library,
     antiAbuse: {
       minAccountAgeDays: cleanInt(merged.antiAbuse?.minAccountAgeDays, 0, 0, 3650),
-      ignoreBotEntries: !!merged.antiAbuse?.ignoreBotEntries
+      ignoreBotEntries: !!merged.antiAbuse?.ignoreBotEntries,
     },
     runtime: {
       maxConcurrentGiveaways: cleanInt(merged.runtime?.maxConcurrentGiveaways, 5, 1, 100),
-      cooldownMinutes: cleanInt(merged.runtime?.cooldownMinutes, 0, 0, 10080)
+      cooldownMinutes: cleanInt(merged.runtime?.cooldownMinutes, 0, 0, 10080),
     },
     notes: cleanText(merged.notes, "", 4000),
-    lastSavedAt: cleanText(merged.lastSavedAt, "", 64)
+    lastSavedAt: cleanText(merged.lastSavedAt, "", 64),
   };
 }
 
-function readConfig(guildId: string): GiveawaysUiConfig {
-  ensureRoot();
-  const f = fileFor(guildId);
-  if (!fs.existsSync(f)) return DEFAULT_CONFIG;
-  try {
-    const raw = fs.readFileSync(f, "utf8");
-    return sanitize(JSON.parse(raw || "{}"));
-  } catch {
-    return DEFAULT_CONFIG;
-  }
-}
-
-function writeConfig(guildId: string, config: GiveawaysUiConfig) {
-  ensureRoot();
-  fs.writeFileSync(fileFor(guildId), JSON.stringify(config, null, 2), "utf8");
-}
-
-async function readEngineConfig(req: NextApiRequest, guildId: string) {
-  const upstream = await fetch(
-    `${BOT_API}/engine-config?guildId=${encodeURIComponent(guildId)}&engine=giveaways`,
-    { headers: buildBotApiHeaders(req), cache: "no-store" }
-  );
+async function readRemoteConfig(req: NextApiRequest, guildId: string) {
+  const upstream = await fetch(`${BOT_API}/engine-config?guildId=${encodeURIComponent(guildId)}&engine=giveaways`, {
+    headers: buildBotApiHeaders(req),
+    cache: "no-store",
+  });
   const data = await readJsonSafe(upstream);
-  const config = isObj(data?.config) ? (data.config as GiveawaysUiConfig) : {};
-  return { upstream, data, config };
-}
-
-function hasConfigPayload(config: Record<string, unknown>) {
-  return Object.keys(config || {}).length > 0;
+  return {
+    upstream,
+    data,
+    config: isObj(data?.config) ? data.config : {},
+  };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    const guildId = String(req.query.guildId || req.body?.guildId || "").trim();
+    if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
+
     if (req.method === "GET") {
-      const guildId = String(req.query.guildId || "").trim();
-      if (!isSnowflake(guildId)) return res.status(400).json({ success: false, error: "guildId is required" });
-      const local = readConfig(guildId);
-      const remote = await readEngineConfig(req, guildId).catch(() => null);
-      const remoteCfg = remote?.config && hasConfigPayload(remote.config as any) ? remote.config : null;
-      const config = sanitize(remoteCfg || local);
-      return res.status(200).json({ success: true, guildId, config });
+      const remote = await readRemoteConfig(req, guildId);
+      return res.status(remote.upstream.status).json({
+        success: remote.upstream.ok,
+        guildId,
+        config: sanitize(remote.config),
+        error: remote.data?.error,
+      });
     }
 
     if (req.method === "POST" || req.method === "PUT") {
-      const guildId = String(req.body?.guildId || req.query.guildId || "").trim();
-      if (!isSnowflake(guildId)) return res.status(400).json({ success: false, error: "guildId is required" });
+      if (isWriteBlockedForGuild(guildId)) {
+        return res.status(403).json(stockLockError(guildId));
+      }
 
-      const local = readConfig(guildId);
-      const remote = await readEngineConfig(req, guildId).catch(() => null);
-      const base = remote?.config && hasConfigPayload(remote.config as any) ? remote.config : local;
+      const remote = await readRemoteConfig(req, guildId);
+      if (!remote.upstream.ok) {
+        return res.status(remote.upstream.status).json(remote.data);
+      }
+
       const incoming = req.body?.config ?? req.body?.patch ?? {};
-      const next = sanitize(mergeDeep(base, incoming));
+      const next = sanitize(mergeDeep(remote.config, incoming));
       next.lastSavedAt = new Date().toISOString();
-
-      writeConfig(guildId, next);
 
       const upstream = await fetch(`${BOT_API}/engine-config`, {
         method: "POST",
         headers: buildBotApiHeaders(req, { json: true }),
-        body: JSON.stringify({ guildId, engine: "giveaways", config: next })
+        body: JSON.stringify({ guildId, engine: "giveaways", config: next }),
       });
       const data = await readJsonSafe(upstream);
-      if (!upstream.ok) {
-        return res.status(upstream.status).json({
-          success: false,
-          error: data?.error || "Failed to sync giveaways to bot",
-          guildId,
-          config: next
-        });
-      }
-
-      return res.status(200).json({ success: true, guildId, config: data?.config || next });
+      return res.status(upstream.status).json({
+        success: upstream.ok,
+        guildId,
+        config: sanitize(data?.config || next),
+        error: data?.error,
+      });
     }
 
     return res.status(405).json({ success: false, error: "Method not allowed" });

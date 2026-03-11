@@ -97,7 +97,7 @@ export default function Home() {
     [now]
   );
 
-  const entryHref = session.loggedIn && session.canEnterDashboard ? "/guilds" : "/api/auth/discord/login";
+  const entryHref = session.loggedIn && session.canEnterDashboard ? "/guilds" : "/api/auth/discord/login?returnTo=%2Fguilds";
   const entryLabel = session.loggedIn && session.canEnterDashboard ? "Select Guild" : "Login To Discord";
 
   return (

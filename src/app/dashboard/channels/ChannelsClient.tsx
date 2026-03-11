@@ -13,27 +13,22 @@ type Field = {
 type Section = {
   key: string;
   label: string;
-  source: "engine" | "setup" | "dashboard";
-  engine?: string;
-  endpoint?: string;
-  dashboardPath?: string[];
+  engine: string;
   fields: Field[];
   supportsPanels?: boolean;
+  note?: string;
 };
 
 const SECTIONS: Section[] = [
   {
     key: "tickets",
     label: "Tickets",
-    source: "setup",
-    endpoint: "/api/setup/tickets-config",
+    engine: "tickets",
     fields: [
       { key: "panelChannelId", label: "Panel Channel", type: "text" },
-      { key: "ticketCategoryId", label: "Ticket Category", type: "category" },
-      { key: "transcriptChannelId", label: "Transcript Channel", type: "text" },
-      { key: "logChannelId", label: "Log Channel", type: "text" },
       { key: "openCategoryId", label: "Open Category", type: "category" },
       { key: "closedCategoryId", label: "Closed Category", type: "category" },
+      { key: "transcriptLogId", label: "Transcript Log", type: "text" },
       { key: "types.support.openCategoryId", label: "Support Open Category", type: "category" },
       { key: "types.support.closedCategoryId", label: "Support Closed Category", type: "category" },
       { key: "types.support.transcriptChannelId", label: "Support Transcript Channel", type: "text" },
@@ -51,8 +46,7 @@ const SECTIONS: Section[] = [
   {
     key: "onboarding",
     label: "Onboarding",
-    source: "dashboard",
-    dashboardPath: ["security", "onboarding"],
+    engine: "onboarding",
     fields: [
       { key: "welcomeChannelId", label: "Welcome Channel", type: "text" },
       { key: "mainChatChannelId", label: "Main Chat Channel", type: "text" },
@@ -61,8 +55,10 @@ const SECTIONS: Section[] = [
       { key: "ticketCategoryId", label: "Ticket Category", type: "category" },
       { key: "transcriptChannelId", label: "Transcript Channel", type: "text" },
       { key: "logChannelId", label: "Log Channel", type: "text" },
+      { key: "hostingLegacyChannelId", label: "Hosting Legacy Channel", type: "text" },
+      { key: "hostingEnhancedChannelId", label: "Hosting Enhanced Channel", type: "text" },
       { key: "staffIntroChannelId", label: "Staff Intro Channel", type: "text" },
-      { key: "selfRolesChannelId", label: "Selfroles Channel", type: "text" },
+      { key: "selfRolesChannelId", label: "Self Roles Channel", type: "text" },
       { key: "botGuideChannelId", label: "Bot Guide Channel", type: "text" },
       { key: "updatesChannelId", label: "Updates Channel", type: "text" },
       { key: "funChannelId", label: "Fun Channel", type: "text" },
@@ -72,18 +68,14 @@ const SECTIONS: Section[] = [
   {
     key: "verification",
     label: "Verification",
-    source: "dashboard",
-    dashboardPath: ["security", "verification"],
-    fields: [
-      { key: "logChannelId", label: "Log Channel", type: "text" },
-      { key: "alertChannelId", label: "Alert Channel", type: "text" },
-    ],
+    engine: "verification",
+    fields: [],
+    note: "Verification does not own channel routes directly. It uses onboarding surfaces such as `idChannelId`, `ticketCategoryId`, and onboarding logs.",
   },
   {
     key: "selfroles",
     label: "Selfroles",
-    source: "setup",
-    endpoint: "/api/setup/selfroles-config",
+    engine: "selfroles",
     fields: [
       { key: "logChannelId", label: "Log Channel", type: "text" },
     ],
@@ -92,7 +84,6 @@ const SECTIONS: Section[] = [
   {
     key: "tts",
     label: "TTS",
-    source: "engine",
     engine: "tts",
     fields: [
       { key: "allowedChannelIds", label: "Allowed Channels", type: "text-multi" },
@@ -104,7 +95,6 @@ const SECTIONS: Section[] = [
   {
     key: "heist",
     label: "Heist",
-    source: "engine",
     engine: "heist",
     fields: [
       { key: "signupChannelId", label: "Signup Channel", type: "text" },
@@ -116,8 +106,7 @@ const SECTIONS: Section[] = [
   {
     key: "giveaways",
     label: "Giveaways",
-    source: "setup",
-    endpoint: "/api/setup/giveaways-ui-config",
+    engine: "giveaways",
     fields: [
       { key: "defaultChannelId", label: "Default Channel", type: "text" },
       { key: "channelId", label: "Legacy Channel", type: "text" },
@@ -128,8 +117,7 @@ const SECTIONS: Section[] = [
   {
     key: "store",
     label: "Store",
-    source: "setup",
-    endpoint: "/api/setup/store-config",
+    engine: "store",
     fields: [
       { key: "panel.channelId", label: "Panel Channel", type: "text" },
       { key: "policies.logChannelId", label: "Log Channel", type: "text" },
@@ -138,28 +126,24 @@ const SECTIONS: Section[] = [
   {
     key: "vip",
     label: "VIP",
-    source: "engine",
     engine: "vip",
     fields: [{ key: "grantLogChannelId", label: "Grant Log Channel", type: "text" }],
   },
   {
     key: "inviteTracker",
     label: "Invite Tracker",
-    source: "engine",
     engine: "inviteTracker",
     fields: [{ key: "logChannelId", label: "Log Channel", type: "text" }],
   },
   {
     key: "eventReactor",
     label: "Event Reactor",
-    source: "engine",
     engine: "eventReactor",
     fields: [{ key: "deadLetter.channelId", label: "Dead Letter Channel", type: "text" }],
   },
   {
     key: "music",
     label: "Music",
-    source: "engine",
     engine: "music",
     fields: [{ key: "panelDeploy.channelId", label: "Panel Channel", type: "text" }],
   },
@@ -219,6 +203,18 @@ function toggleId(list: string[], id: string) {
   return Array.from(set);
 }
 
+async function readRuntimeEngineConfig(guildId: string, engine: string) {
+  const res = await fetch(
+    `/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
+    { cache: "no-store" }
+  );
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) {
+    throw new Error(json?.error || `Failed to load ${engine} channels.`);
+  }
+  return json?.config || {};
+}
+
 export default function ChannelsClient() {
   const [guildId, setGuildId] = useState("");
   const [channels, setChannels] = useState<GuildChannel[]>([]);
@@ -237,25 +233,10 @@ export default function ChannelsClient() {
           .then((r) => r.json());
         setChannels(Array.isArray(gd?.channels) ? gd.channels : []);
 
-        let dashboardConfig: any = null;
-        if (SECTIONS.some((s) => s.source === "dashboard")) {
-          const dashRes = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" });
-          const dashJson = await dashRes.json().catch(() => ({}));
-          dashboardConfig = dashJson?.config || {};
-        }
-
         const entries = await Promise.all(
           SECTIONS.map(async (section) => {
-            if (section.source === "dashboard") {
-              const cfg = section.dashboardPath ? readPath(dashboardConfig || {}, section.dashboardPath) : {};
-              return [section.key, cfg || {}] as const;
-            }
-            const url = section.source === "engine"
-              ? `/api/bot/engine-config?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(section.engine || "")}`
-              : `${section.endpoint}?guildId=${encodeURIComponent(guildId)}`;
-            const res = await fetch(url, { cache: "no-store" });
-            const json = await res.json().catch(() => ({}));
-            return [section.key, json?.config || {}] as const;
+            const config = await readRuntimeEngineConfig(guildId, section.engine);
+            return [section.key, config] as const;
           })
         );
         const next: Record<string, any> = {};
@@ -291,28 +272,14 @@ export default function ChannelsClient() {
     setSaving((prev) => ({ ...prev, [section.key]: true }));
     setMsg("");
     try {
-      if (section.source === "dashboard") {
-        const patch = writePath({}, section.dashboardPath || [], configs[section.key] || {});
-        const res = await fetch("/api/bot/dashboard-config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ guildId, patch }),
-        });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || json?.success === false) throw new Error(json?.error || "Save failed");
-        setConfigs((prev) => ({ ...prev, [section.key]: configs[section.key] || {} }));
-        setMsg(`${section.label} channels saved.`);
-        setSaving((prev) => ({ ...prev, [section.key]: false }));
-        return;
-      }
-
-      const payload = section.source === "engine"
-        ? { guildId, engine: section.engine, patch: configs[section.key] || {} }
-        : { guildId, patch: configs[section.key] || {} };
-      const res = await fetch(section.source === "engine" ? "/api/bot/engine-config" : section.endpoint!, {
+      const res = await fetch("/api/setup/runtime-engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          guildId,
+          engine: section.engine,
+          patch: configs[section.key] || {},
+        }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.success === false) throw new Error(json?.error || "Save failed");
@@ -388,7 +355,9 @@ export default function ChannelsClient() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
               <div>
                 <div style={{ color: "#ff6b6b", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em" }}>{section.label}</div>
-                <div style={{ color: "#ffb7b7", fontSize: 12 }}>Set the channel routing for this engine.</div>
+                <div style={{ color: "#ffb7b7", fontSize: 12 }}>
+                  {section.note || "Set the channel routing for this engine."}
+                </div>
               </div>
               <button
                 onClick={() => saveSection(section)}
@@ -399,49 +368,55 @@ export default function ChannelsClient() {
               </button>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginTop: 12 }}>
-              {section.fields.map((field) => {
-                const value = readPath(cfg, field.key.split("."));
-                if (field.type === "text-multi") {
-                  const list = Array.isArray(value) ? value : [];
+            {section.fields.length ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginTop: 12 }}>
+                {section.fields.map((field) => {
+                  const value = readPath(cfg, field.key.split("."));
+                  if (field.type === "text-multi") {
+                    const list = Array.isArray(value) ? value : [];
+                    return (
+                      <div key={field.key}>
+                        <label>{field.label}</label>
+                        <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
+                          {textChannels.map((c) => (
+                            <label key={`${field.key}-${c.id}`} style={{ display: "block", marginBottom: 4 }}>
+                              <input
+                                type="checkbox"
+                                checked={list.includes(c.id)}
+                                onChange={() => updateField(section.key, field, toggleId(list, c.id))}
+                              />{" "}
+                              #{c.name}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div key={field.key}>
                       <label>{field.label}</label>
-                      <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
-                        {textChannels.map((c) => (
-                          <label key={`${field.key}-${c.id}`} style={{ display: "block", marginBottom: 4 }}>
-                            <input
-                              type="checkbox"
-                              checked={list.includes(c.id)}
-                              onChange={() => updateField(section.key, field, toggleId(list, c.id))}
-                            />{" "}
-                            #{c.name}
-                          </label>
+                      <select
+                        style={input}
+                        value={value || ""}
+                        onChange={(e) => updateField(section.key, field, e.target.value)}
+                      >
+                        <option value="">Select channel</option>
+                        {getOptions(field).map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {field.type === "voice" ? c.name : field.type === "category" ? c.name : `#${c.name}`}
+                          </option>
                         ))}
-                      </div>
+                      </select>
                     </div>
                   );
-                }
-
-                return (
-                  <div key={field.key}>
-                    <label>{field.label}</label>
-                    <select
-                      style={input}
-                      value={value || ""}
-                      onChange={(e) => updateField(section.key, field, e.target.value)}
-                    >
-                      <option value="">Select channel</option>
-                      {getOptions(field).map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {field.type === "voice" ? c.name : field.type === "category" ? c.name : `#${c.name}`}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                );
-              })}
-            </div>
+                })}
+              </div>
+            ) : (
+              <div style={{ marginTop: 12, color: "#ffb7b7", fontSize: 13 }}>
+                No direct channel fields live on this engine config.
+              </div>
+            )}
 
             {section.supportsPanels && Array.isArray(cfg.panels) ? (
               <div style={{ marginTop: 12 }}>

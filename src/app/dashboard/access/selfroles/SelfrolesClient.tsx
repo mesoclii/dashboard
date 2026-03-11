@@ -1,9 +1,8 @@
 "use client";
 
-
-
-import { useEffect, useMemo, useState } from "react";
 import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
+import EngineInsights from "@/components/possum/EngineInsights";
+import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
 type GuildChannel = { id: string; name: string; type?: number | string };
 type GuildRole = { id: string; name: string };
@@ -69,15 +68,6 @@ const input: React.CSSProperties = {
   color: "#ffd7d7",
 };
 
-function getGuildId(): string {
-  if (typeof window === "undefined") return "";
-  const q = new URLSearchParams(window.location.search).get("guildId") || "";
-  const s = localStorage.getItem("activeGuildId") || "";
-  const v = (q || s).trim();
-  if (v) localStorage.setItem("activeGuildId", v);
-  return v;
-}
-
 function newOption(): RoleOption {
   return { roleId: "", label: "New Role", emoji: "", description: "", style: "secondary" };
 }
@@ -97,104 +87,58 @@ function newPanel(): Panel {
 }
 
 export default function SelfrolesPage() {
-  const [guildId, setGuildId] = useState("");
-  const [cfg, setCfg] = useState<Config>(DEFAULTS);
-  const [orig, setOrig] = useState<Config>(DEFAULTS);
-  const [channels, setChannels] = useState<GuildChannel[]>([]);
-  const [roles, setRoles] = useState<GuildRole[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
+  const {
+    guildId,
+    guildName,
+    config: cfg,
+    setConfig: setCfg,
+    channels,
+    roles,
+    summary,
+    details,
+    loading,
+    saving,
+    message,
+    save,
+    runAction,
+  } = useGuildEngineEditor<Config>("selfroles", DEFAULTS);
 
-  useEffect(() => setGuildId(getGuildId()), []);
-
-  useEffect(() => {
-    if (!guildId) return;
-    (async () => {
-      setLoading(true);
-      setMsg("");
-      try {
-        const [r, gd] = await Promise.all([
-          fetch(`/api/setup/selfroles-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
-          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
-        ]);
-        const j = await r.json();
-        const g = await gd.json();
-        const next = { ...DEFAULTS, ...(j?.config || {}) };
-        setCfg(next);
-        setOrig(next);
-        setChannels(Array.isArray(g?.channels) ? g.channels : []);
-        setRoles(Array.isArray(g?.roles) ? g.roles : []);
-      } catch {
-        setMsg("Failed to load selfroles.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [guildId]);
-
-  const textChannels = useMemo(
-    () => channels.filter((c) => Number(c?.type) === 0 || Number(c?.type) === 5 || String(c?.type || "").toLowerCase().includes("text")),
-    [channels]
+  const textChannels = (channels as GuildChannel[]).filter(
+    (channel) => Number(channel?.type) === 0 || Number(channel?.type) === 5 || String(channel?.type || "").toLowerCase().includes("text")
   );
-
-  const dirty = useMemo(() => JSON.stringify(cfg) !== JSON.stringify(orig), [cfg, orig]);
 
   function addPanel() {
     setCfg({ ...cfg, panels: [...(cfg.panels || []), newPanel()] });
   }
 
-  function removePanel(i: number) {
-    setCfg({ ...cfg, panels: (cfg.panels || []).filter((_, idx) => idx !== i) });
+  function removePanel(index: number) {
+    setCfg({ ...cfg, panels: (cfg.panels || []).filter((_, panelIndex) => panelIndex !== index) });
   }
 
-  function updatePanel(i: number, patch: Partial<Panel>) {
+  function updatePanel(index: number, patch: Partial<Panel>) {
     const next = [...(cfg.panels || [])];
-    next[i] = { ...next[i], ...patch };
+    next[index] = { ...next[index], ...patch };
     setCfg({ ...cfg, panels: next });
   }
 
-  function addOption(pi: number) {
+  function addOption(panelIndex: number) {
     const next = [...(cfg.panels || [])];
-    next[pi] = { ...next[pi], options: [...(next[pi].options || []), newOption()] };
+    next[panelIndex] = { ...next[panelIndex], options: [...(next[panelIndex].options || []), newOption()] };
     setCfg({ ...cfg, panels: next });
   }
 
-  function updateOption(pi: number, oi: number, patch: Partial<RoleOption>) {
+  function updateOption(panelIndex: number, optionIndex: number, patch: Partial<RoleOption>) {
     const next = [...(cfg.panels || [])];
-    const opts = [...(next[pi].options || [])];
-    opts[oi] = { ...opts[oi], ...patch };
-    next[pi] = { ...next[pi], options: opts };
+    const options = [...(next[panelIndex].options || [])];
+    options[optionIndex] = { ...options[optionIndex], ...patch };
+    next[panelIndex] = { ...next[panelIndex], options };
     setCfg({ ...cfg, panels: next });
   }
 
-  function removeOption(pi: number, oi: number) {
+  function removeOption(panelIndex: number, optionIndex: number) {
     const next = [...(cfg.panels || [])];
-    next[pi] = { ...next[pi], options: (next[pi].options || []).filter((_, idx) => idx !== oi) };
+    next[panelIndex] = { ...next[panelIndex], options: (next[panelIndex].options || []).filter((_, index) => index !== optionIndex) };
     setCfg({ ...cfg, panels: next });
-  }
-
-  async function save() {
-    if (!guildId) return;
-    setSaving(true);
-    setMsg("");
-    try {
-      const r = await fetch("/api/setup/selfroles-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, ...cfg }),
-      });
-      const j = await r.json();
-      if (!r.ok || j?.success === false) throw new Error(j?.error || "Save failed");
-      const next = { ...DEFAULTS, ...(j?.config || {}) };
-      setCfg(next);
-      setOrig(next);
-      setMsg("Saved selfroles config.");
-    } catch (e: any) {
-      setMsg(e?.message || "Save failed.");
-    } finally {
-      setSaving(false);
-    }
   }
 
   if (!guildId) return <div style={{ color: "#ff8a8a", padding: 20 }}>Missing guildId. Open from /guilds.</div>;
@@ -203,7 +147,10 @@ export default function SelfrolesPage() {
   return (
     <div style={{ color: "#ffb3b3", padding: 14, maxWidth: 1300 }}>
       <h1 style={{ marginTop: 0, color: "#ff3b3b", letterSpacing: "0.08em", textTransform: "uppercase" }}>Selfroles Studio</h1>
-      <p style={{ marginTop: 0 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
+      <p style={{ marginTop: 0 }}>Guild: {guildName || guildId}</p>
+      {message ? <div style={{ color: "#ffd27a", marginBottom: 8 }}>{message}</div> : null}
+
+      <EngineInsights summary={summary} details={details} />
 
       <div style={box}>
         <label><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg({ ...cfg, active: e.target.checked })} /> Selfroles active</label><br />
@@ -213,7 +160,7 @@ export default function SelfrolesPage() {
             <label>Verification role</label>
             <select style={input} value={cfg.verificationRoleId} onChange={(e) => setCfg({ ...cfg, verificationRoleId: e.target.value })}>
               <option value="">Select role</option>
-              {roles.map((r) => <option key={r.id} value={r.id}>@{r.name}</option>)}
+              {(roles as GuildRole[]).map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
             </select>
           </div>
           <div><label>Max roles/user</label><input style={input} type="number" value={cfg.maxRolesPerUser} onChange={(e) => setCfg({ ...cfg, maxRolesPerUser: Number(e.target.value || 0) })} /></div>
@@ -222,7 +169,7 @@ export default function SelfrolesPage() {
             <label>Log channel</label>
             <select style={input} value={cfg.logChannelId} onChange={(e) => setCfg({ ...cfg, logChannelId: e.target.value })}>
               <option value="">Select channel</option>
-              {textChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+              {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
             </select>
           </div>
         </div>
@@ -232,48 +179,48 @@ export default function SelfrolesPage() {
         <h3 style={{ marginTop: 0, color: "#ff4444" }}>Panels</h3>
         <button onClick={addPanel} style={{ marginBottom: 10, padding: "8px 10px", borderRadius: 8, border: "1px solid #7a0000", background: "#1a0000", color: "#ffd7d7" }}>+ Add Panel</button>
 
-        {(cfg.panels || []).map((p, pi) => (
-          <div key={p.id + pi} style={{ border: "1px solid #4f0000", borderRadius: 10, padding: 10, marginBottom: 10 }}>
+        {(cfg.panels || []).map((panel, panelIndex) => (
+          <div key={panel.id + panelIndex} style={{ border: "1px solid #4f0000", borderRadius: 10, padding: 10, marginBottom: 10 }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 8, alignItems: "center" }}>
-              <input style={input} value={p.messageTitle} onChange={(e) => updatePanel(pi, { messageTitle: e.target.value })} />
-              <select style={input} value={p.channelId} onChange={(e) => updatePanel(pi, { channelId: e.target.value })}>
+              <input style={input} value={panel.messageTitle} onChange={(e) => updatePanel(panelIndex, { messageTitle: e.target.value })} />
+              <select style={input} value={panel.channelId} onChange={(e) => updatePanel(panelIndex, { channelId: e.target.value })}>
                 <option value="">Select channel</option>
-                {textChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
               </select>
-              <select style={input} value={p.mode} onChange={(e) => updatePanel(pi, { mode: e.target.value as Panel["mode"] })}>
+              <select style={input} value={panel.mode} onChange={(e) => updatePanel(panelIndex, { mode: e.target.value as Panel["mode"] })}>
                 <option value="buttons">buttons</option>
                 <option value="select">select</option>
               </select>
-              <input style={input} type="number" value={p.maxSelectable} onChange={(e) => updatePanel(pi, { maxSelectable: Number(e.target.value || 1) })} />
-              <button onClick={() => removePanel(pi)} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #7a0000", background: "#220000", color: "#ffd7d7" }}>Remove</button>
+              <input style={input} type="number" value={panel.maxSelectable} onChange={(e) => updatePanel(panelIndex, { maxSelectable: Number(e.target.value || 1) })} />
+              <button onClick={() => removePanel(panelIndex)} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #7a0000", background: "#220000", color: "#ffd7d7" }}>Remove</button>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 200px 180px", gap: 8, marginTop: 8 }}>
-              <textarea style={{ ...input, minHeight: 58 }} value={p.messageBody} onChange={(e) => updatePanel(pi, { messageBody: e.target.value })} />
-              <label><input type="checkbox" checked={p.enabled} onChange={(e) => updatePanel(pi, { enabled: e.target.checked })} /> panel enabled</label>
-              <label><input type="checkbox" checked={p.allowRemove} onChange={(e) => updatePanel(pi, { allowRemove: e.target.checked })} /> allow remove role</label>
+              <textarea style={{ ...input, minHeight: 58 }} value={panel.messageBody} onChange={(e) => updatePanel(panelIndex, { messageBody: e.target.value })} />
+              <label><input type="checkbox" checked={panel.enabled} onChange={(e) => updatePanel(panelIndex, { enabled: e.target.checked })} /> panel enabled</label>
+              <label><input type="checkbox" checked={panel.allowRemove} onChange={(e) => updatePanel(panelIndex, { allowRemove: e.target.checked })} /> allow remove role</label>
             </div>
 
             <div style={{ marginTop: 10 }}>
-              <button onClick={() => addOption(pi)} style={{ marginBottom: 8, padding: "8px 10px", borderRadius: 8, border: "1px solid #7a0000", background: "#1a0000", color: "#ffd7d7" }}>
+              <button onClick={() => addOption(panelIndex)} style={{ marginBottom: 8, padding: "8px 10px", borderRadius: 8, border: "1px solid #7a0000", background: "#1a0000", color: "#ffd7d7" }}>
                 + Add Role Option
               </button>
-              {(p.options || []).map((o, oi) => (
-                <div key={oi} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 120px 140px 1fr auto", gap: 8, marginBottom: 6, alignItems: "center" }}>
-                  <select style={input} value={o.roleId} onChange={(e) => updateOption(pi, oi, { roleId: e.target.value })}>
+              {(panel.options || []).map((option, optionIndex) => (
+                <div key={optionIndex} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 120px 140px 1fr auto", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                  <select style={input} value={option.roleId} onChange={(e) => updateOption(panelIndex, optionIndex, { roleId: e.target.value })}>
                     <option value="">Select role</option>
-                    {roles.map((r) => <option key={r.id} value={r.id}>@{r.name}</option>)}
+                    {(roles as GuildRole[]).map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
                   </select>
-                  <input style={input} placeholder="label" value={o.label} onChange={(e) => updateOption(pi, oi, { label: e.target.value })} />
-                  <input style={input} placeholder="emoji" value={o.emoji} onChange={(e) => updateOption(pi, oi, { emoji: e.target.value })} />
-                  <select style={input} value={o.style} onChange={(e) => updateOption(pi, oi, { style: e.target.value as RoleOption["style"] })}>
+                  <input style={input} placeholder="label" value={option.label} onChange={(e) => updateOption(panelIndex, optionIndex, { label: e.target.value })} />
+                  <input style={input} placeholder="emoji" value={option.emoji} onChange={(e) => updateOption(panelIndex, optionIndex, { emoji: e.target.value })} />
+                  <select style={input} value={option.style} onChange={(e) => updateOption(panelIndex, optionIndex, { style: e.target.value as RoleOption["style"] })}>
                     <option value="primary">primary</option>
                     <option value="secondary">secondary</option>
                     <option value="success">success</option>
                     <option value="danger">danger</option>
                   </select>
-                  <input style={input} placeholder="description" value={o.description} onChange={(e) => updateOption(pi, oi, { description: e.target.value })} />
-                  <button onClick={() => removeOption(pi, oi)} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #7a0000", background: "#220000", color: "#ffd7d7" }}>X</button>
+                  <input style={input} placeholder="description" value={option.description} onChange={(e) => updateOption(panelIndex, optionIndex, { description: e.target.value })} />
+                  <button onClick={() => removeOption(panelIndex, optionIndex)} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #7a0000", background: "#220000", color: "#ffd7d7" }}>X</button>
                 </div>
               ))}
             </div>
@@ -290,20 +237,14 @@ export default function SelfrolesPage() {
         title="Advanced Selfroles Config"
         value={cfg}
         disabled={saving}
-        onApply={async (next) => {
-          setCfg({ ...DEFAULTS, ...(next as any) });
-          await save();
-        }}
+        onApply={(next) => setCfg({ ...DEFAULTS, ...(next as Config) })}
       />
 
-      {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
-
-      <div style={{
-        position: "fixed", right: 18, bottom: 18, zIndex: 40, border: "1px solid #7a0000",
-        borderRadius: 12, padding: 10, background: "rgba(20,0,0,0.95)", display: "flex", alignItems: "center", gap: 8
-      }}>
-        <span style={{ color: dirty ? "#ffd27a" : "#9effb8", fontSize: 12 }}>{dirty ? "DIRTY" : "READY"}</span>
-        <button onClick={save} disabled={saving || !dirty} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #7a0000", background: "#220000", color: "#ffd7d7" }}>
+      <div style={{ position: "fixed", right: 18, bottom: 18, zIndex: 40, border: "1px solid #7a0000", borderRadius: 12, padding: 10, background: "rgba(20,0,0,0.95)", display: "flex", alignItems: "center", gap: 8 }}>
+        <button onClick={() => void runAction("deployPanels")} disabled={saving} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #7a0000", background: "#220000", color: "#ffd7d7" }}>
+          Deploy Panels
+        </button>
+        <button onClick={() => void save()} disabled={saving} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #7a0000", background: "#220000", color: "#ffd7d7" }}>
           {saving ? "Saving..." : "Save Selfroles"}
         </button>
       </div>

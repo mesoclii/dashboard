@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
+import EngineInsights from "@/components/possum/EngineInsights";
+import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
 type Role = { id: string; name: string };
-type Channel = { id: string; name: string };
+type Channel = { id: string; name: string; type?: number | string };
 type StoreImage = { url: string; label?: string };
 
 type StoreItem = {
@@ -50,13 +52,13 @@ const DEFAULT_CONFIG: StoreConfig = {
     buttonLabel: "Open Store",
     embedColor: "#ff3b3b",
     imageUrl: "",
-    imageLibrary: []
+    imageLibrary: [],
   },
   policies: {
     maxItemsPerPurchase: 1,
     allowRoleStacking: false,
     requireStaffApproval: false,
-    logChannelId: ""
+    logChannelId: "",
   },
   items: [
     {
@@ -68,44 +70,41 @@ const DEFAULT_CONFIG: StoreConfig = {
       priceCoins: 5000,
       stock: -1,
       oneTime: true,
-      enabled: true
-    }
-  ]
+      enabled: true,
+    },
+  ],
 };
 
-function getGuildId(): string {
-  if (typeof window === "undefined") return "";
-  const fromUrl = new URLSearchParams(window.location.search).get("guildId") || "";
-  const fromStore = localStorage.getItem("activeGuildId") || "";
-  const guildId = (fromUrl || fromStore).trim();
-  if (guildId) localStorage.setItem("activeGuildId", guildId);
-  return guildId;
-}
-
-function normalizeLibrary(raw: any): StoreImage[] {
+function normalizeLibrary(raw: unknown): StoreImage[] {
   if (!Array.isArray(raw)) return [];
   const out: StoreImage[] = [];
   const seen = new Set<string>();
   for (const row of raw) {
-    const url = String(row?.url || "").trim();
+    const url = String((row as StoreImage | undefined)?.url || "").trim();
     if (!url || seen.has(url)) continue;
     seen.add(url);
-    out.push({ url, label: String(row?.label || "").trim().slice(0, 120) });
+    out.push({
+      url,
+      label: String((row as StoreImage | undefined)?.label || "").trim().slice(0, 120),
+    });
   }
   return out;
 }
 
-function mergeConfig(raw: any): StoreConfig {
+function mergeConfig(raw: Partial<StoreConfig> | null | undefined): StoreConfig {
   return {
     ...DEFAULT_CONFIG,
     ...(raw || {}),
     panel: {
       ...DEFAULT_CONFIG.panel,
       ...(raw?.panel || {}),
-      imageLibrary: normalizeLibrary(raw?.panel?.imageLibrary)
+      imageLibrary: normalizeLibrary(raw?.panel?.imageLibrary),
     },
-    policies: { ...DEFAULT_CONFIG.policies, ...(raw?.policies || {}) },
-    items: Array.isArray(raw?.items) ? raw.items : DEFAULT_CONFIG.items
+    policies: {
+      ...DEFAULT_CONFIG.policies,
+      ...(raw?.policies || {}),
+    },
+    items: Array.isArray(raw?.items) ? raw.items : DEFAULT_CONFIG.items,
   };
 }
 
@@ -114,7 +113,7 @@ const box: React.CSSProperties = {
   borderRadius: 12,
   padding: 14,
   background: "rgba(120,0,0,0.07)",
-  marginBottom: 14
+  marginBottom: 14,
 };
 
 const input: React.CSSProperties = {
@@ -123,88 +122,58 @@ const input: React.CSSProperties = {
   background: "#0a0a0a",
   border: "1px solid #6f0000",
   color: "#ffd7d7",
-  borderRadius: 8
+  borderRadius: 8,
 };
 
 export default function StorePage() {
-  const [guildId, setGuildId] = useState("");
-  const [cfg, setCfg] = useState<StoreConfig>(DEFAULT_CONFIG);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
+  const {
+    guildId,
+    guildName,
+    config: rawCfg,
+    setConfig: setCfg,
+    roles,
+    channels,
+    summary,
+    details,
+    loading,
+    saving,
+    message,
+    save,
+  } = useGuildEngineEditor<StoreConfig>("store", DEFAULT_CONFIG);
+
+  const cfg = mergeConfig(rawCfg);
+  const [localMsg, setLocalMsg] = useState("");
   const [newImageUrl, setNewImageUrl] = useState("");
   const [newImageLabel, setNewImageLabel] = useState("");
+  const visibleMessage = localMsg || message;
+  const textChannels = (channels as Channel[]).filter(
+    (channel) => Number(channel?.type) === 0 || Number(channel?.type) === 5 || String(channel?.type || "").toLowerCase().includes("text")
+  );
 
-  useEffect(() => setGuildId(getGuildId()), []);
-
-  useEffect(() => {
-    if (!guildId) {
-      setLoading(false);
-      return;
-    }
-
-    (async () => {
-      try {
-        setLoading(true);
-        const [storeRes, guildRes] = await Promise.all([
-          fetch(`/api/setup/store-config?guildId=${encodeURIComponent(guildId)}`),
-          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`)
-        ]);
-
-        const storeJson = await storeRes.json();
-        const guildJson = await guildRes.json();
-
-        setCfg(mergeConfig(storeJson?.config));
-        setRoles(Array.isArray(guildJson?.roles) ? guildJson.roles.map((r: any) => ({ id: String(r.id), name: String(r.name) })) : []);
-        setChannels(Array.isArray(guildJson?.channels) ? guildJson.channels.map((c: any) => ({ id: String(c.id), name: String(c.name) })) : []);
-      } catch {
-        setMsg("Failed to load store config.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [guildId]);
-
-  async function save() {
-    if (!guildId) return;
-    try {
-      setSaving(true);
-      setMsg("");
-      const res = await fetch("/api/setup/store-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, patch: cfg })
-      });
-      const json = await res.json();
-      if (!res.ok || json?.success === false) throw new Error(json?.error || "Save failed");
-      setCfg(mergeConfig(json?.config || cfg));
-      setMsg("Store saved.");
-    } catch (e: any) {
-      setMsg(e?.message || "Save failed.");
-    } finally {
-      setSaving(false);
-    }
+  async function saveStore(nextConfig: StoreConfig = cfg) {
+    setLocalMsg("");
+    const normalized = mergeConfig(nextConfig);
+    setCfg(normalized);
+    const result = await save(normalized);
+    if (!result) return;
   }
 
-  function addPanelImage() {
+  function addPanelImage(newImageUrl: string, newImageLabel: string, reset: () => void) {
     const url = String(newImageUrl || "").trim();
     if (!url) return;
-    if (cfg.panel.imageLibrary.some((x) => x.url === url)) {
-      setMsg("Image already in library.");
+    if (cfg.panel.imageLibrary.some((item) => item.url === url)) {
+      setLocalMsg("Image already in library.");
       return;
     }
     setCfg((prev) => ({
       ...prev,
       panel: {
         ...prev.panel,
-        imageLibrary: [...prev.panel.imageLibrary, { url, label: String(newImageLabel || "").trim() }]
-      }
+        imageLibrary: [...prev.panel.imageLibrary, { url, label: String(newImageLabel || "").trim() }],
+      },
     }));
-    setNewImageUrl("");
-    setNewImageLabel("");
-    setMsg("Added image to library. Save Store to persist.");
+    reset();
+    setLocalMsg("Added image to library. Save Store to persist.");
   }
 
   function removePanelImage(url: string) {
@@ -212,14 +181,16 @@ export default function StorePage() {
       ...prev,
       panel: {
         ...prev.panel,
-        imageLibrary: prev.panel.imageLibrary.filter((x) => x.url !== url),
-        imageUrl: prev.panel.imageUrl === url ? "" : prev.panel.imageUrl
-      }
+        imageLibrary: prev.panel.imageLibrary.filter((item) => item.url !== url),
+        imageUrl: prev.panel.imageUrl === url ? "" : prev.panel.imageUrl,
+      },
     }));
+    setLocalMsg("");
   }
 
   function setPanelBackground(url: string) {
     setCfg((prev) => ({ ...prev, panel: { ...prev.panel, imageUrl: url } }));
+    setLocalMsg("");
   }
 
   function addItem() {
@@ -236,10 +207,11 @@ export default function StorePage() {
           priceCoins: 0,
           stock: -1,
           oneTime: false,
-          enabled: true
-        }
-      ]
+          enabled: true,
+        },
+      ],
     }));
+    setLocalMsg("");
   }
 
   function updateItem(index: number, patch: Partial<StoreItem>) {
@@ -251,24 +223,38 @@ export default function StorePage() {
   }
 
   function removeItem(index: number) {
-    setCfg((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
+    setCfg((prev) => ({
+      ...prev,
+      items: prev.items.filter((_, itemIndex) => itemIndex !== index),
+    }));
+    setLocalMsg("");
   }
 
-  if (!guildId) return <div style={{ color: "#ff7777", padding: 20 }}>Missing guildId.</div>;
+  if (!guildId) {
+    return <div style={{ color: "#ff7777", padding: 20 }}>Missing guildId.</div>;
+  }
 
   return (
     <div style={{ color: "#ff4d4d", padding: 20, maxWidth: 1180 }}>
       <h1 style={{ marginTop: 0, letterSpacing: "0.12em", textTransform: "uppercase" }}>Economy - Store Engine</h1>
-      <p>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
+      <p>Guild: {guildName || guildId}</p>
+      <div style={{ color: "#ffb7b7", lineHeight: 1.6, marginBottom: 12 }}>
+        Store now writes straight into the live guild store engine. Catalog items, panel art, policy toggles, and role grants stay on the same runtime path the bot uses.
+      </div>
+      {visibleMessage ? <div style={{ marginBottom: 12, color: "#ffd1d1" }}>{visibleMessage}</div> : null}
 
-      {loading ? <p>Loading...</p> : (
+      {loading ? (
+        <p>Loading...</p>
+      ) : (
         <>
-          <div style={box}>
+          <EngineInsights summary={summary} details={details} />
+
+          <div style={{ ...box, marginTop: 14 }}>
             <label>
               <input
                 type="checkbox"
                 checked={cfg.active}
-                onChange={(e) => setCfg({ ...cfg, active: e.target.checked })}
+                onChange={(e) => setCfg((prev) => ({ ...prev, active: e.target.checked }))}
               />{" "}
               Store engine active
             </label>
@@ -282,10 +268,14 @@ export default function StorePage() {
                 <select
                   style={input}
                   value={cfg.panel.channelId}
-                  onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, channelId: e.target.value } })}
+                  onChange={(e) => setCfg((prev) => ({ ...prev, panel: { ...prev.panel, channelId: e.target.value } }))}
                 >
                   <option value="">Select channel</option>
-                  {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                  {textChannels.map((channel) => (
+                    <option key={channel.id} value={channel.id}>
+                      #{channel.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -293,10 +283,14 @@ export default function StorePage() {
                 <select
                   style={input}
                   value={cfg.policies.logChannelId}
-                  onChange={(e) => setCfg({ ...cfg, policies: { ...cfg.policies, logChannelId: e.target.value } })}
+                  onChange={(e) => setCfg((prev) => ({ ...prev, policies: { ...prev.policies, logChannelId: e.target.value } }))}
                 >
                   <option value="">Select channel</option>
-                  {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                  {textChannels.map((channel) => (
+                    <option key={channel.id} value={channel.id}>
+                      #{channel.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -306,7 +300,7 @@ export default function StorePage() {
               <input
                 style={input}
                 value={cfg.panel.title}
-                onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, title: e.target.value } })}
+                onChange={(e) => setCfg((prev) => ({ ...prev, panel: { ...prev.panel, title: e.target.value } }))}
               />
             </div>
 
@@ -315,7 +309,7 @@ export default function StorePage() {
               <textarea
                 style={{ ...input, minHeight: 80 }}
                 value={cfg.panel.description}
-                onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, description: e.target.value } })}
+                onChange={(e) => setCfg((prev) => ({ ...prev, panel: { ...prev.panel, description: e.target.value } }))}
               />
             </div>
 
@@ -325,7 +319,7 @@ export default function StorePage() {
                 <input
                   style={input}
                   value={cfg.panel.buttonLabel}
-                  onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, buttonLabel: e.target.value } })}
+                  onChange={(e) => setCfg((prev) => ({ ...prev, panel: { ...prev.panel, buttonLabel: e.target.value } }))}
                 />
               </div>
               <div>
@@ -333,7 +327,7 @@ export default function StorePage() {
                 <input
                   style={input}
                   value={cfg.panel.embedColor}
-                  onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, embedColor: e.target.value } })}
+                  onChange={(e) => setCfg((prev) => ({ ...prev, panel: { ...prev.panel, embedColor: e.target.value } }))}
                 />
               </div>
               <div>
@@ -341,7 +335,7 @@ export default function StorePage() {
                 <input
                   style={input}
                   value={cfg.panel.imageUrl}
-                  onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, imageUrl: e.target.value } })}
+                  onChange={(e) => setCfg((prev) => ({ ...prev, panel: { ...prev.panel, imageUrl: e.target.value } }))}
                 />
               </div>
             </div>
@@ -351,7 +345,7 @@ export default function StorePage() {
                 <input
                   type="checkbox"
                   checked={cfg.panel.enabled}
-                  onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, enabled: e.target.checked } })}
+                  onChange={(e) => setCfg((prev) => ({ ...prev, panel: { ...prev.panel, enabled: e.target.checked } }))}
                 />{" "}
                 Panel enabled
               </label>
@@ -373,7 +367,16 @@ export default function StorePage() {
                 value={newImageLabel}
                 onChange={(e) => setNewImageLabel(e.target.value)}
               />
-              <button onClick={addPanelImage} style={{ ...input, width: "auto", cursor: "pointer" }}>Add</button>
+              <button
+                onClick={() => addPanelImage(newImageUrl, newImageLabel, () => {
+                  setNewImageUrl("");
+                  setNewImageLabel("");
+                })}
+                style={{ ...input, width: "auto", cursor: "pointer" }}
+                type="button"
+              >
+                Add
+              </button>
             </div>
 
             {cfg.panel.imageLibrary.length ? (
@@ -384,10 +387,12 @@ export default function StorePage() {
                       <div style={{ color: "#ffd6d6", fontWeight: 700 }}>{img.label || "Store background"}</div>
                       <div style={{ color: "#ff9f9f", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }}>{img.url}</div>
                     </div>
-                    <button onClick={() => setPanelBackground(img.url)} style={{ ...input, width: "auto", cursor: "pointer" }}>
+                    <button type="button" onClick={() => setPanelBackground(img.url)} style={{ ...input, width: "auto", cursor: "pointer" }}>
                       {cfg.panel.imageUrl === img.url ? "Selected" : "Select"}
                     </button>
-                    <button onClick={() => removePanelImage(img.url)} style={{ ...input, width: "auto", cursor: "pointer" }}>Remove</button>
+                    <button type="button" onClick={() => removePanelImage(img.url)} style={{ ...input, width: "auto", cursor: "pointer" }}>
+                      Remove
+                    </button>
                   </div>
                 ))}
               </div>
@@ -412,15 +417,16 @@ export default function StorePage() {
                   style={input}
                   type="number"
                   value={cfg.policies.maxItemsPerPurchase}
-                  onChange={(e) => setCfg({ ...cfg, policies: { ...cfg.policies, maxItemsPerPurchase: Number(e.target.value || 1) } })}
+                  onChange={(e) => setCfg((prev) => ({ ...prev, policies: { ...prev.policies, maxItemsPerPurchase: Number(e.target.value || 1) } }))}
                 />
               </div>
               <div>
-                <label>Require staff approval</label><br />
+                <label>Require staff approval</label>
+                <br />
                 <input
                   type="checkbox"
                   checked={cfg.policies.requireStaffApproval}
-                  onChange={(e) => setCfg({ ...cfg, policies: { ...cfg.policies, requireStaffApproval: e.target.checked } })}
+                  onChange={(e) => setCfg((prev) => ({ ...prev, policies: { ...prev.policies, requireStaffApproval: e.target.checked } }))}
                 />
               </div>
             </div>
@@ -429,7 +435,7 @@ export default function StorePage() {
                 <input
                   type="checkbox"
                   checked={cfg.policies.allowRoleStacking}
-                  onChange={(e) => setCfg({ ...cfg, policies: { ...cfg.policies, allowRoleStacking: e.target.checked } })}
+                  onChange={(e) => setCfg((prev) => ({ ...prev, policies: { ...prev.policies, allowRoleStacking: e.target.checked } }))}
                 />{" "}
                 Allow role stacking
               </label>
@@ -438,19 +444,19 @@ export default function StorePage() {
 
           <div style={box}>
             <h3 style={{ marginTop: 0, color: "#ff4444" }}>Store Items</h3>
-            {cfg.items.map((item, i) => (
-              <div key={item.id || i} style={{ border: "1px solid #5f0000", borderRadius: 8, padding: 10, marginBottom: 10 }}>
+            {cfg.items.map((item, index) => (
+              <div key={item.id || index} style={{ border: "1px solid #5f0000", borderRadius: 8, padding: 10, marginBottom: 10 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 1fr auto", gap: 8 }}>
                   <input
                     style={input}
                     placeholder="Name"
                     value={item.name}
-                    onChange={(e) => updateItem(i, { name: e.target.value })}
+                    onChange={(e) => updateItem(index, { name: e.target.value })}
                   />
                   <select
                     style={input}
                     value={item.type}
-                    onChange={(e) => updateItem(i, { type: e.target.value as StoreItem["type"] })}
+                    onChange={(e) => updateItem(index, { type: e.target.value as StoreItem["type"] })}
                   >
                     <option value="item">Item</option>
                     <option value="role">Role</option>
@@ -461,16 +467,18 @@ export default function StorePage() {
                     type="number"
                     placeholder="Price"
                     value={item.priceCoins}
-                    onChange={(e) => updateItem(i, { priceCoins: Number(e.target.value || 0) })}
+                    onChange={(e) => updateItem(index, { priceCoins: Number(e.target.value || 0) })}
                   />
                   <input
                     style={input}
                     type="number"
                     placeholder="Stock (-1 infinite)"
                     value={item.stock}
-                    onChange={(e) => updateItem(i, { stock: Number(e.target.value || -1) })}
+                    onChange={(e) => updateItem(index, { stock: Number(e.target.value || -1) })}
                   />
-                  <button onClick={() => removeItem(i)} style={{ ...input, width: "auto", cursor: "pointer" }}>Remove</button>
+                  <button type="button" onClick={() => removeItem(index)} style={{ ...input, width: "auto", cursor: "pointer" }}>
+                    Remove
+                  </button>
                 </div>
 
                 <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -478,24 +486,28 @@ export default function StorePage() {
                     style={{ ...input, minHeight: 58 }}
                     placeholder="Description"
                     value={item.description}
-                    onChange={(e) => updateItem(i, { description: e.target.value })}
+                    onChange={(e) => updateItem(index, { description: e.target.value })}
                   />
                   <div>
                     <select
                       style={input}
                       value={item.roleId}
-                      onChange={(e) => updateItem(i, { roleId: e.target.value })}
+                      onChange={(e) => updateItem(index, { roleId: e.target.value })}
                       disabled={item.type !== "role"}
                     >
                       <option value="">{item.type === "role" ? "Select role" : "Role not needed"}</option>
-                      {roles.map((r) => <option key={r.id} value={r.id}>@{r.name}</option>)}
+                      {(roles as Role[]).map((role) => (
+                        <option key={role.id} value={role.id}>
+                          @{role.name}
+                        </option>
+                      ))}
                     </select>
                     <div style={{ marginTop: 8 }}>
                       <label>
                         <input
                           type="checkbox"
                           checked={item.oneTime}
-                          onChange={(e) => updateItem(i, { oneTime: e.target.checked })}
+                          onChange={(e) => updateItem(index, { oneTime: e.target.checked })}
                         />{" "}
                         One-time purchase
                       </label>{" "}
@@ -503,7 +515,7 @@ export default function StorePage() {
                         <input
                           type="checkbox"
                           checked={item.enabled}
-                          onChange={(e) => updateItem(i, { enabled: e.target.checked })}
+                          onChange={(e) => updateItem(index, { enabled: e.target.checked })}
                         />{" "}
                         Enabled
                       </label>
@@ -513,7 +525,9 @@ export default function StorePage() {
               </div>
             ))}
 
-          <button onClick={addItem} style={{ ...input, width: "auto", cursor: "pointer" }}>+ Add Item</button>
+            <button type="button" onClick={addItem} style={{ ...input, width: "auto", cursor: "pointer" }}>
+              + Add Item
+            </button>
           </div>
 
           <ConfigJsonEditor
@@ -521,16 +535,15 @@ export default function StorePage() {
             value={cfg}
             disabled={saving}
             onApply={async (next) => {
-              const normalized = mergeConfig(next);
+              const normalized = mergeConfig(next as StoreConfig);
               setCfg(normalized);
-              await save();
+              await saveStore(normalized);
             }}
           />
 
-          <button onClick={save} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 700 }}>
+          <button onClick={() => void saveStore()} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 700 }}>
             {saving ? "Saving..." : "Save Store"}
           </button>
-          {msg ? <div style={{ marginTop: 10, color: "#ffd1d1" }}>{msg}</div> : null}
         </>
       )}
     </div>

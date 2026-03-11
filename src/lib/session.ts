@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 
 export const DASHBOARD_SESSION_COOKIE = "possum_dashboard_session";
 export const DASHBOARD_OAUTH_STATE_COOKIE = "possum_dashboard_oauth_state";
+export const DASHBOARD_RETURN_TO_COOKIE = "possum_dashboard_return_to";
 
 export type DashboardDiscordUser = {
   id: string;
@@ -144,6 +145,13 @@ export async function destroyDashboardSession(rawValue: string | undefined | nul
 
 export function createOauthState() {
   return crypto.randomBytes(24).toString("hex");
+}
+
+export function sanitizeDashboardReturnTo(rawValue: string | undefined | null) {
+  const value = String(rawValue || "").trim();
+  if (!value) return "/guilds";
+  if (!value.startsWith("/") || value.startsWith("//")) return "/guilds";
+  return value;
 }
 
 export function useSecureCookies() {

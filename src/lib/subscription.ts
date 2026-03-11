@@ -1,5 +1,5 @@
 import { MASTER_OWNER_USER_ID, isDashboardControlGuild, isDashboardControlOwner } from "@/lib/dashboardOwner";
-import { readGuildDiscoveryCache, writeGuildDiscoveryCache } from "@/lib/guildDiscoveryCache";
+import { writeGuildDiscoveryCache } from "@/lib/guildDiscoveryCache";
 import prisma from "@/lib/prisma";
 import { buildServerBotApiHeaders, readServerBotApiJson, SERVER_BOT_API } from "@/lib/botApiServer";
 
@@ -34,11 +34,49 @@ type SubscriptionStatus = {
   source: string;
   premiumExpiresAt: string | null;
   developerBypass: boolean;
+  scope: "guild" | "global";
+  inheritedFrom: string | null;
 };
 
 function normalizePlan(value: unknown) {
   const plan = String(value || "").trim();
   return plan || "FREE";
+}
+
+function isManualSource(value: unknown) {
+  const source = String(value || "").trim().toLowerCase();
+  return source.startsWith("owner_") || source.startsWith("global_") || source.startsWith("manual_");
+}
+
+function isExpiredRecord(record: { premiumExpiresAt: Date | null } | null | undefined) {
+  return Boolean(record?.premiumExpiresAt && record.premiumExpiresAt.getTime() <= Date.now());
+}
+
+function toStatus(
+  guildId: string,
+  record: {
+    active: boolean;
+    plan: string;
+    premiumTier: string | null;
+    source: string;
+    premiumExpiresAt: Date | null;
+  } | null | undefined,
+  developerBypass: boolean,
+  scope: "guild" | "global",
+  inheritedFrom: string | null = null
+): SubscriptionStatus {
+  const expired = isExpiredRecord(record);
+  return {
+    guildId,
+    active: Boolean(record?.active) && !expired,
+    plan: normalizePlan(record?.plan),
+    premiumTier: record?.premiumTier || null,
+    source: record?.source || (scope === "global" ? "global" : "db_cache"),
+    premiumExpiresAt: record?.premiumExpiresAt ? record.premiumExpiresAt.toISOString() : null,
+    developerBypass,
+    scope,
+    inheritedFrom,
+  };
 }
 
 async function readBotPremium(guildId: string, actorUserId: string) {
@@ -75,44 +113,37 @@ export async function getGuildSubscriptionStatus(guildId: string, actorUserId?: 
       source: "missing_guild",
       premiumExpiresAt: null,
       developerBypass,
+      scope: "guild",
+      inheritedFrom: null,
     };
   }
 
   const globalId = globalSubscriptionId(normalizedActorUserId);
-  const globalRecord = await prisma.guildSubscription.findUnique({
-    where: { guildId: globalId },
-  }).catch(() => null);
-  if (globalRecord?.active) {
-    const globalStatus = {
-      guildId: id,
-      active: true,
-      plan: normalizePlan(globalRecord.plan),
-      premiumTier: globalRecord.premiumTier || null,
-      source: "global",
-      premiumExpiresAt: globalRecord.premiumExpiresAt ? globalRecord.premiumExpiresAt.toISOString() : null,
-      developerBypass,
-    };
-    await writeGuildDiscoveryCache("subscription_status", id, globalStatus, 45).catch(() => null);
-    return globalStatus;
-  }
+  const [existing, globalRecord] = await Promise.all([
+    prisma.guildSubscription.findUnique({
+      where: { guildId: id },
+    }).catch(() => null),
+    prisma.guildSubscription.findUnique({
+      where: { guildId: globalId },
+    }).catch(() => null),
+  ]);
 
-  const cached = await readGuildDiscoveryCache<SubscriptionStatus>("subscription_status", id);
-  if (cached && cached.guildId) {
-    return cached;
+  const manualGuildRecord = existing && isManualSource(existing.source) && !isExpiredRecord(existing) ? existing : null;
+  if (manualGuildRecord) {
+    const status = toStatus(id, manualGuildRecord, developerBypass, "guild");
+    await writeGuildDiscoveryCache("subscription_status", id, status, 45).catch(() => null);
+    return status;
   }
-
-  const existing = await prisma.guildSubscription.findUnique({
-    where: { guildId: id },
-  }).catch(() => null);
 
   const shouldSync =
     !existing ||
-    Date.now() - existing.syncedAt.getTime() > SYNC_TTL_MS;
+    (!isManualSource(existing.source) && Date.now() - existing.syncedAt.getTime() > SYNC_TTL_MS);
 
+  let syncedRecord = existing;
   if (shouldSync) {
     try {
       const botPremium = await readBotPremium(id, String(actorUserId || MASTER_OWNER_USER_ID).trim() || MASTER_OWNER_USER_ID);
-      const synced = await prisma.guildSubscription
+      syncedRecord = await prisma.guildSubscription
         .upsert({
           where: { guildId: id },
           update: {
@@ -134,20 +165,6 @@ export async function getGuildSubscriptionStatus(guildId: string, actorUserId?: 
           },
         })
         .catch(() => null);
-
-      if (synced) {
-        const status = {
-          guildId: id,
-          active: synced.active,
-          plan: normalizePlan(synced.plan),
-          premiumTier: synced.premiumTier,
-          source: synced.source,
-          premiumExpiresAt: synced.premiumExpiresAt ? synced.premiumExpiresAt.toISOString() : null,
-          developerBypass,
-        };
-        await writeGuildDiscoveryCache("subscription_status", id, status, 45).catch(() => null);
-        return status;
-      }
     } catch (error) {
       if (!existing) {
         throw error;
@@ -155,17 +172,20 @@ export async function getGuildSubscriptionStatus(guildId: string, actorUserId?: 
     }
   }
 
-  const status = {
-    guildId: id,
-    active: Boolean(existing?.active),
-    plan: normalizePlan(existing?.plan),
-    premiumTier: existing?.premiumTier || null,
-    source: existing?.source || "db_cache",
-    premiumExpiresAt: existing?.premiumExpiresAt ? existing.premiumExpiresAt.toISOString() : null,
-    developerBypass,
-  };
-  await writeGuildDiscoveryCache("subscription_status", id, status, 45).catch(() => null);
-  return status;
+  const guildStatus = toStatus(id, syncedRecord || existing, developerBypass, "guild");
+  if (guildStatus.active) {
+    await writeGuildDiscoveryCache("subscription_status", id, guildStatus, 45).catch(() => null);
+    return guildStatus;
+  }
+
+  if (globalRecord && !isExpiredRecord(globalRecord) && globalRecord.active) {
+    const globalStatus = toStatus(id, globalRecord, developerBypass, "global", globalId);
+    await writeGuildDiscoveryCache("subscription_status", id, globalStatus, 45).catch(() => null);
+    return globalStatus;
+  }
+
+  await writeGuildDiscoveryCache("subscription_status", id, guildStatus, 45).catch(() => null);
+  return guildStatus;
 }
 
 export async function setGuildSubscriptionStatus(
@@ -177,70 +197,55 @@ export async function setGuildSubscriptionStatus(
     premiumExpiresAt?: Date | null;
     source?: string;
   },
-  actorUserId?: string
+  actorUserId?: string,
+  options?: {
+    scope?: "guild" | "global";
+  }
 ): Promise<SubscriptionStatus> {
   const id = String(guildId || "").trim();
   if (!id) {
     throw new Error("guildId is required");
   }
+  const scope = options?.scope === "global" ? "global" : "guild";
+  const normalizedActorUserId = normalizeActorUserId(actorUserId);
+  const targetId = scope === "global" ? globalSubscriptionId(normalizedActorUserId) : id;
+  const source =
+    String(
+      input.source ||
+        (scope === "global"
+          ? (input.premiumExpiresAt ? "global_trial" : "global_override")
+          : (input.premiumExpiresAt ? "owner_trial" : "owner_override"))
+    ).trim() ||
+    (scope === "global" ? "global_override" : "owner_override");
 
   const record = await prisma.guildSubscription.upsert({
-    where: { guildId: id },
+    where: { guildId: targetId },
     update: {
       active: Boolean(input.active),
       plan: normalizePlan(input.plan || (input.active ? "PRO" : "FREE")),
       premiumTier: input.premiumTier ? String(input.premiumTier) : null,
-      premiumExpiresAt: input.premiumExpiresAt ?? null,
-      source: String(input.source || "owner_override").trim() || "owner_override",
+      premiumExpiresAt: input.active ? (input.premiumExpiresAt ?? null) : null,
+      source,
       syncedAt: new Date(),
     },
     create: {
-      guildId: id,
+      guildId: targetId,
       active: Boolean(input.active),
       plan: normalizePlan(input.plan || (input.active ? "PRO" : "FREE")),
       premiumTier: input.premiumTier ? String(input.premiumTier) : null,
-      premiumExpiresAt: input.premiumExpiresAt ?? null,
-      source: String(input.source || "owner_override").trim() || "owner_override",
+      premiumExpiresAt: input.active ? (input.premiumExpiresAt ?? null) : null,
+      source,
       syncedAt: new Date(),
     },
   });
 
-  const status = {
-    guildId: id,
-    active: Boolean(record.active),
-    plan: normalizePlan(record.plan),
-    premiumTier: record.premiumTier || null,
-    source: record.source || "owner_override",
-    premiumExpiresAt: record.premiumExpiresAt ? record.premiumExpiresAt.toISOString() : null,
-    developerBypass: false,
-  };
-
+  const status = toStatus(
+    id,
+    record,
+    false,
+    scope,
+    scope === "global" ? targetId : null
+  );
   await writeGuildDiscoveryCache("subscription_status", id, status, 45).catch(() => null);
-
-  const normalizedActorUserId = normalizeActorUserId(actorUserId);
-  const globalId = globalSubscriptionId(normalizedActorUserId);
-  if (normalizedActorUserId) {
-    await prisma.guildSubscription.upsert({
-      where: { guildId: globalId },
-      update: {
-        active: Boolean(input.active),
-        plan: normalizePlan(input.plan || (input.active ? "PRO" : "FREE")),
-        premiumTier: input.premiumTier ? String(input.premiumTier) : null,
-        premiumExpiresAt: input.premiumExpiresAt ?? null,
-        source: String(input.source || "global_override").trim() || "global_override",
-        syncedAt: new Date(),
-      },
-      create: {
-        guildId: globalId,
-        active: Boolean(input.active),
-        plan: normalizePlan(input.plan || (input.active ? "PRO" : "FREE")),
-        premiumTier: input.premiumTier ? String(input.premiumTier) : null,
-        premiumExpiresAt: input.premiumExpiresAt ?? null,
-        source: String(input.source || "global_override").trim() || "global_override",
-        syncedAt: new Date(),
-      },
-    }).catch(() => null);
-  }
-
   return status;
 }

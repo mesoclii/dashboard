@@ -25,7 +25,7 @@ export type SubscriptionPlan = {
 };
 
 export const PRICING_FOOTNOTE =
-  "Prices are subject to change based on availability, operating cost, and service load. One license covers all guilds owned or staffed by the purchasing account.";
+  "Prices are subject to change based on availability, operating cost, and service load. Paid plans are enforced per guild. Master-owner global trials are for internal admin testing only.";
 
 export const PREMIUM_FEATURES: PremiumFeature[] = [
   {
