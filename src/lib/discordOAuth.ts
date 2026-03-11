@@ -16,6 +16,7 @@ export type DiscordUser = {
 
 const DISCORD_API_BASE = "https://discord.com/api";
 const DISCORD_AUTH_BASE = "https://discord.com/oauth2/authorize";
+const DEFAULT_DISCORD_CLIENT_ID = "1472526506201841695";
 
 function getRequiredEnv(name: string) {
   const value = String(process.env[name] || "").trim();
@@ -23,6 +24,25 @@ function getRequiredEnv(name: string) {
     throw new Error(`${name} is not configured.`);
   }
   return value;
+}
+
+function getOptionalEnv(name: string) {
+  return String(process.env[name] || "").trim();
+}
+
+function normalizeScopes(scopes: string) {
+  return scopes
+    .split(/[\s,]+/g)
+    .map((scope) => scope.trim())
+    .filter(Boolean);
+}
+
+function ensureScopes(scopes: string[], required: string[]) {
+  const set = new Set(scopes);
+  for (const scope of required) {
+    if (!set.has(scope)) set.add(scope);
+  }
+  return Array.from(set);
 }
 
 async function readDiscordJson<T>(response: Response): Promise<T> {
@@ -58,6 +78,44 @@ export function buildDiscordOauthUrl(state: string) {
     scope: "identify guilds",
     state,
   });
+
+  return `${DISCORD_AUTH_BASE}?${params.toString()}`;
+}
+
+export function buildDiscordInviteUrl(options: { guildId?: string } = {}) {
+  const clientId = getOptionalEnv("DISCORD_CLIENT_ID") || DEFAULT_DISCORD_CLIENT_ID;
+  const permissions = getOptionalEnv("DISCORD_INVITE_PERMISSIONS") || "8";
+  const inviteCodeGrantFlag = getOptionalEnv("DISCORD_INVITE_CODE_GRANT");
+  const inviteRedirect =
+    getOptionalEnv("DISCORD_INVITE_REDIRECT_URI") || getOptionalEnv("DISCORD_REDIRECT_URI") || "";
+  const requireCodeGrant =
+    inviteCodeGrantFlag.length > 0
+      ? ["true", "1", "yes"].includes(inviteCodeGrantFlag.toLowerCase())
+      : Boolean(getOptionalEnv("DISCORD_INVITE_REDIRECT_URI"));
+  let scopes = normalizeScopes(getOptionalEnv("DISCORD_INVITE_SCOPES") || "bot applications.commands");
+
+  if (requireCodeGrant) {
+    if (!inviteRedirect) {
+      throw new Error("DISCORD_INVITE_REDIRECT_URI is not configured.");
+    }
+    scopes = ensureScopes(scopes, ["bot", "applications.commands", "identify", "guilds"]);
+  }
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    scope: scopes.join(" "),
+    permissions,
+  });
+
+  if (options.guildId) {
+    params.set("guild_id", options.guildId);
+    params.set("disable_guild_select", "true");
+  }
+
+  if (requireCodeGrant) {
+    params.set("response_type", "code");
+    params.set("redirect_uri", inviteRedirect);
+  }
 
   return `${DISCORD_AUTH_BASE}?${params.toString()}`;
 }

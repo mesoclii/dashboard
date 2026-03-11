@@ -92,8 +92,7 @@ function buildInviteUrl(baseUrl: string, guildId: string) {
   if (!baseUrl) return "";
   try {
     const url = new URL(baseUrl);
-    url.searchParams.set("guild_id", guildId);
-    url.searchParams.set("disable_guild_select", "true");
+    url.searchParams.set("guildId", guildId);
     return url.toString();
   } catch {
     return baseUrl;
