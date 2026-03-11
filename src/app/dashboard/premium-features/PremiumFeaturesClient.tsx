@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useDashboardSessionState } from "@/components/possum/useDashboardSessionState";
 import { buildDashboardHref, readDashboardGuildId } from "@/lib/dashboardContext";
 import { buildPublicInviteUrl } from "@/lib/publicLinks";
 import { PRICING_FOOTNOTE, PREMIUM_FEATURES, PREMIUM_PLANS } from "@/lib/premiumCatalog";
@@ -37,6 +38,7 @@ const action: CSSProperties = {
 };
 
 export default function PremiumFeaturesClient() {
+  const { isMasterOwner } = useDashboardSessionState();
   const guildId = readDashboardGuildId();
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [statusMsg, setStatusMsg] = useState("");
@@ -45,7 +47,7 @@ export default function PremiumFeaturesClient() {
   const [grantScope, setGrantScope] = useState<"guild" | "global">("guild");
   const [trialDays, setTrialDays] = useState(0);
 
-  async function loadStatus() {
+  const loadStatus = useCallback(async () => {
     if (!guildId) return;
     const res = await fetch(`/api/subscriptions/status?guildId=${encodeURIComponent(guildId)}`, {
       cache: "no-store",
@@ -59,11 +61,11 @@ export default function PremiumFeaturesClient() {
     setGrantScope(json?.status?.scope === "global" ? "global" : "guild");
     setCanManagePremium(Boolean(json?.canManagePremium));
     setStatusMsg("");
-  }
+  }, [guildId]);
 
   useEffect(() => {
     void loadStatus();
-  }, [guildId]);
+  }, [loadStatus]);
 
   async function savePlan(active: boolean, plan: string) {
     if (!guildId) return;
@@ -105,10 +107,11 @@ export default function PremiumFeaturesClient() {
     : status?.active
       ? `${status.plan} Active (${status.scope === "global" ? "Global Trial" : "Guild"})`
       : "Premium Off";
+  const visiblePremiumFeatures = PREMIUM_FEATURES.filter((feature) => !feature.creatorOnly || isMasterOwner);
 
   return (
     <div style={{ color: "#ffd0d0", maxWidth: 1380 }}>
-      <section style={{ ...card, marginBottom: 16 }}>
+      <section id="premium-addons" style={{ ...card, marginBottom: 16 }}>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.3fr) minmax(320px,0.8fr)", gap: 18 }}>
           <div>
             <div style={{ color: "#ff9a9a", fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase" }}>
@@ -129,7 +132,8 @@ export default function PremiumFeaturesClient() {
             <p style={{ color: "#ffb5b5", lineHeight: 1.7, maxWidth: 860 }}>
               This page only lists paid guild add-ons, plan pricing, and master-owner trial controls. Standard features
               stay out of this surface, and Pokemon remains private-only. Paid plans are enforced per guild. Global
-              grants on this page are internal master-owner trial tools, not customer billing behavior.
+              grants on this page are internal master-owner trial tools, not customer billing behavior. Creator AI
+              platform controls stay off the public catalog and only appear for bot creators.
             </p>
             <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 10 }}>
               Feature requests and fixes can be suggested in Possum Bot Support: 1480942991328809223.
@@ -312,7 +316,7 @@ export default function PremiumFeaturesClient() {
           Premium Add-Ons
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 14 }}>
-          {PREMIUM_FEATURES.map((feature) => (
+          {visiblePremiumFeatures.map((feature) => (
             <div key={feature.id} style={{ ...card, margin: 0 }}>
               <div style={{ color: "#ffd49a", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                 {feature.premiumLabel}
@@ -355,6 +359,41 @@ export default function PremiumFeaturesClient() {
         </div>
       </section>
 
+      <section id="advanced-security" style={{ ...card, marginBottom: 16 }}>
+        <div style={{ color: "#ffd39a", fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 12 }}>
+          Advanced Security + Governance
+        </div>
+        <div style={{ color: "#ffd0d0", lineHeight: 1.7, maxWidth: 1040 }}>
+          Free keeps the safety baseline intact: failsafe, basic governance status, blacklist controls, and basic enforcer
+          deny/timeout/quarantine actions. Premium only unlocks the intelligence and automation layer on top.
+        </div>
+        <div style={{ color: "#ffb7b7", fontSize: 13, lineHeight: 1.7, marginTop: 12 }}>
+          <div>Threat Intel</div>
+          <div>Link Intelligence</div>
+          <div>Behavioral Drift</div>
+          <div>Trust Weighting</div>
+          <div>Risk Escalation</div>
+          <div>Auto Containment</div>
+          <div>Governance approval workflow enhancements</div>
+        </div>
+      </section>
+
+      <section id="automation-suite" style={{ ...card, marginBottom: 16 }}>
+        <div style={{ color: "#ffd39a", fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 12 }}>
+          Automation + Custom Commands
+        </div>
+        <div style={{ color: "#ffd0d0", lineHeight: 1.7, maxWidth: 1040 }}>
+          Free keeps the operating baseline. Premium expands automation depth, higher execution limits, multi-step action
+          chains, and elevated custom-command scale for guilds that need more than the starter cap.
+        </div>
+        <div style={{ color: "#ffb7b7", fontSize: 13, lineHeight: 1.7, marginTop: 12 }}>
+          <div>Advanced automation rules</div>
+          <div>Higher execution and throughput limits</div>
+          <div>Multi-step action chains</div>
+          <div>Elevated custom-command capacity</div>
+        </div>
+      </section>
+
       <section style={card}>
         <div
           style={{
@@ -379,7 +418,7 @@ export default function PremiumFeaturesClient() {
               </div>
               <div style={{ color: "#ffd0d0", fontSize: 14, marginTop: 6 }}>
                 {plan.yearlyUsd === null ? "Custom" : `$${plan.yearlyUsd.toFixed(2)}`} / year
-                <span style={{ margin: "0 8px" }}>•</span>
+                <span style={{ margin: "0 8px" }}>|</span>
                 {plan.lifetimeUsd === null ? "Custom" : `$${plan.lifetimeUsd.toFixed(2)}`} lifetime
               </div>
               <div style={{ color: "#ffd0d0", lineHeight: 1.7, marginTop: 10 }}>{plan.headline}</div>
@@ -396,3 +435,4 @@ export default function PremiumFeaturesClient() {
     </div>
   );
 }
+

@@ -1,8 +1,6 @@
 "use client";
 
-
-
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 function getGuildId() {
   if (typeof window === "undefined") return "";
@@ -21,24 +19,36 @@ export default function AuditTrailPage() {
   const [lines, setLines] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
 
-  async function loadAll(gid: string, k = kind) {
+  const loadAll = useCallback(async (gid: string, k = kind) => {
     const [a, b, c] = await Promise.all([
-      fetch(`/api/setup/audit-trail-config?guildId=${gid}`).then((r) => r.json()),
-      fetch(`/api/setup/audit-trail-events?guildId=${gid}&limit=200`).then((r) => r.json()),
-      fetch(`/api/setup/audit-log-feed?kind=${encodeURIComponent(k)}&lines=200`).then((r) => r.json())
+      fetch(`/api/audit/config?guildId=${gid}`).then((r) => r.json()),
+      fetch(`/api/audit/events?guildId=${gid}&limit=200`).then((r) => r.json()),
+      fetch(`/api/audit/log-feed?kind=${encodeURIComponent(k)}&lines=200`).then((r) => r.json())
     ]);
     setCfg(a?.config || null);
     setEvents(Array.isArray(b?.events) ? b.events : []);
     setLines(Array.isArray(c?.lines) ? c.lines : []);
-  }
+  }, [kind]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (guildId) loadAll(guildId).catch(() => setMsg("Failed to load audit data."));
-  }, [guildId]);
+    if (!guildId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        await loadAll(guildId);
+      } catch {
+        if (!cancelled) {
+          setMsg("Failed to load audit data.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [guildId, loadAll]);
 
   async function save() {
-    const r = await fetch("/api/setup/audit-trail-config", {
+    const r = await fetch("/api/audit/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guildId, patch: cfg })

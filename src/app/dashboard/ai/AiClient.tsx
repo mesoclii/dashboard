@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { buildDashboardHref } from "@/lib/dashboardContext";
+import { useDashboardSessionState } from "@/components/possum/useDashboardSessionState";
 
 type GuildChannel = {
   id: string;
@@ -22,6 +23,7 @@ type Card = {
   href: string;
   description: string;
   note: string;
+  creatorOnly?: boolean;
 };
 
 const cards: Card[] = [
@@ -42,6 +44,7 @@ const cards: Card[] = [
     href: "/dashboard/ai/openai-platform",
     description: "Provider, model, and hosted platform surface.",
     note: "Separated from Possum AI and the local persona roster.",
+    creatorOnly: true,
   },
   {
     title: "Memory + Context",
@@ -117,6 +120,7 @@ function isTextLike(channel: GuildChannel) {
 }
 
 export default function AiClient() {
+  const { isMasterOwner } = useDashboardSessionState();
   const [guildId, setGuildId] = useState("");
   const [guildName, setGuildName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -188,6 +192,7 @@ export default function AiClient() {
     const byId = new Map(channels.map((channel) => [channel.id, channel.name]));
     return config.personaOnlyChannelIds.map((id) => byId.get(id) || id);
   }, [channels, config.personaOnlyChannelIds]);
+  const visibleCards = useMemo(() => cards.filter((entry) => !entry.creatorOnly || isMasterOwner), [isMasterOwner]);
 
   async function saveRuntime(patch: Partial<AiRuntimeConfig>, successMessage: string) {
     if (!guildId) return;
@@ -353,7 +358,7 @@ export default function AiClient() {
           </section>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
-            {cards.map((entry) => (
+            {visibleCards.map((entry) => (
               <section key={entry.href} style={card}>
                 <div style={{ color: "#ff6666", fontSize: 13, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                   {entry.title}

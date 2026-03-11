@@ -200,7 +200,7 @@ export default function ProgressionPage() {
       try {
         setLoading(true);
         const [cfgRes, guildRes] = await Promise.all([
-          fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=progression`, { cache: "no-store" }),
+          fetch(`/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=progression`, { cache: "no-store" }),
           fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`)
         ]);
         const cfgJson = await cfgRes.json();
@@ -222,7 +222,7 @@ export default function ProgressionPage() {
     try {
       setSaving(true);
       setMsg("");
-      const res = await fetch("/api/setup/runtime-engine", {
+      const res = await fetch("/api/runtime/engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guildId, engine: "progression", patch: cfg })

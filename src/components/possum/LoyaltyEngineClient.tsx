@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import EngineContractPanel from "@/components/possum/EngineContractPanel";
 import EngineInsights from "@/components/possum/EngineInsights";
 import ProgressionStackShell from "@/components/possum/ProgressionStackShell";
+import { fetchGuildData, fetchRuntimeEngine, saveRuntimeEngine } from "@/lib/liveRuntime";
 
 type Channel = { id: string; name: string; type?: number | string };
 type Role = { id: string; name: string; position?: number };
@@ -64,17 +65,13 @@ export default function LoyaltyEngineClient() {
       setLoading(true);
       setMsg("");
       try {
-        const [cfgRes, gdRes, runtimeRes] = await Promise.all([
-          fetch(`/api/setup/loyalty-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
-          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
-          fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=loyalty`, { cache: "no-store" }),
+        const [guildJson, runtimeJson] = await Promise.all([
+          fetchGuildData(guildId),
+          fetchRuntimeEngine(guildId, "loyalty"),
         ]);
-        const cfgJson = await cfgRes.json().catch(() => ({}));
-        const gdJson = await gdRes.json().catch(() => ({}));
-        const runtimeJson = await runtimeRes.json().catch(() => ({}));
-        setCfg({ ...EMPTY, ...(cfgJson?.config || {}) });
-        setChannels((Array.isArray(gdJson?.channels) ? gdJson.channels : []).filter((c: any) => Number(c?.type) === 0));
-        setRoles((Array.isArray(gdJson?.roles) ? gdJson.roles : []).sort((a: Role, b: Role) => Number(b.position || 0) - Number(a.position || 0)));
+        setCfg({ ...EMPTY, ...(runtimeJson?.config || {}) });
+        setChannels((Array.isArray(guildJson?.channels) ? guildJson.channels : []).filter((c: any) => Number(c?.type) === 0));
+        setRoles((Array.isArray(guildJson?.roles) ? guildJson.roles : []).sort((a: Role, b: Role) => Number(b.position || 0) - Number(a.position || 0)));
         setSummary(Array.isArray(runtimeJson?.summary) ? runtimeJson.summary : []);
         setDetails(runtimeJson?.details && typeof runtimeJson.details === "object" ? runtimeJson.details : {});
       } catch (e: any) {
@@ -90,14 +87,10 @@ export default function LoyaltyEngineClient() {
     setSaving(true);
     setMsg("");
     try {
-      const r = await fetch("/api/setup/loyalty-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, patch: cfg }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok || j?.success === false) throw new Error(j?.error || "Save failed");
-      setCfg({ ...EMPTY, ...(j?.config || cfg) });
+      const json = await saveRuntimeEngine(guildId, "loyalty", cfg as unknown as Record<string, unknown>);
+      setCfg({ ...EMPTY, ...(json?.config || cfg) });
+      setSummary(Array.isArray(json?.summary) ? json.summary : []);
+      setDetails(json?.details && typeof json.details === "object" ? json.details : {});
       setMsg("Loyalty engine settings saved.");
     } catch (e: any) {
       setMsg(e?.message || "Save failed.");

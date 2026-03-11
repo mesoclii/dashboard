@@ -254,14 +254,15 @@ export default function GiveawaysPage() {
   useEffect(() => {
     if (!guildId || loading) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setBaselineSig(sig(cfg));
-  }, [guildId, loading]);
+    setBaselineSig(cfgSignature);
+  }, [cfgSignature, guildId, loading]);
 
   const textChannels = useMemo(
     () => (channels as Channel[]).filter((channel) => Number(channel.type) === 0 || Number(channel.type) === 5),
     [channels]
   );
-  const dirty = useMemo(() => sig(cfg) !== baselineSig, [cfg, baselineSig]);
+  const cfgSignature = sig(cfg);
+  const dirty = cfgSignature !== baselineSig;
   const visibleMessage = localMsg || message;
 
   function applyPreset(name: "blank" | "starter" | "promo") {

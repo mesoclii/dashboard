@@ -205,7 +205,7 @@ function toggleId(list: string[], id: string) {
 
 async function readRuntimeEngineConfig(guildId: string, engine: string) {
   const res = await fetch(
-    `/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
+    `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
     { cache: "no-store" }
   );
   const json = await res.json().catch(() => ({}));
@@ -272,7 +272,7 @@ export default function ChannelsClient() {
     setSaving((prev) => ({ ...prev, [section.key]: true }));
     setMsg("");
     try {
-      const res = await fetch("/api/setup/runtime-engine", {
+      const res = await fetch("/api/runtime/engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

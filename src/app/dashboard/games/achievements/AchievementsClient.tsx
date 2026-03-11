@@ -157,7 +157,7 @@ export default function AchievementsClient() {
         setLoading(true);
         setMsg("");
         const [cfgRes, gdRes] = await Promise.all([
-          fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=achievements`, { cache: "no-store" }),
+          fetch(`/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=achievements`, { cache: "no-store" }),
           fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" })
         ]);
         const cfgJson = await cfgRes.json().catch(() => ({}));
@@ -227,7 +227,7 @@ export default function AchievementsClient() {
     setSaving(true);
     setMsg("");
     try {
-      const r = await fetch("/api/setup/runtime-engine", {
+      const r = await fetch("/api/runtime/engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guildId, engine: "achievements", patch: cfg })

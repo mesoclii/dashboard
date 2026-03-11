@@ -315,7 +315,7 @@ export default function SecurityPage() {
       const runtimeEntries = await Promise.all(
         engines.map(async (engine) => {
           const res = await fetch(
-            `/api/setup/runtime-engine?guildId=${encodeURIComponent(targetGuildId)}&engine=${encodeURIComponent(engine)}`,
+            `/api/runtime/engine?guildId=${encodeURIComponent(targetGuildId)}&engine=${encodeURIComponent(engine)}`,
             { cache: "no-store" }
           );
           const json = await readJsonSafe(res);
@@ -385,7 +385,7 @@ export default function SecurityPage() {
           throw new Error(json?.error || `Failed to update ${item.title}.`);
         }
       } else {
-        const res = await fetch("/api/setup/runtime-engine", {
+        const res = await fetch("/api/runtime/engine", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

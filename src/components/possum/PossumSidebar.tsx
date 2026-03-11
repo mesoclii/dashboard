@@ -3,121 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { buildDashboardHref } from "@/lib/dashboardContext";
-
-type NavItem = {
-  href: string;
-  label: string;
-};
-
-type NavSection = {
-  label: string;
-  items: NavItem[];
-};
-
-const NAV_SECTIONS: NavSection[] = [
-  {
-    label: "Guild Control",
-    items: [
-      { href: "/dashboard/bot-personalizer", label: "Bot Personalizer" },
-      { href: "/dashboard/bot-masters", label: "Bot Masters" },
-      { href: "/dashboard/channels", label: "Channels" },
-      { href: "/dashboard/premium-features", label: "Premium Features" },
-    ],
-  },
-  {
-    label: "AI",
-    items: [
-      { href: "/dashboard/ai/learning", label: "Possum AI" },
-      { href: "/dashboard/ai/persona", label: "Persona AI" },
-      { href: "/dashboard/ai/openai-platform", label: "Hosted AI Platform" },
-      { href: "/dashboard/runtime-router", label: "Runtime Router" },
-    ],
-  },
-  {
-    label: "Automation",
-    items: [
-      { href: "/dashboard/automations/studio", label: "Automation Studio" },
-      { href: "/dashboard/commands", label: "!Command Studio" },
-      { href: "/dashboard/slash-commands", label: "Slash Commands" },
-      { href: "/dashboard/panels", label: "Panel Hub" },
-      { href: "/dashboard/event-reactor", label: "Event Reactor" },
-    ],
-  },
-  {
-    label: "Security",
-    items: [
-      { href: "/dashboard/security", label: "Security" },
-      { href: "/dashboard/governance", label: "Governance" },
-      { href: "/dashboard/moderator", label: "Moderator" },
-      { href: "/dashboard/security/onboarding", label: "Onboarding" },
-      { href: "/dashboard/security/verification", label: "Verification" },
-      { href: "/dashboard/security/account-integrity", label: "Account Integrity" },
-      { href: "/dashboard/security/link-intel", label: "Link Intel" },
-      { href: "/dashboard/security/threat-intel", label: "Threat Intel" },
-      { href: "/dashboard/security/behavioral-drift", label: "Behavioral Drift" },
-      { href: "/dashboard/security/trust-weight", label: "Trust Weight" },
-      { href: "/dashboard/security/risk-escalation", label: "Risk Escalation" },
-      { href: "/dashboard/security/containment", label: "Containment" },
-      { href: "/dashboard/security/forensics", label: "Forensics" },
-      { href: "/dashboard/security/staff-activity", label: "Staff Activity" },
-      { href: "/dashboard/security/crew-security", label: "Crew Security" },
-      { href: "/dashboard/security/shadow-layer", label: "Shadow Layer" },
-      { href: "/dashboard/security-enforcer", label: "Security Enforcer" },
-    ],
-  },
-  {
-    label: "Community",
-    items: [
-      { href: "/dashboard/tickets", label: "Tickets" },
-      { href: "/dashboard/selfroles", label: "Selfroles" },
-      { href: "/dashboard/invite-tracker", label: "Invite Tracker" },
-      { href: "/dashboard/tts", label: "TTS" },
-      { href: "/dashboard/vip", label: "VIP" },
-    ],
-  },
-  {
-    label: "Economy",
-    items: [
-      { href: "/dashboard/economy", label: "Economy" },
-      { href: "/dashboard/economy/store", label: "Store" },
-      { href: "/dashboard/economy/progression", label: "Progression" },
-      { href: "/dashboard/prestige", label: "Prestige" },
-      { href: "/dashboard/economy/radio-birthday", label: "Birthdays" },
-      { href: "/dashboard/giveaways", label: "Giveaways" },
-      { href: "/dashboard/profile", label: "Profile" },
-      { href: "/dashboard/halloffame", label: "Hall of Fame" },
-      { href: "/dashboard/achievements", label: "Achievements" },
-      { href: "/dashboard/loyalty", label: "Loyalty" },
-      { href: "/dashboard/contracts", label: "Contracts" },
-    ],
-  },
-  {
-    label: "Fun + Games",
-    items: [
-      { href: "/dashboard/music", label: "Music" },
-      { href: "/dashboard/jed", label: "Jed" },
-      { href: "/dashboard/gta-ops", label: "GTA Ops" },
-      { href: "/dashboard/heist", label: "Heist" },
-      { href: "/dashboard/crew", label: "Crew" },
-      { href: "/dashboard/dominion", label: "Dominion" },
-      { href: "/dashboard/catdrop", label: "Cat Drop" },
-      { href: "/dashboard/rarespawn", label: "Rare Spawn" },
-      { href: "/dashboard/range", label: "Range" },
-      { href: "/dashboard/truthdare", label: "Truth Dare" },
-      { href: "/dashboard/pokemon-catching", label: "Pokemon Catching" },
-      { href: "/dashboard/pokemon-battle", label: "Pokemon Battle" },
-      { href: "/dashboard/pokemon-trade", label: "Pokemon Trade" },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { href: "/dashboard/blacklist", label: "Blacklist" },
-      { href: "/dashboard/failsafe", label: "Failsafe" },
-      { href: "/dashboard/system-health", label: "System Health" },
-    ],
-  },
-];
+import { useDashboardSessionState } from "@/components/possum/useDashboardSessionState";
+import { getDashboardNavSections } from "@/lib/dashboard/navigation";
 
 function itemClass(active: boolean): string {
   return active
@@ -125,8 +12,15 @@ function itemClass(active: boolean): string {
     : "block rounded-md border border-transparent px-3 py-2 text-sm font-bold uppercase tracking-[0.04em] text-red-300/85 hover:border-red-500/40 hover:bg-red-950/40 hover:text-red-200";
 }
 
+function isItemActive(pathname: string | null, href: string) {
+  const baseHref = href.split("?")[0].split("#")[0];
+  return pathname === baseHref || pathname?.startsWith(`${baseHref}/`);
+}
+
 export default function PossumSidebar() {
   const pathname = usePathname();
+  const { isMasterOwner } = useDashboardSessionState();
+  const sections = getDashboardNavSections(isMasterOwner);
 
   return (
     <div className="rounded-xl border possum-divider bg-black/55 p-4 possum-border">
@@ -141,12 +35,18 @@ export default function PossumSidebar() {
       </div>
 
       <nav className="space-y-4">
-        {NAV_SECTIONS.map((section) => (
-          <div key={section.label}>
-            <div className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-red-300/70">{section.label}</div>
-            <div className="space-y-1">
+        {sections.map((section) => (
+          <details
+            key={section.label}
+            className="rounded-lg border border-red-900/40 bg-black/25"
+            defaultOpen={section.defaultOpen || section.items.some((item) => isItemActive(pathname, item.href))}
+          >
+            <summary className="cursor-pointer list-none px-3 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-red-300/70">
+              {section.label}
+            </summary>
+            <div className="space-y-1 px-2 pb-2">
               {section.items.map((item) => {
-                const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                const active = isItemActive(pathname, item.href);
                 return (
                   <Link
                     key={item.href}
@@ -158,7 +58,7 @@ export default function PossumSidebar() {
                 );
               })}
             </div>
-          </div>
+          </details>
         ))}
       </nav>
     </div>

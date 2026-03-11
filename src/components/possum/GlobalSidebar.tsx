@@ -3,87 +3,35 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { buildDashboardHref } from "@/lib/dashboardContext";
+import { useDashboardSessionState } from "@/components/possum/useDashboardSessionState";
+import { getDashboardNavSections } from "@/lib/dashboard/navigation";
 
-type Section = {
-  label: string;
-  items: Array<{ href: string; label: string }>;
-};
-
-const SECTIONS: Section[] = [
-  {
-    label: "Guild Control",
-    items: [
-      { href: "/dashboard", label: "Dashboard" },
-      { href: "/dashboard/bot-personalizer", label: "Bot Personalizer" },
-      { href: "/dashboard/premium-features", label: "Premium Features" },
-    ],
-  },
-  {
-    label: "AI + Automation",
-    items: [
-      { href: "/dashboard/ai/learning", label: "Possum AI" },
-      { href: "/dashboard/ai/persona", label: "Persona AI" },
-      { href: "/dashboard/slash-commands", label: "Slash Commands" },
-      { href: "/dashboard/commands", label: "!Command Studio" },
-      { href: "/dashboard/automations/studio", label: "Automation Studio" },
-    ],
-  },
-  {
-    label: "Security + Community",
-    items: [
-      { href: "/dashboard/security", label: "Security" },
-      { href: "/dashboard/moderator", label: "Moderator" },
-      { href: "/dashboard/tickets", label: "Tickets" },
-      { href: "/dashboard/selfroles", label: "Selfroles" },
-      { href: "/dashboard/invite-tracker", label: "Invite Tracker" },
-      { href: "/dashboard/tts", label: "TTS" },
-      { href: "/dashboard/vip", label: "VIP" },
-    ],
-  },
-  {
-    label: "Economy",
-    items: [
-      { href: "/dashboard/economy", label: "Economy" },
-      { href: "/dashboard/economy/store", label: "Store" },
-      { href: "/dashboard/economy/progression", label: "Progression" },
-      { href: "/dashboard/giveaways", label: "Giveaways" },
-    ],
-  },
-  {
-    label: "Fun + Games",
-    items: [
-      { href: "/dashboard/music", label: "Music" },
-      { href: "/dashboard/jed", label: "Jed" },
-      { href: "/dashboard/heist", label: "Heist" },
-      { href: "/dashboard/gta-ops", label: "GTA Ops" },
-      { href: "/dashboard/games", label: "Games" },
-      { href: "/dashboard/pokemon-catching", label: "Pokemon Catching" },
-      { href: "/dashboard/pokemon-battle", label: "Pokemon Battle" },
-      { href: "/dashboard/pokemon-trade", label: "Pokemon Trade" },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { href: "/dashboard/panels", label: "Panel Hub" },
-      { href: "/dashboard/system-health", label: "System Health" },
-    ],
-  },
-];
+function isItemActive(pathname: string | null, href: string) {
+  const baseHref = href.split("?")[0].split("#")[0];
+  return pathname === baseHref || pathname?.startsWith(`${baseHref}/`);
+}
 
 export default function GlobalSidebar() {
   const pathname = usePathname();
+  const { isMasterOwner } = useDashboardSessionState();
+  const sections = getDashboardNavSections(isMasterOwner);
 
   return (
     <aside className="w-full rounded-xl border border-zinc-800 bg-zinc-950 p-4">
       <p className="mb-3 text-sm font-semibold text-white">Navigation</p>
       <nav className="space-y-4">
-        {SECTIONS.map((section) => (
-          <div key={section.label}>
-            <div className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-zinc-400">{section.label}</div>
-            <div className="space-y-1">
+        {sections.map((section) => (
+          <details
+            key={section.label}
+            className="rounded-lg border border-zinc-800 bg-zinc-900/50"
+            defaultOpen={section.defaultOpen || section.items.some((item) => isItemActive(pathname, item.href))}
+          >
+            <summary className="cursor-pointer list-none px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-zinc-400">
+              {section.label}
+            </summary>
+            <div className="space-y-1 px-2 pb-2">
               {section.items.map((item) => {
-                const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                const active = isItemActive(pathname, item.href);
                 return (
                   <Link
                     key={item.href}
@@ -99,7 +47,7 @@ export default function GlobalSidebar() {
                 );
               })}
             </div>
-          </div>
+          </details>
         ))}
       </nav>
     </aside>

@@ -108,7 +108,7 @@ export default function RadioBirthdayPage() {
         setLoading(true);
         setMsg("");
         const [cfgRes, gdRes] = await Promise.all([
-          fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=radio`, { cache: "no-store" }),
+          fetch(`/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=radio`, { cache: "no-store" }),
           fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`),
         ]);
 
@@ -140,7 +140,7 @@ export default function RadioBirthdayPage() {
     setSaving(true);
     setMsg("");
     try {
-      const res = await fetch("/api/setup/runtime-engine", {
+      const res = await fetch("/api/runtime/engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guildId, engine: "radio", patch }),

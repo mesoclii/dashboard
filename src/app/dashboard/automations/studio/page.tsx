@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import PremiumGate from "@/components/possum/PremiumGate";
 import BotAutomationStudioClient from "../BotAutomationStudioClient";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,9 @@ function Loading() {
 export default function Page() {
   return (
     <Suspense fallback={<Loading />}>
-      <BotAutomationStudioClient />
+      <PremiumGate featureKey="automation-suite" featureLabel="Automation + Custom Commands Suite">
+        <BotAutomationStudioClient />
+      </PremiumGate>
     </Suspense>
   );
 }

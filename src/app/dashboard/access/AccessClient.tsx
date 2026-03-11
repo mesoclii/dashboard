@@ -78,14 +78,14 @@ export default function AccessClient() {
         <Link href={withGuild("/dashboard/governance", guildId)} style={{ border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none" }}>
           <b>Governance</b> <span style={{ marginLeft: 8, color: features.governanceEnabled ? "#72ff9c" : "#ff7f7f" }}>{features.governanceEnabled ? "ENABLED" : "DISABLED"}</span>
         </Link>
-        <Link href={withGuild("/dashboard/invite-tracker", guildId)} style={{ border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none" }}>
+        <Link href={withGuild("/dashboard/economy/leaderboard", guildId)} style={{ border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none" }}>
           <b>Invite Tracker</b>
         </Link>
         <Link href={withGuild("/dashboard/selfroles", guildId)} style={{ border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none" }}>
-          <b>Selfroles</b>
+          <b>Self Roles</b>
         </Link>
-        <Link href={withGuild("/dashboard/security/engines", guildId)} style={{ border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none" }}>
-          <b>Security Engines</b>
+        <Link href={withGuild("/dashboard/security", guildId)} style={{ border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none" }}>
+          <b>Security</b>
         </Link>
       </div>
     </main>

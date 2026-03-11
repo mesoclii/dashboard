@@ -20,7 +20,7 @@ export default function BackupsPage() {
   const [msg, setMsg] = useState("");
 
   async function loadSnapshots() {
-    const r = await fetch("/api/setup/snapshots");
+    const r = await fetch("/api/system/snapshots");
     const j = await r.json();
     setSnapshots(Array.isArray(j?.snapshots) ? j.snapshots : []);
   }
@@ -31,7 +31,7 @@ export default function BackupsPage() {
   }, []);
 
   async function createSnapshot() {
-    const r = await fetch("/api/setup/snapshots", {
+    const r = await fetch("/api/system/snapshots", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guildId, note: "manual-ui-snapshot" })
@@ -42,7 +42,7 @@ export default function BackupsPage() {
   }
 
   async function exportConfig() {
-    const r = await fetch(`/api/setup/config-backup?guildId=${guildId}`);
+    const r = await fetch(`/api/system/config-backup?guildId=${guildId}`);
     const j = await r.json();
     if (!j?.success) {
       setMsg(j?.error || "Export failed.");
@@ -60,7 +60,7 @@ export default function BackupsPage() {
       setMsg("Backup JSON is invalid.");
       return;
     }
-    const r = await fetch("/api/setup/config-backup", {
+    const r = await fetch("/api/system/config-backup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guildId, mode, payload })

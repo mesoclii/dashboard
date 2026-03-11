@@ -261,7 +261,7 @@ export default function TicketsClient() {
 
         const [guildRes, ticketRes] = await Promise.all([
           fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
-          fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=tickets`, { cache: "no-store" }),
+          fetch(`/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=tickets`, { cache: "no-store" }),
         ]);
 
         const guildJson = await guildRes.json().catch(() => ({}));
@@ -317,7 +317,7 @@ export default function TicketsClient() {
       setSaving(true);
       setMsg("");
 
-      const res = await fetch("/api/setup/runtime-engine", {
+      const res = await fetch("/api/runtime/engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guildId, engine: "tickets", patch: cfg }),
@@ -344,7 +344,7 @@ export default function TicketsClient() {
       setDeploying(true);
       setMsg("");
 
-      const res = await fetch("/api/setup/runtime-engine-action", {
+      const res = await fetch("/api/runtime/engine-action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

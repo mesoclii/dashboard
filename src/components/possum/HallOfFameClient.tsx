@@ -79,7 +79,7 @@ export default function HallOfFameClient() {
       setMessage("");
       try {
         const [runtimeRes, guildRes] = await Promise.all([
-          fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=hallOfFame`, { cache: "no-store" }),
+          fetch(`/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=hallOfFame`, { cache: "no-store" }),
           fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
         ]);
 
@@ -112,7 +112,7 @@ export default function HallOfFameClient() {
     setSaving(true);
     setMessage("");
     try {
-      const res = await fetch("/api/setup/runtime-engine", {
+      const res = await fetch("/api/runtime/engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -139,7 +139,7 @@ export default function HallOfFameClient() {
     setPublishing(true);
     setMessage("");
     try {
-      const res = await fetch("/api/setup/runtime-engine-action", {
+      const res = await fetch("/api/runtime/engine-action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

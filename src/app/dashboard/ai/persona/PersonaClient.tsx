@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import AiTabs from "@/components/possum/AiTabs";
+import { useDashboardSessionState } from "@/components/possum/useDashboardSessionState";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 
 type PersonaRow = {
@@ -24,6 +25,15 @@ type PersonaRuntimeConfig = {
   };
   personaCount: number;
   personas: PersonaRow[];
+};
+
+const EMPTY_CONFIG: PersonaRuntimeConfig = {
+  settings: {
+    autoReplyEnabled: false,
+    mentionOnly: true,
+  },
+  personaCount: 0,
+  personas: [],
 };
 
 const wrap: CSSProperties = { color: "#ffd0d0", maxWidth: 1320 };
@@ -57,20 +67,14 @@ function resolveGuild() {
 }
 
 export default function PersonaClient() {
+  const { isMasterOwner } = useDashboardSessionState();
   const [guildId, setGuildId] = useState("");
   const [guildName, setGuildName] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [personaEnabled, setPersonaEnabled] = useState(false);
   const [adaptiveEnabled, setAdaptiveEnabled] = useState(false);
-  const [config, setConfig] = useState<PersonaRuntimeConfig>({
-    settings: {
-      autoReplyEnabled: false,
-      mentionOnly: true,
-    },
-    personaCount: 0,
-    personas: [],
-  });
+  const [config, setConfig] = useState<PersonaRuntimeConfig>(EMPTY_CONFIG);
 
   useEffect(() => {
     const resolved = resolveGuild();
@@ -88,7 +92,7 @@ export default function PersonaClient() {
         setMessage("");
 
         const [runtimeRes, dashRes] = await Promise.all([
-          fetch(`/api/setup/ai-persona-runtime?guildId=${encodeURIComponent(resolved.guildId)}`, { cache: "no-store" }),
+          fetch(`/api/ai/persona-runtime?guildId=${encodeURIComponent(resolved.guildId)}`, { cache: "no-store" }),
           fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(resolved.guildId)}`, { cache: "no-store" }),
         ]);
 
@@ -99,7 +103,7 @@ export default function PersonaClient() {
           throw new Error(runtimeJson?.error || "Failed to load persona engine runtime.");
         }
 
-        setConfig(runtimeJson.config || config);
+        setConfig(runtimeJson.config || EMPTY_CONFIG);
         setPersonaEnabled(Boolean(dashJson?.config?.aiRuntime?.personaAiEnabled ?? dashJson?.config?.features?.personaAiEnabled));
         setAdaptiveEnabled(Boolean(dashJson?.config?.aiRuntime?.adaptiveAiEnabled ?? dashJson?.config?.features?.adaptiveAiEnabled));
       } catch (err: any) {
@@ -137,9 +141,11 @@ export default function PersonaClient() {
             <Link href={buildDashboardHref("/dashboard/ai/learning")} style={action}>
               Possum AI
             </Link>
-            <Link href={buildDashboardHref("/dashboard/ai/openai-platform")} style={action}>
-              Open OpenAI Platform
-            </Link>
+            {isMasterOwner ? (
+              <Link href={buildDashboardHref("/dashboard/ai/openai-platform")} style={action}>
+                Creator AI Platform
+              </Link>
+            ) : null}
           </div>
         </div>
         {message ? <div style={{ color: "#ffd27a", marginTop: 10 }}>{message}</div> : null}

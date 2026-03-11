@@ -3,7 +3,7 @@ import { writeGuildDiscoveryCache } from "@/lib/guildDiscoveryCache";
 import prisma from "@/lib/prisma";
 import { buildServerBotApiHeaders, readServerBotApiJson, SERVER_BOT_API } from "@/lib/botApiServer";
 
-const PREMIUM_FEATURES = new Set(["tts", "heist", "persona", "openai-platform"]);
+const PREMIUM_FEATURES = new Set(["tts", "heist", "persona", "openai-platform", "advanced-security", "automation-suite"]);
 const SYNC_TTL_MS = 60_000;
 
 function normalizeActorUserId(actorUserId?: string) {

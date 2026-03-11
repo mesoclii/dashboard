@@ -3,67 +3,47 @@
 import { useEffect, useState } from "react";
 import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
 
-type AccessConfig = {
-  active: boolean;
-  ownerBypass: boolean;
-  adminRoleIds: string[];
-  staffRoleIds: string[];
-  allowedUserIds: string[];
-  deniedUserIds: string[];
-};
-
-const DEFAULT_CFG: AccessConfig = {
-  active: false,
-  ownerBypass: true,
-  adminRoleIds: [],
-  staffRoleIds: [],
-  allowedUserIds: [],
-  deniedUserIds: [],
-};
-
-function parseCsvIds(raw: string): string[] {
-  return String(raw || "")
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
-}
-
-function hasIntersection(a: string[], b: string[]): boolean {
-  if (!a.length || !b.length) return false;
-  const set = new Set(a);
-  return b.some((x) => set.has(x));
-}
-
 function getContext() {
   if (typeof window === "undefined") {
-    return { guildId: "", userId: "", userRoleIds: [] as string[] };
+    return { guildId: "", userId: "" };
   }
 
-  const sp = new URLSearchParams(window.location.search);
-  const guildId = String(sp.get("guildId") || localStorage.getItem("activeGuildId") || "").trim();
+  const params = new URLSearchParams(window.location.search);
+  const guildId = String(params.get("guildId") || localStorage.getItem("activeGuildId") || "").trim();
   if (guildId) localStorage.setItem("activeGuildId", guildId);
 
   const userId = String(
-    sp.get("userId") ||
-      sp.get("uid") ||
+    params.get("userId") ||
+      params.get("uid") ||
       localStorage.getItem("dashboardUserId") ||
       MASTER_OWNER_USER_ID
   ).trim();
   if (userId) localStorage.setItem("dashboardUserId", userId);
 
-  const roleCsv = String(
-    sp.get("roleIds") ||
-      sp.get("roles") ||
-      localStorage.getItem("dashboardUserRoleIds") ||
-      ""
-  ).trim();
-  if (roleCsv) localStorage.setItem("dashboardUserRoleIds", roleCsv);
+  return { guildId, userId };
+}
 
-  return {
-    guildId,
-    userId,
-    userRoleIds: parseCsvIds(roleCsv),
-  };
+function accessReasonLabel(reason: string) {
+  switch (reason) {
+    case "ok_global_owner":
+      return "Allowed by global owner override.";
+    case "explicit_user_allowed":
+      return "Allowed by the live dashboard allowlist.";
+    case "explicit_user_denied":
+      return "Denied by the live dashboard denylist.";
+    case "ok_dashboard_policy_role":
+      return "Allowed by the live dashboard role policy.";
+    case "ok_native_admin":
+      return "Allowed by guild owner or native Discord admin permissions.";
+    case "ok_dashboard_access_role":
+      return "Allowed by the configured dashboard access role.";
+    case "ok_role_level":
+      return "Allowed by the configured minimum role level.";
+    case "member_not_found":
+      return "Your account is not currently resolved as a guild member.";
+    default:
+      return "Dashboard access denied by the live guild access policy.";
+  }
 }
 
 export default function DashboardAccessGate({ children }: { children: React.ReactNode }) {
@@ -76,8 +56,8 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
     let mounted = true;
 
     (async () => {
-      const { guildId, userRoleIds } = getContext();
-      let userId = "";
+      const context = getContext();
+      let userId = context.userId;
 
       try {
         const sessionRes = await fetch("/api/auth/session", { cache: "no-store" });
@@ -90,7 +70,7 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
           return;
         }
 
-        userId = String(sessionJson?.user?.id || "").trim();
+        userId = String(sessionJson?.user?.id || userId || "").trim();
         if (userId && typeof window !== "undefined") {
           localStorage.setItem("dashboardUserId", userId);
         }
@@ -102,87 +82,35 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
         return;
       }
 
-      if (!guildId) {
+      if (!context.guildId || !userId) {
         if (!mounted) return;
         setReady(true);
-        setAllowed(true);
+        setAllowed(Boolean(!context.guildId));
+        if (!context.guildId) return;
+        setReason("Dashboard identity context missing. Please log in again.");
         return;
       }
 
       try {
-        const cfgRes = await fetch(`/api/setup/access-control-config?guildId=${encodeURIComponent(guildId)}`, {
-          cache: "no-store",
-        });
-        const cfgJson = await cfgRes.json().catch(() => ({}));
-        const cfg = { ...DEFAULT_CFG, ...(cfgJson?.config || {}) } as AccessConfig;
-
-        if (!cfg.active) {
-          if (!mounted) return;
-          setAllowed(true);
-          setReady(true);
-          return;
-        }
-
-        if (userId && cfg.deniedUserIds.includes(userId)) {
-          if (!mounted) return;
-          setAllowed(false);
-          setReason("Your user is explicitly denied in dashboard access policy.");
-          setReady(true);
-          return;
-        }
-
-        if (userId && cfg.allowedUserIds.includes(userId)) {
-          if (!mounted) return;
-          setAllowed(true);
-          setReady(true);
-          return;
-        }
-
-        const roleAllowed = hasIntersection(userRoleIds, [...cfg.adminRoleIds, ...cfg.staffRoleIds]);
-        if (roleAllowed) {
-          if (!mounted) return;
-          setAllowed(true);
-          setReady(true);
-          return;
-        }
-
-        if (cfg.ownerBypass && userId) {
-          const accessRes = await fetch(
-            `/api/bot/guild-access?guildId=${encodeURIComponent(guildId)}&userId=${encodeURIComponent(userId)}`,
-            { cache: "no-store" }
-          );
-          const accessJson = await accessRes.json().catch(() => ({}));
-          if (accessRes.ok && accessJson?.access === true) {
-            if (!mounted) return;
-            setAllowed(true);
-            setReady(true);
-            return;
-          }
-        }
-
-        const hasIdentity = Boolean(userId) || userRoleIds.length > 0;
-        const hasRules =
-          cfg.allowedUserIds.length > 0 ||
-          cfg.deniedUserIds.length > 0 ||
-          cfg.adminRoleIds.length > 0 ||
-          cfg.staffRoleIds.length > 0;
-
-        if (!hasIdentity) {
-          if (!mounted) return;
-          setAllowed(false);
-          setReason("Dashboard identity context missing. Please log in again.");
-          setReady(true);
-          return;
-        }
+        const accessRes = await fetch(
+          `/api/bot/guild-access?guildId=${encodeURIComponent(context.guildId)}&userId=${encodeURIComponent(userId)}`,
+          { cache: "no-store" }
+        );
+        const accessJson = await accessRes.json().catch(() => ({}));
 
         if (!mounted) return;
-        setAllowed(false);
-        setReason("Your account does not match the configured staff access rules for this guild.");
+
+        if (!accessRes.ok || accessJson?.success === false) {
+          throw new Error(accessJson?.error || "Live guild access check failed.");
+        }
+
+        setAllowed(Boolean(accessJson?.access));
+        setReason(accessReasonLabel(String(accessJson?.reason || "")));
         setReady(true);
       } catch {
         if (!mounted) return;
         setAllowed(true);
-        setWarning("Access policy check failed. Continuing in safe-open mode for this session.");
+        setWarning("Live access policy check failed. Continuing in safe-open mode for this session.");
         setReady(true);
       }
     })();
@@ -223,7 +151,7 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
         <h2 style={{ marginTop: 0, color: "#ff5555", letterSpacing: "0.10em", textTransform: "uppercase" }}>
           Access denied
         </h2>
-        <p style={{ marginBottom: 12 }}>{reason || "Dashboard access denied by role policy."}</p>
+        <p style={{ marginBottom: 12 }}>{reason}</p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <a
             href="/api/auth/discord/login"

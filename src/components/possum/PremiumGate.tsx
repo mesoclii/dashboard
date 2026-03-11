@@ -103,6 +103,9 @@ export default function PremiumGate({ featureKey, featureLabel, children }: Prem
       <div style={{ color: "#ffd7a6", fontSize: 13, marginBottom: 12 }}>
         Guild: {guildId || "Not selected"} | Current Plan: {plan}
       </div>
+      <div style={{ color: "#ffb5b5", fontSize: 12, marginBottom: 12 }}>
+        Feature key: {featureKey}
+      </div>
       {error ? <div style={{ color: "#ffb5b5", marginBottom: 12 }}>{error}</div> : null}
       <Link href={buildDashboardHref("/dashboard/premium-features")} style={action}>
         Open Premium Features

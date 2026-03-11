@@ -60,14 +60,14 @@ export async function fetchGuildData(guildId: string) {
 
 export async function fetchRuntimeEngine(guildId: string, engine: string) {
   const res = await fetch(
-    `/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
+    `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
     { cache: "no-store" }
   );
   return await readJsonOrThrow(res);
 }
 
 export async function saveRuntimeEngine(guildId: string, engine: string, patch: Record<string, unknown>) {
-  const res = await fetch("/api/setup/runtime-engine", {
+  const res = await fetch("/api/runtime/engine", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guildId, engine, patch }),
@@ -76,7 +76,7 @@ export async function saveRuntimeEngine(guildId: string, engine: string, patch: 
 }
 
 export async function validateRuntimeEngine(guildId: string, engine: string, patch: Record<string, unknown>) {
-  const res = await fetch("/api/setup/runtime-engine-validate", {
+  const res = await fetch("/api/runtime/engine-validate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guildId, engine, patch }),
@@ -85,7 +85,7 @@ export async function validateRuntimeEngine(guildId: string, engine: string, pat
 }
 
 export async function runRuntimeEngineAction(guildId: string, engine: string, action: string, payload?: Record<string, unknown>) {
-  const res = await fetch("/api/setup/runtime-engine-action", {
+  const res = await fetch("/api/runtime/engine-action", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guildId, engine, action, payload }),

@@ -217,7 +217,7 @@ export default function LearningClient() {
       setLoading(true);
       setMessage("");
       const [runtimeRes, settingsRes, guildRes] = await Promise.all([
-        fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(targetGuildId)}&engine=${encodeURIComponent(RUNTIME_ENGINE_KEY)}`, {
+        fetch(`/api/runtime/engine?guildId=${encodeURIComponent(targetGuildId)}&engine=${encodeURIComponent(RUNTIME_ENGINE_KEY)}`, {
           cache: "no-store",
         }),
         fetch(`/api/bot/possum-settings?guildId=${encodeURIComponent(targetGuildId)}`, {
@@ -283,7 +283,7 @@ export default function LearningClient() {
     setSaving(true);
     setMessage("");
     try {
-      const res = await fetch("/api/setup/runtime-engine", {
+      const res = await fetch("/api/runtime/engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -364,7 +364,7 @@ export default function LearningClient() {
     setSaving(true);
     setMessage("");
     try {
-      const res = await fetch("/api/setup/runtime-engine-action", {
+      const res = await fetch("/api/runtime/engine-action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

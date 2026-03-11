@@ -4,7 +4,6 @@ import { PrismaClient } from "@prisma/client";
 import "@/lib/dashboardStoreBootstrap";
 
 declare global {
-  // eslint-disable-next-line no-var
   var __possumDashboardPrisma: PrismaClient | undefined;
 }
 

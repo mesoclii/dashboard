@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
@@ -21,14 +22,6 @@ type CatalogEngineConsoleProps = {
 };
 
 type JsonRecord = Record<string, any>;
-
-type CatalogEdge = {
-  from?: string;
-  to?: string;
-  type?: string;
-  why?: string;
-  channel?: string;
-};
 
 type EngineField = {
   key?: string;
@@ -731,7 +724,6 @@ export default function CatalogEngineConsole({
 }: CatalogEngineConsoleProps) {
   const [spec, setSpec] = useState<LiveEngineSpec | null>(null);
   const [fieldSchema, setFieldSchema] = useState<EngineFieldSchema | null>(null);
-  const [edges, setEdges] = useState<CatalogEdge[]>([]);
   const {
     guildId,
     guildName,
@@ -766,7 +758,6 @@ export default function CatalogEngineConsole({
 
       setSpec(found);
       setFieldSchema(json?.fieldSchema && typeof json.fieldSchema === "object" ? json.fieldSchema : null);
-      setEdges(Array.isArray(json?.connections?.edges) ? json.connections.edges : []);
     })().catch(() => {});
 
     return () => {

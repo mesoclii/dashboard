@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type GuildRole = { id: string; name: string; position?: number; color?: string };
 export type GuildChannel = { id: string; name: string; type?: number | string; parentId?: string | null };
@@ -18,6 +18,7 @@ function resolveGuildId() {
 }
 
 export function useGuildEngineEditor<T>(engine: string, defaults: T) {
+  const defaultsRef = useRef(defaults);
   const [guildId, setGuildId] = useState("");
   const [guildName, setGuildName] = useState("");
   const [config, setConfig] = useState<T>(defaults);
@@ -33,7 +34,11 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
     setGuildId(resolveGuildId());
   }, []);
 
-  async function reload(targetGuildId = guildId) {
+  useEffect(() => {
+    defaultsRef.current = defaults;
+  }, [defaults]);
+
+  const reload = useCallback(async (targetGuildId = guildId) => {
     if (!targetGuildId) {
       setLoading(false);
       return;
@@ -42,7 +47,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
     setMessage("");
     try {
       const [runtimeRes, guildRes] = await Promise.all([
-        fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(targetGuildId)}&engine=${encodeURIComponent(engine)}`, {
+        fetch(`/api/runtime/engine?guildId=${encodeURIComponent(targetGuildId)}&engine=${encodeURIComponent(engine)}`, {
           cache: "no-store",
         }),
         fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(targetGuildId)}`, {
@@ -57,7 +62,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
         throw new Error(runtimeJson?.error || "Failed to load engine runtime");
       }
 
-      setConfig({ ...(defaults as any), ...(runtimeJson?.config || {}) });
+      setConfig({ ...(defaultsRef.current as any), ...(runtimeJson?.config || {}) });
       setSummary(Array.isArray(runtimeJson?.summary) ? runtimeJson.summary : []);
       setDetails((runtimeJson?.details && typeof runtimeJson.details === "object") ? runtimeJson.details : {});
 
@@ -77,11 +82,11 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [engine, guildId]);
 
   useEffect(() => {
-    reload();
-  }, [guildId, engine]);
+    void reload();
+  }, [reload]);
 
   async function save(nextPatch?: Partial<T>) {
     if (!guildId) return null;
@@ -89,7 +94,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
     setMessage("");
     try {
       const patch = { ...(config as any), ...(nextPatch || {}) };
-      const validateRes = await fetch("/api/setup/runtime-engine-validate", {
+      const validateRes = await fetch("/api/runtime/engine-validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guildId, engine, patch }),
@@ -113,7 +118,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
           return null;
         }
       }
-      const res = await fetch("/api/setup/runtime-engine", {
+      const res = await fetch("/api/runtime/engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guildId, engine, patch }),
@@ -122,7 +127,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
       if (!res.ok || json?.success === false) {
         throw new Error(json?.error || "Save failed");
       }
-      setConfig({ ...(defaults as any), ...(json?.config || patch) });
+      setConfig({ ...(defaultsRef.current as any), ...(json?.config || patch) });
       setSummary(Array.isArray(json?.summary) ? json.summary : []);
       setDetails((json?.details && typeof json.details === "object") ? json.details : {});
       const saveWarnings = Array.isArray(json?.validation?.warnings) ? json.validation.warnings.filter(Boolean) : [];
@@ -141,7 +146,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
     setSaving(true);
     setMessage("");
     try {
-      const res = await fetch("/api/setup/runtime-engine-action", {
+      const res = await fetch("/api/runtime/engine-action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guildId, engine, action, payload }),
@@ -150,7 +155,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
       if (!res.ok || json?.success === false) {
         throw new Error(json?.error || "Action failed");
       }
-      setConfig({ ...(defaults as any), ...(json?.config || config) });
+      setConfig({ ...(defaultsRef.current as any), ...(json?.config || config) });
       setSummary(Array.isArray(json?.summary) ? json.summary : []);
       setDetails((json?.details && typeof json.details === "object") ? json.details : {});
       const warnings = Array.isArray(json?.result?.warnings) ? json.result.warnings.filter(Boolean) : [];

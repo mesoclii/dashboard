@@ -11,6 +11,7 @@ export type PremiumFeature = FeatureCatalogEntry & {
   premiumLabel: string;
   includedIn: string[];
   pricingNote: string;
+  creatorOnly?: boolean;
 };
 
 export type SubscriptionPlan = {
@@ -38,15 +39,6 @@ export const PREMIUM_FEATURES: PremiumFeature[] = [
     pricingNote: "Included through paid guild plans."
   },
   {
-    id: "openai-platform",
-    label: "AI Platform",
-    route: "/dashboard/ai/openai-platform",
-    summary: "Model provider routing, platform toggles, and quota-aware AI delivery controls.",
-    premiumLabel: "Premium Feature",
-    includedIn: ["Pro", "Business", "Enterprise"],
-    pricingNote: "Provider controls remain separate from Possum AI."
-  },
-  {
     id: "persona-ai",
     label: "Persona AI",
     route: "/dashboard/ai/persona",
@@ -59,10 +51,38 @@ export const PREMIUM_FEATURES: PremiumFeature[] = [
     id: "heist",
     label: "Heist Engine",
     route: "/dashboard/heist",
-    summary: "Heist signup rotations, channel routing, logging, and event-session controls. GTA Ops stays separate.",
+    summary: "Heist signup rotations, channel routing, logging, and event-session controls.",
     premiumLabel: "Premium Feature",
     includedIn: ["Pro", "Business", "Enterprise"],
     pricingNote: "Guild signup engine only."
+  },
+  {
+    id: "advanced-security",
+    label: "Advanced Security + Governance Suite",
+    route: "/dashboard/premium-features#advanced-security",
+    summary: "Threat intel, link intelligence, behavioral drift, trust weighting, risk escalation, and auto-containment tuning layered on top of the free safety baseline.",
+    premiumLabel: "Premium Suite",
+    includedIn: ["Business", "Enterprise"],
+    pricingNote: "Basic safety stays free. Premium unlocks intelligence, automation, and advanced operator control."
+  },
+  {
+    id: "automation-suite",
+    label: "Automation + Custom Commands Suite",
+    route: "/dashboard/premium-features#automation-suite",
+    summary: "Advanced automation rules, higher execution limits, and elevated custom-command capacity without paywalling the basic operating baseline.",
+    premiumLabel: "Premium Suite",
+    includedIn: ["Business", "Enterprise"],
+    pricingNote: "Free tier keeps a smaller cap. Premium expands rule depth and scale."
+  },
+  {
+    id: "openai-platform",
+    label: "Creator AI Platform",
+    route: "/dashboard/ai/openai-platform",
+    summary: "Internal provider routing, model control, and quota tuning for bot creators only.",
+    premiumLabel: "Creator Only",
+    includedIn: ["Internal"],
+    pricingNote: "Not shown in the public customer-facing premium catalog.",
+    creatorOnly: true,
   }
 ];
 
@@ -78,7 +98,6 @@ export const PREMIUM_PLANS: SubscriptionPlan[] = [
       "TTS Engine",
       "Persona AI",
       "Heist Engine",
-      "AI Platform",
       "Included monthly AI usage credit",
     ],
     note: PRICING_FOOTNOTE,
@@ -92,6 +111,8 @@ export const PREMIUM_PLANS: SubscriptionPlan[] = [
     headline: "Adds governance automation and higher included usage for active servers.",
     included: [
       "Everything in Pro",
+      "Advanced Security + Governance Suite",
+      "Automation + Custom Commands Suite",
       "Higher included monthly AI usage credit",
       "Expanded concurrency limits",
     ],

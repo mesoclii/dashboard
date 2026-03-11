@@ -50,7 +50,6 @@ export default function EconomyClient() {
     giveaways: {},
   });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -90,22 +89,18 @@ export default function EconomyClient() {
   async function saveFeature(next: boolean) {
     if (!guildId) return;
     try {
-      setSaving(true);
       setMessage("");
       await saveDashboardConfig(guildId, { features: { economyEnabled: next } });
       setEconomyEnabled(next);
       setMessage(`Economy feature gate ${next ? "enabled" : "disabled"}.`);
     } catch (err: any) {
       setMessage(err?.message || "Save failed.");
-    } finally {
-      setSaving(false);
     }
   }
 
   async function saveEngine(engine: EngineKey, patch: Record<string, unknown>, okLabel: string) {
     if (!guildId) return;
     try {
-      setSaving(true);
       setMessage("");
       const json = await saveRuntimeEngine(guildId, engine, patch);
       setEngines((prev) => ({
@@ -115,8 +110,6 @@ export default function EconomyClient() {
       setMessage(okLabel);
     } catch (err: any) {
       setMessage(err?.message || "Save failed.");
-    } finally {
-      setSaving(false);
     }
   }
 

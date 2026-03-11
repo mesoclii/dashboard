@@ -79,7 +79,6 @@ export default function OpenAiPlatformClient() {
   const [provider, setProvider] = useState<ProviderPayload>({});
   const [personaRuntime, setPersonaRuntime] = useState<PersonaRuntimePayload>({});
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -99,7 +98,7 @@ export default function OpenAiPlatformClient() {
       setMessage("");
       const [providerRes, personaRes] = await Promise.all([
         fetch(`/api/bot/openai-runtime?guildId=${encodeURIComponent(targetGuildId)}`, { cache: "no-store" }),
-        fetch(`/api/setup/ai-persona-runtime?guildId=${encodeURIComponent(targetGuildId)}`, { cache: "no-store" }),
+        fetch(`/api/ai/persona-runtime?guildId=${encodeURIComponent(targetGuildId)}`, { cache: "no-store" }),
       ]);
       const providerJson = await readJsonOrThrow(providerRes);
       const personaJson = await readJsonOrThrow(personaRes);
@@ -119,15 +118,12 @@ export default function OpenAiPlatformClient() {
   async function saveRuntimePatch(patch: Record<string, unknown>, okLabel: string) {
     if (!guildId) return;
     try {
-      setSaving(true);
       setMessage("");
       await saveRuntimeEngine(guildId, "runtimeRouter", patch);
       await loadAll(guildId);
       setMessage(okLabel);
     } catch (err: any) {
       setMessage(err?.message || "Save failed.");
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -145,10 +141,10 @@ export default function OpenAiPlatformClient() {
       <div style={card}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <div>
-            <h1 style={{ margin: 0, color: "#ff4a4a", letterSpacing: "0.12em", textTransform: "uppercase" }}>Hosted AI Platform</h1>
+            <h1 style={{ margin: 0, color: "#ff4a4a", letterSpacing: "0.12em", textTransform: "uppercase" }}>Creator AI Platform</h1>
             <div style={{ color: "#ff9f9f", marginTop: 6 }}>Guild: {guildName || guildId}</div>
             <div style={{ color: "#ffb7b7", fontSize: 12, marginTop: 6 }}>
-              This page now shows the live provider/runtime state the bot actually uses. The old pricing catalog was dashboard-only and has been removed.
+              This page shows the live provider/runtime state the bot creator actually uses. The old pricing catalog was dashboard-only and has been removed.
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -159,7 +155,7 @@ export default function OpenAiPlatformClient() {
         {message ? <div style={{ marginTop: 10, color: "#ffd27a" }}>{message}</div> : null}
       </div>
 
-      {loading ? <div style={card}>Loading hosted AI platform...</div> : null}
+      {loading ? <div style={card}>Loading creator AI platform...</div> : null}
 
       {!loading ? (
         <>

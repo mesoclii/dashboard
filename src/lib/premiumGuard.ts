@@ -7,6 +7,8 @@ const FEATURE_LABELS: Record<string, string> = {
   heist: "Heist Engine",
   persona: "Persona Engine AI",
   "openai-platform": "OpenAI Persona Platform",
+  "advanced-security": "Advanced Security + Governance Suite",
+  "automation-suite": "Automation + Custom Commands Suite",
 };
 
 function readActorUserId(req: NextApiRequest) {
@@ -23,8 +25,10 @@ export function mapPremiumFeatureKey(rawFeature: string) {
   if (!feature) return "";
   if (["tts"].includes(feature)) return "tts";
   if (["heist"].includes(feature)) return "heist";
-  if (["persona", "ai-personas-config", "ai-persona-runtime"].includes(feature)) return "persona";
-  if (["openai-platform", "ai-pricing-config"].includes(feature)) return "openai-platform";
+  if (["persona", "ai-persona-runtime"].includes(feature)) return "persona";
+  if (["openai-platform"].includes(feature)) return "openai-platform";
+  if (["advanced-security"].includes(feature)) return "advanced-security";
+  if (["automation-suite"].includes(feature)) return "automation-suite";
   return feature;
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CSSProperties, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import { buildDashboardHref, readDashboardGuildId } from "@/lib/dashboardContext";
 
 type GuildRole = { id: string; name: string; position?: number };
@@ -271,7 +271,7 @@ export default function SlashCommandsClient() {
     }
   }, []);
 
-  async function loadAll(targetGuildId: string, options?: { preserveMessage?: boolean }) {
+  const loadAll = useCallback(async (targetGuildId: string, options?: { preserveMessage?: boolean }) => {
     if (!targetGuildId) {
       setLoading(false);
       return;
@@ -322,11 +322,11 @@ export default function SlashCommandsClient() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [selectedKey]);
 
   useEffect(() => {
     void loadAll(guildId);
-  }, [guildId]);
+  }, [guildId, loadAll]);
 
   const filteredEntries = useMemo(() => {
     const query = search.trim().toLowerCase();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PossumCard } from "@/components/possum/PossumCard";
 import { possum } from "@/styles/possumTheme";
 
@@ -33,12 +33,7 @@ export default function SecurityPolicyEditor() {
     setGuildId(String(id).trim());
   }, []);
 
-  useEffect(() => {
-    if (!guildId) return;
-    load();
-  }, [guildId]);
-
-  async function load() {
+  const load = useCallback(async () => {
     try {
       setStatus("Loading feature policy...");
       const res = await fetch(`/api/bot/guild-features?guildId=${encodeURIComponent(guildId)}`);
@@ -53,7 +48,12 @@ export default function SecurityPolicyEditor() {
     } catch (err: any) {
       setStatus(String(err?.message || err));
     }
-  }
+  }, [guildId]);
+
+  useEffect(() => {
+    if (!guildId) return;
+    void load();
+  }, [guildId, load]);
 
   async function toggleFeature(key: string) {
     const current = !!data.features[key];

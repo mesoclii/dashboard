@@ -370,7 +370,8 @@ export default function BotAutomationStudioClient() {
       setLoading(true);
       setMsg("");
       try {
-        const [_, items] = await Promise.all([loadGuildMeta(gid), loadAutomations(gid)]);
+        await loadGuildMeta(gid);
+        const items = await loadAutomations(gid);
         const requestedId = getAutomationIdFromQuery();
         if (cancelled) return;
         if (requestedId && items.some((it) => it.id === requestedId)) {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { fetchGuildData, resolveGuildContext } from "@/lib/liveRuntime";
 
@@ -137,7 +137,7 @@ export default function AutomationStudioClient() {
     setGuildName(resolved.guildName);
   }, []);
 
-  async function loadList(targetGuildId: string, keepSelection = true, preferredId = "") {
+  const loadList = useCallback(async (targetGuildId: string, keepSelection = true, preferredId = "") => {
     if (!targetGuildId) {
       setLoading(false);
       return;
@@ -171,7 +171,7 @@ export default function AutomationStudioClient() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [selectedId]);
 
   async function loadDetail(id: string) {
     if (!id) return;
@@ -188,7 +188,7 @@ export default function AutomationStudioClient() {
 
   useEffect(() => {
     void loadList(guildId, false);
-  }, [guildId]);
+  }, [guildId, loadList]);
 
   async function saveMeta(patch: Partial<AutomationItem>, okLabel: string) {
     if (!selectedId) return;

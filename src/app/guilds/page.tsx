@@ -83,11 +83,6 @@ function actionButtonStyle(tone: "primary" | "secondary" | "oauth") {
   } as const;
 }
 
-function readStoredDashboardUserId() {
-  if (typeof window === "undefined") return "";
-  return String(localStorage.getItem("dashboardUserId") || MASTER_OWNER_USER_ID).trim();
-}
-
 function buildInviteUrl(baseUrl: string, guildId: string) {
   if (!baseUrl) return "";
   try {

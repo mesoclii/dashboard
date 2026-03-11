@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 
 type GuildRole = { id: string; name: string; position?: number };
 type GuildChannel = { id: string; name: string; type?: number | string };
@@ -178,15 +178,6 @@ function resolveResponseDeleteMode(policy: Record<string, any>, cmd?: any): "off
 }
 
 
-function describeDeleteModeFromCommand(cmd: CustomCommand): string {
-  const { policy } = splitPolicyAndActions(cmd.actions || []);
-  const mode = resolveTriggerDeleteMode(policy, cmd);
-  if (mode === "off") return "off";
-  if (mode === "instant") return "instant";
-  const sec = firstNumber([policy?.deleteDelaySec, policy?.deleteAfterSec, policy?.deleteTriggerDelaySec], 5) || 5;
-  return `${sec}s`;
-}
-
 function emptyAction(type: ActionType): ActionDraft {
   return {
     id: makeId(),
@@ -292,7 +283,7 @@ export default function CustomCommandsPage() {
     setCommands(Array.isArray(j) ? j : []);
   }
 
-  async function loadAll(targetGuildId: string) {
+  const loadAll = useCallback(async (targetGuildId: string) => {
     setLoading(true);
     setMsg("");
     try {
@@ -302,14 +293,14 @@ export default function CustomCommandsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     const gid = getGuildId();
     setGuildId(gid);
-    if (gid) loadAll(gid);
+    if (gid) void loadAll(gid);
     else setLoading(false);
-  }, []);
+  }, [loadAll]);
 
   useEffect(() => {
     if (selectedId === "new") {

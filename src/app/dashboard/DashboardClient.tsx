@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { buildDashboardHref, readDashboardGuildId } from "@/lib/dashboardContext";
 import { SAVIORS_GUILD_ID } from "@/lib/dashboard/engineRegistry";
+import { useDashboardSessionState } from "@/components/possum/useDashboardSessionState";
 
 type ToggleController = {
   read: (guildId: string) => Promise<boolean>;
@@ -18,6 +19,9 @@ type Card = {
   goOnly?: boolean;
   goLabel?: string;
   premiumRequired?: boolean;
+  creatorOnly?: boolean;
+  routeKey?: string;
+  state?: ToggleState;
 };
 
 type ToggleState = {
@@ -28,23 +32,21 @@ type ToggleState = {
 
 type DashboardSection =
   | "Guild Control"
-  | "AI"
   | "Automation"
   | "Security"
-  | "Community"
   | "Economy"
   | "Fun + Games"
-  | "Operations";
+  | "Operations"
+  | "Premium";
 
 const SECTION_ORDER: DashboardSection[] = [
   "Guild Control",
-  "AI",
   "Automation",
   "Security",
-  "Community",
   "Economy",
   "Fun + Games",
   "Operations",
+  "Premium",
 ];
 
 function readBoolPath(input: unknown, path: string[], fallback = false): boolean {
@@ -92,7 +94,7 @@ async function saveDashboardFeature(guildId: string, key: string, value: boolean
 
 async function getEngineConfig(guildId: string, engine: string) {
   const res = await fetch(
-    `/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
+    `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
     { cache: "no-store" }
   );
   const json = await readJsonOrThrow(res);
@@ -100,7 +102,7 @@ async function getEngineConfig(guildId: string, engine: string) {
 }
 
 async function saveEngineConfig(guildId: string, engine: string, patch: Record<string, unknown>) {
-  const res = await fetch("/api/setup/runtime-engine", {
+  const res = await fetch("/api/runtime/engine", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guildId, engine, patch }),
@@ -144,67 +146,66 @@ function engineController(engine: string, fieldPath: string[] = ["enabled"]): To
 }
 
 function getCardSection(card: Card): DashboardSection {
-  const href = card.href.split("?")[0];
+  const href = card.href.split("?")[0].split("#")[0];
   if (
     href === "/dashboard/bot-personalizer" ||
     href === "/dashboard/bot-masters" ||
     href === "/dashboard/channels" ||
-    href === "/dashboard/premium-features"
+    href === "/dashboard/ai/learning" ||
+    href === "/dashboard/panels" ||
+    href === "/dashboard/giveaways" ||
+    href === "/dashboard/jed" ||
+    href === "/dashboard/music" ||
+    href === "/dashboard/vip" ||
+    href === "/dashboard/tickets" ||
+    href === "/dashboard/selfroles"
   ) {
     return "Guild Control";
-  }
-  if (
-    href.startsWith("/dashboard/ai/") ||
-    href === "/dashboard/runtime-router"
-  ) {
-    return "AI";
   }
   if (
     href === "/dashboard/automations/studio" ||
     href === "/dashboard/commands" ||
     href === "/dashboard/slash-commands" ||
-    href === "/dashboard/panels" ||
-    href === "/dashboard/event-reactor"
+    href === "/dashboard/event-reactor" ||
+    href === "/dashboard/runtime-router"
   ) {
     return "Automation";
   }
   if (
     href === "/dashboard/security" ||
     href === "/dashboard/governance" ||
-    href === "/dashboard/security-enforcer"
+    href === "/dashboard/security-enforcer" ||
+    href === "/dashboard/moderator" ||
+    href === "/dashboard/blacklist" ||
+    href === "/dashboard/failsafe"
   ) {
     return "Security";
   }
   if (
-    href === "/dashboard/moderator" ||
-    href === "/dashboard/tickets" ||
-    href === "/dashboard/selfroles" ||
-    href === "/dashboard/invite-tracker" ||
+    href === "/dashboard/premium-features" ||
+    href === "/dashboard/heist" ||
     href === "/dashboard/tts" ||
-    href === "/dashboard/vip"
+    href === "/dashboard/ai/persona" ||
+    href === "/dashboard/ai/openai-platform"
   ) {
-    return "Community";
+    return "Premium";
   }
   if (
     href === "/dashboard/economy" ||
     href.startsWith("/dashboard/economy/") ||
     href === "/dashboard/prestige" ||
-    href === "/dashboard/giveaways" ||
     href === "/dashboard/profile" ||
     href === "/dashboard/halloffame" ||
     href === "/dashboard/achievements" ||
-    href === "/dashboard/loyalty" ||
-    href === "/dashboard/contracts"
+    href === "/dashboard/loyalty"
   ) {
     return "Economy";
   }
   if (
-    href === "/dashboard/music" ||
-    href === "/dashboard/jed" ||
-    href === "/dashboard/gta-ops" ||
-    href === "/dashboard/heist" ||
+    href === "/dashboard/games" ||
     href === "/dashboard/crew" ||
     href === "/dashboard/dominion" ||
+    href === "/dashboard/contracts" ||
     href === "/dashboard/catdrop" ||
     href === "/dashboard/rarespawn" ||
     href === "/dashboard/range" ||
@@ -314,34 +315,34 @@ const CARDS: Card[] = [
   { href: "/dashboard/bot-personalizer", title: "Bot Personalizer", description: "Per-guild Possum AI naming, avatar, activity, and backstory.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/bot-masters", title: "Bot Masters", description: "Set which guild roles and users can manage the dashboard.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/channels", title: "Channels", description: "Centralized channel routing for engines that rely on per-guild channel setup.", goOnly: true, goLabel: "Go" },
-  { href: "/dashboard/premium-features", title: "Premium Features", description: "Plan state, paid add-ons, and owner trial controls.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/ai/learning", title: "Possum AI", description: "Homemade adaptive AI, bot knowledge base, learning writes, and synthesis runtime.", goOnly: true, goLabel: "Go" },
-  { href: "/dashboard/ai/persona", title: "Persona AI", description: "Hosted persona runtime, photos, triggers, and roster controls.", goOnly: true, goLabel: "Go", premiumRequired: true },
-  { href: "/dashboard/ai/openai-platform", title: "Hosted AI Platform", description: "Provider, model, and hosted premium AI platform controls.", goOnly: true, goLabel: "Go", premiumRequired: true },
+  { href: "/dashboard/panels", title: "Panel Hub", description: "Jump to the engine tabs that own their own panel layouts and run shared deploys.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway lifecycle, entrants, rerolls, and controls.", toggle: engineController("giveaways", ["active"]) },
+  { href: "/dashboard/jed", title: "Jed", description: "Sticker/emote/gif steal and deploy engine.", toggle: engineController("jed") },
+  { href: "/dashboard/music", title: "Music", description: "Always-free multi-route music playback, route binding, and live queue control.", toggle: musicController },
+  { href: "/dashboard/vip", title: "VIP", description: "VIP tiers, grants, and expiry sync.", toggle: engineController("vip", ["active"]) },
+  { href: "/dashboard/tickets", title: "Tickets", description: "Support ticket engine controls.", toggle: engineController("tickets", ["active"]) },
+  { href: "/dashboard/selfroles", title: "Self Roles", description: "Self-role panel configuration and role mapping.", toggle: engineController("selfroles", ["active"]) },
   { href: "/dashboard/automations/studio", title: "Automation Studio", description: "Visual trigger/condition/action flow builder.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/commands", title: "!Command Studio", description: "Custom bang-command engine and editor.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/slash-commands", title: "Slash Commands", description: "Native built-in slash command master per guild.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/event-reactor", title: "Event Reactor", description: "Scheduled event reactor controls.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/runtime-router", title: "Runtime Router", description: "Gun/possum/vip runtime routing controls.", toggle: engineController("runtimeRouter", ["adaptiveAiEnabled"]) },
   { href: "/dashboard/moderator", title: "Moderator", description: "Separate automod, audit logging, and moderation controls.", goOnly: true, goLabel: "Go" },
-  { href: "/dashboard/tickets", title: "Tickets", description: "Support ticket engine controls.", toggle: engineController("tickets", ["active"]) },
-  { href: "/dashboard/selfroles", title: "Selfroles", description: "Self-role panel configuration and role mapping.", toggle: engineController("selfroles", ["active"]) },
-  { href: "/dashboard/invite-tracker", title: "Invite Tracker", description: "Invite tracking tiers and command behavior.", toggle: engineController("inviteTracker") },
-  { href: "/dashboard/tts", title: "TTS", description: "Voice route and TTS runtime control.", toggle: engineController("tts", ["enabled"]), premiumRequired: true },
+  { href: "/dashboard/economy/leaderboard", title: "Invite Tracker", description: "Invite tracking tiers, recruiter thresholds, and leaderboard behavior.", toggle: engineController("inviteTracker") },
   { href: "/dashboard/economy", title: "Economy", description: "Economy baseline and related systems.", toggle: featureController("economyEnabled") },
   { href: "/dashboard/economy/store", title: "Store", description: "Catalog, prices, stock, and role grants.", toggle: engineController("store", ["active"]) },
   { href: "/dashboard/economy/progression", title: "Progression", description: "XP intake, level formulas, reward ladders, and progression multipliers.", toggle: engineController("progression", ["active"]) },
   { href: "/dashboard/prestige", title: "Prestige", description: "Capstone reset loop, role rewards, and long-tail prestige elevation.", toggle: engineController("prestige") },
   { href: "/dashboard/economy/radio-birthday", title: "Birthdays", description: "Birthday engine settings and reward flow.", toggle: birthdayController },
-  { href: "/dashboard/music", title: "Music", description: "Always-free multi-route music playback, route binding, and live queue control.", toggle: musicController },
-  { href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway lifecycle, entrants, rerolls, and controls.", toggle: engineController("giveaways", ["active"]) },
-  { href: "/dashboard/heist", title: "Heist", description: "Heist signup engine controls.", toggle: engineController("heist", ["active"]), premiumRequired: true },
-  { href: "/dashboard/gta-ops", title: "GTA Ops", description: "GTA operations entity, separate from Heist.", goOnly: true, goLabel: "Go" },
-  { href: "/dashboard/crew", title: "Crew", description: "Crew create/join/leave/vault controls.", toggle: engineController("crew") },
-  { href: "/dashboard/dominion", title: "Dominion", description: "Dominion raid/alliance/war settings.", toggle: engineController("dominion") },
-  { href: "/dashboard/contracts", title: "Contracts", description: "Objective progression, task tracking, and contract reward flow.", toggle: engineController("contracts") },
   { href: "/dashboard/profile", title: "Profile", description: "Profile display, rank surfaces, and stat aggregation controls.", toggle: engineController("profile") },
   { href: "/dashboard/halloffame", title: "Hall of Fame", description: "Recognition layer for top achievers and prestige-ready members.", toggle: engineController("hallOfFame") },
   { href: "/dashboard/achievements", title: "Achievements", description: "Milestone grant rules, badge sync, and achievement reward logic.", toggle: engineController("achievements", ["active"]) },
   { href: "/dashboard/loyalty", title: "Loyalty", description: "Retention timing, tenure rewards, and VIP-adjacent loyalty benefits.", toggle: engineController("loyalty", ["active"]) },
+  { href: "/dashboard/games", title: "Games", description: "Live games hub across Pokemon, GTA crew systems, and spawn-driven engines.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/crew", title: "Crew", description: "Crew create/join/leave/vault controls.", toggle: engineController("crew") },
+  { href: "/dashboard/dominion", title: "Dominion", description: "Dominion raid/alliance/war settings.", toggle: engineController("dominion") },
+  { href: "/dashboard/contracts", title: "Contracts", description: "Objective progression, task tracking, and contract reward flow.", toggle: engineController("contracts") },
   { href: "/dashboard/catdrop", title: "Cat Drop", description: "Cat spawn/catch and drop tuning.", toggle: engineController("catDrop") },
   { href: "/dashboard/rarespawn", title: "Rare Spawn", description: "Rare event spawn/claim settings.", toggle: rareSpawnController },
   { href: "/dashboard/range", title: "Range", description: "Range game interactions and limits.", toggle: engineController("range") },
@@ -349,15 +350,18 @@ const CARDS: Card[] = [
   { href: "/dashboard/pokemon-catching", title: "Pokemon Catching", description: "Wild spawn lanes, catch rates, reward tuning, and catch logs.", toggle: pokemonCatchingController },
   { href: "/dashboard/pokemon-battle", title: "Pokemon Battle", description: "Battle lane, battle logging, and duel availability.", toggle: pokemonBattleController },
   { href: "/dashboard/pokemon-trade", title: "Pokemon Trade", description: "Trade gate and trade log routing.", toggle: pokemonTradeController },
-  { href: "/dashboard/governance", title: "Governance", description: "Governance state and enforcement controls.", toggle: engineController("security.governance", ["active"]), premiumRequired: true },
-  { href: "/dashboard/security", title: "Security", description: "Security stack, moderation, and policies.", toggle: engineController("security.governance", ["active"]), premiumRequired: true },
+  { href: "/dashboard/governance", title: "Governance", description: "Governance state and enforcement controls.", toggle: engineController("security.governance", ["active"]) },
+  { href: "/dashboard/security", title: "Security", description: "Security stack, moderation, and policies.", toggle: engineController("security.governance", ["active"]) },
   { href: "/dashboard/blacklist", title: "Blacklist", description: "Blacklist add/remove/show control.", toggle: engineController("blacklist") },
   { href: "/dashboard/failsafe", title: "Failsafe", description: "Emergency pause and safety switches.", toggle: engineController("failsafe") },
-  { href: "/dashboard/panels", title: "Panel Hub", description: "Jump to the engine tabs that own their own panel layouts and run shared deploys.", goOnly: true, goLabel: "Go" },
-  { href: "/dashboard/runtime-router", title: "Runtime Router", description: "Gun/possum/vip runtime routing controls.", toggle: engineController("runtimeRouter", ["adaptiveAiEnabled"]) },
-  { href: "/dashboard/jed", title: "Jed", description: "Sticker/emote/gif steal and deploy engine.", toggle: engineController("jed") },
   { href: "/dashboard/system-health", title: "System Health", description: "Runtime monitor, drift and health checks.", goOnly: true, goLabel: "Go" },
-  { href: "/dashboard/vip", title: "VIP", description: "VIP tiers, grants, and expiry sync.", toggle: engineController("vip", ["active"]) },
+  { href: "/dashboard/premium-features", title: "Premium Features", description: "Plan state, paid add-ons, and owner trial controls.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/heist", title: "Heist", description: "Heist signup engine controls.", toggle: engineController("heist", ["active"]), premiumRequired: true },
+  { href: "/dashboard/tts", title: "TTS", description: "Voice route and TTS runtime control.", toggle: engineController("tts", ["enabled"]), premiumRequired: true },
+  { href: "/dashboard/ai/persona", title: "Persona AI", description: "Hosted persona runtime, photos, triggers, and roster controls.", goOnly: true, goLabel: "Go", premiumRequired: true },
+  { href: "/dashboard/premium-features#advanced-security", title: "Advanced Security Suite", description: "Threat intel, drift, trust weighting, escalation, and containment premium layer.", goOnly: true, goLabel: "Go", premiumRequired: true },
+  { href: "/dashboard/premium-features#automation-suite", title: "Automation + Commands Suite", description: "Advanced automation depth and elevated custom-command scale for premium guilds.", goOnly: true, goLabel: "Go", premiumRequired: true },
+  { href: "/dashboard/ai/openai-platform", title: "Creator AI Platform", description: "Internal provider/model controls reserved for bot creators.", goOnly: true, goLabel: "Go", premiumRequired: true, creatorOnly: true },
 ];
 
 function pillClass(on: boolean | null) {
@@ -374,6 +378,7 @@ export default function DashboardClient() {
   const [states, setStates] = useState<Record<string, ToggleState>>({});
   const [loadingStates, setLoadingStates] = useState(false);
   const [subscription, setSubscription] = useState<{ active: boolean; plan: string; developerBypass?: boolean } | null>(null);
+  const { isMasterOwner } = useDashboardSessionState();
 
   useEffect(() => {
     setGuildId(readDashboardGuildId());
@@ -427,14 +432,14 @@ export default function DashboardClient() {
   }, [guildId]);
 
   async function toggleCard(card: Card) {
-    if (!guildId || !card.toggle) return;
+    if (!guildId || !card.toggle || !card.routeKey) return;
     const premiumUnlocked = Boolean(subscription?.active || subscription?.developerBypass);
     if (card.premiumRequired && !premiumUnlocked) return;
-    const current = states[card.href]?.value ?? false;
+    const current = states[card.routeKey]?.value ?? false;
     const next = !current;
     setStates((prev) => ({
       ...prev,
-      [card.href]: { ...(prev[card.href] || { value: current }), value: next, saving: true, error: "" },
+      [card.routeKey as string]: { ...(prev[card.routeKey as string] || { value: current }), value: next, saving: true, error: "" },
     }));
 
     try {
@@ -443,8 +448,8 @@ export default function DashboardClient() {
     } catch (err: any) {
       setStates((prev) => ({
         ...prev,
-        [card.href]: {
-          ...(prev[card.href] || { value: current }),
+        [card.routeKey as string]: {
+          ...(prev[card.routeKey as string] || { value: current }),
           value: current,
           saving: false,
           error: err?.message || "Toggle failed.",
@@ -457,10 +462,11 @@ export default function DashboardClient() {
     () =>
       CARDS.map((card) => ({
         ...card,
+        routeKey: card.href,
         href: buildDashboardHref(card.href),
         state: states[card.href] || { value: null, saving: false },
-      })),
-    [states]
+      })).filter((card) => !card.creatorOnly || isMasterOwner),
+    [isMasterOwner, states]
   );
 
   const premiumUnlocked = Boolean(subscription?.active || subscription?.developerBypass);

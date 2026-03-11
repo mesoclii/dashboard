@@ -96,11 +96,11 @@ export default function SystemHealthPage() {
   async function loadAll(gid: string) {
     if (!gid) return;
     const [r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11] = await Promise.all([
-      fetch(`/api/setup/runtime-safety-config?guildId=${gid}`).then((r) => r.json()),
-      fetch(`/api/setup/audit-trail-config?guildId=${gid}`).then((r) => r.json()),
-      fetch(`/api/setup/audit-trail-events?guildId=${gid}&limit=200`).then((r) => r.json()),
-      fetch(`/api/setup/audit-log-feed?kind=${encodeURIComponent(logKind)}&lines=200`).then((r) => r.json()),
-      fetch(`/api/setup/snapshots`).then((r) => r.json()).catch(() => ({ snapshots: [] })),
+      fetch(`/api/system/runtime-safety?guildId=${gid}`).then((r) => r.json()),
+      fetch(`/api/audit/config?guildId=${gid}`).then((r) => r.json()),
+      fetch(`/api/audit/events?guildId=${gid}&limit=200`).then((r) => r.json()),
+      fetch(`/api/audit/log-feed?kind=${encodeURIComponent(logKind)}&lines=200`).then((r) => r.json()),
+      fetch(`/api/system/snapshots`).then((r) => r.json()).catch(() => ({ snapshots: [] })),
       fetch(`/api/bot/guild-data?guildId=${gid}`).then((r) => r.json()).catch(() => ({})),
       fetch(`/api/status`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
       fetch(`/api/bot/engine-catalog?guildId=${gid}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
@@ -137,7 +137,7 @@ export default function SystemHealthPage() {
 
   async function saveRuntime() {
     if (!guildId || !runtime) return;
-    const r = await fetch("/api/setup/runtime-safety-config", {
+    const r = await fetch("/api/system/runtime-safety", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guildId, patch: runtime })
@@ -148,7 +148,7 @@ export default function SystemHealthPage() {
 
   async function saveAudit() {
     if (!guildId || !auditCfg) return;
-    const r = await fetch("/api/setup/audit-trail-config", {
+    const r = await fetch("/api/audit/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guildId, patch: auditCfg })
@@ -158,20 +158,20 @@ export default function SystemHealthPage() {
   }
 
   async function refreshLogs() {
-    const r = await fetch(`/api/setup/audit-log-feed?kind=${encodeURIComponent(logKind)}&lines=200`);
+    const r = await fetch(`/api/audit/log-feed?kind=${encodeURIComponent(logKind)}&lines=200`);
     const j = await r.json();
     setLogLines(Array.isArray(j?.lines) ? j.lines : []);
   }
 
   async function createSnapshot() {
-    const r = await fetch("/api/setup/snapshots", {
+    const r = await fetch("/api/system/snapshots", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guildId, note: "manual-health-snapshot" })
     });
     const j = await r.json();
     setMsg(j?.success ? "Snapshot created." : j?.error || "Snapshot failed.");
-    const r2 = await fetch(`/api/setup/snapshots`);
+    const r2 = await fetch(`/api/system/snapshots`);
     const j2 = await r2.json();
     setSnapshots(Array.isArray(j2?.snapshots) ? j2.snapshots : []);
   }
@@ -190,7 +190,7 @@ export default function SystemHealthPage() {
 
   async function runEngineRecovery(engine: string, action: string) {
     if (!guildId) return;
-    const r = await fetch("/api/setup/runtime-engine-action", {
+    const r = await fetch("/api/runtime/engine-action", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guildId, engine, action }),

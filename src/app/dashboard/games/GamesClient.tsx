@@ -10,7 +10,7 @@ type EnginePayload = {
   summary?: Array<{ label: string; value: string }>;
 };
 
-type EngineKey = "rareSpawn" | "catDrop" | "pokemon" | "progression" | "achievements";
+type EngineKey = "rareSpawn" | "catDrop" | "pokemon" | "progression" | "achievements" | "crew" | "dominion" | "contracts";
 
 const card: CSSProperties = {
   border: "1px solid rgba(255,0,0,.35)",
@@ -35,6 +35,9 @@ const ENGINE_LINKS: Array<{ engine: EngineKey; href: string; title: string; desc
   { engine: "pokemon", href: "/dashboard/pokemon-catching", title: "Pokemon", description: "Spawn lanes, catch timing, battle/trade routing, and trainer progression." },
   { engine: "progression", href: "/dashboard/economy/progression", title: "Progression", description: "XP intake, level-up routing, reward ladders, and anti-abuse." },
   { engine: "achievements", href: "/dashboard/achievements", title: "Achievements", description: "Achievement runtime catalog, command exposure, and unlock rewards." },
+  { engine: "crew", href: "/dashboard/crew", title: "Crew", description: "Crew runtime, vault flow, and GTA crew progression." },
+  { engine: "dominion", href: "/dashboard/dominion", title: "Dominion", description: "Dominion rivalry, raid, and alliance runtime." },
+  { engine: "contracts", href: "/dashboard/contracts", title: "Contracts", description: "Contract task flow tied into the GTA crew stack." },
 ];
 
 function getEngineValue(payload: EnginePayload | null | undefined, path: string[], fallback: any) {
@@ -55,6 +58,9 @@ export default function GamesClient() {
     pokemon: {},
     progression: {},
     achievements: {},
+    crew: {},
+    dominion: {},
+    contracts: {},
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -113,6 +119,7 @@ export default function GamesClient() {
 
   const pokemonSummary = useMemo(() => engines.pokemon.summary || [], [engines.pokemon]);
   const progressionSummary = useMemo(() => engines.progression.summary || [], [engines.progression]);
+  const crewSummary = useMemo(() => engines.crew.summary || [], [engines.crew]);
 
   if (!guildId && !loading) {
     return <div style={{ color: "#ff6b6b", padding: 24 }}>Missing guildId. Open from `/guilds` first.</div>;
@@ -147,6 +154,7 @@ export default function GamesClient() {
               ["Pokemon", pokemonSummary[0]?.value || "Unknown"],
               ["Progression", progressionSummary[0]?.value || "Unknown"],
               ["Achievements", (engines.achievements.summary || [])[0]?.value || "Unknown"],
+              ["Crew", crewSummary[0]?.value || "Unknown"],
             ].map(([label, value]) => (
               <div key={label} style={card}>
                 <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#ffadad" }}>{label}</div>
@@ -215,6 +223,26 @@ export default function GamesClient() {
               <Link href={`/dashboard/economy/progression?guildId=${encodeURIComponent(guildId)}`} style={{ ...input, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Progression</Link>
               <Link href={`/dashboard/achievements?guildId=${encodeURIComponent(guildId)}`} style={{ ...input, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Achievements</Link>
               <Link href={`/dashboard/games/fun-modes?guildId=${encodeURIComponent(guildId)}`} style={{ ...input, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Fun Modes</Link>
+            </div>
+          </div>
+
+          <div style={card}>
+            <h3 style={{ marginTop: 0, color: "#ff6666", textTransform: "uppercase", letterSpacing: "0.08em" }}>Crew + GTA Systems</h3>
+            <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 10 }}>
+              GTA Ops is no longer a shell tab. Crew, Dominion, and Contracts live here directly as game engines.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(180px,1fr))", gap: 10 }}>
+              <label><input type="checkbox" checked={Boolean(getEngineValue(engines.crew, ["enabled"], false))} onChange={(event) => void saveEngine("crew", { enabled: event.target.checked }, `Crew ${event.target.checked ? "enabled" : "disabled"}.`)} /> Crew enabled</label>
+              <label><input type="checkbox" checked={Boolean(getEngineValue(engines.dominion, ["enabled"], false))} onChange={(event) => void saveEngine("dominion", { enabled: event.target.checked }, `Dominion ${event.target.checked ? "enabled" : "disabled"}.`)} /> Dominion enabled</label>
+              <label><input type="checkbox" checked={Boolean(getEngineValue(engines.contracts, ["enabled"], false))} onChange={(event) => void saveEngine("contracts", { enabled: event.target.checked }, `Contracts ${event.target.checked ? "enabled" : "disabled"}.`)} /> Contracts enabled</label>
+            </div>
+            <div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 10 }}>
+              {(engines.crew.summary || []).map((row) => `${row.label}: ${row.value}`).join(" | ")}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+              <Link href={`/dashboard/crew?guildId=${encodeURIComponent(guildId)}`} style={{ ...input, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Crew</Link>
+              <Link href={`/dashboard/dominion?guildId=${encodeURIComponent(guildId)}`} style={{ ...input, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Dominion</Link>
+              <Link href={`/dashboard/contracts?guildId=${encodeURIComponent(guildId)}`} style={{ ...input, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Contracts</Link>
             </div>
           </div>
         </>
