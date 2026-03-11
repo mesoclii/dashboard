@@ -36,7 +36,6 @@ type DashboardSection =
   | "Security"
   | "Economy"
   | "Fun + Games"
-  | "Operations"
   | "Premium";
 
 const SECTION_ORDER: DashboardSection[] = [
@@ -45,7 +44,6 @@ const SECTION_ORDER: DashboardSection[] = [
   "Security",
   "Economy",
   "Fun + Games",
-  "Operations",
   "Premium",
 ];
 
@@ -214,7 +212,7 @@ function getCardSection(card: Card): DashboardSection {
   ) {
     return "Fun + Games";
   }
-  return "Operations";
+  return "Guild Control";
 }
 
 const birthdayController: ToggleController = {
@@ -316,7 +314,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/bot-masters", title: "Bot Masters", description: "Set which guild roles and users can manage the dashboard.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/channels", title: "Channels", description: "Centralized channel routing for engines that rely on per-guild channel setup.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/ai/learning", title: "Possum AI", description: "Homemade adaptive AI, bot knowledge base, learning writes, and synthesis runtime.", goOnly: true, goLabel: "Go" },
-  { href: "/dashboard/panels", title: "Panel Hub", description: "Jump to the engine tabs that own their own panel layouts and run shared deploys.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/panels", title: "Master Panels", description: "Edit live panel-backed engines and shared deploy actions from one page.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway lifecycle, entrants, rerolls, and controls.", toggle: engineController("giveaways", ["active"]) },
   { href: "/dashboard/jed", title: "Jed", description: "Sticker/emote/gif steal and deploy engine.", toggle: engineController("jed") },
   { href: "/dashboard/music", title: "Music", description: "Always-free multi-route music playback, route binding, and live queue control.", toggle: musicController },
@@ -469,12 +467,17 @@ export default function DashboardClient() {
     [isMasterOwner, states]
   );
 
+  const quickAccessCards = useMemo(
+    () => cards.filter((card) => card.routeKey === "/dashboard/system-health"),
+    [cards]
+  );
+
   const premiumUnlocked = Boolean(subscription?.active || subscription?.developerBypass);
   const groupedCards = useMemo(
     () =>
       SECTION_ORDER.map((section) => ({
         section,
-        cards: cards.filter((card) => getCardSection(card) === section),
+        cards: cards.filter((card) => card.routeKey !== "/dashboard/system-health" && getCardSection(card) === section),
       })).filter((group) => group.cards.length > 0),
     [cards]
   );
@@ -493,6 +496,37 @@ export default function DashboardClient() {
           Premium access: {subscription?.developerBypass ? "Developer Override" : subscription?.plan || "Free"}
         </p>
       </header>
+
+      {quickAccessCards.length ? (
+        <section className="space-y-3">
+          <header className="rounded-xl border possum-divider bg-black/45 p-4 possum-border">
+            <p className="text-xs uppercase tracking-[0.22em] possum-soft">Quick Access</p>
+            <h3 className="mt-1 text-xl font-black uppercase tracking-[0.08em] possum-red">System Health</h3>
+          </header>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {quickAccessCards.map((card) => (
+              <div
+                key={card.href}
+                className="rounded-xl border possum-divider bg-black/45 p-4 transition hover:bg-black/65 possum-border"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <Link href={card.href} className="min-w-0 flex-1">
+                    <h3 className="text-base font-extrabold uppercase tracking-[0.06em] possum-red">{card.title}</h3>
+                    <p className="mt-1 text-sm text-red-200/75">{card.description}</p>
+                  </Link>
+                  <Link
+                    href={card.href}
+                    className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200"
+                  >
+                    {card.goLabel || "Go"}
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="space-y-4">
         {groupedCards.map((group) => (

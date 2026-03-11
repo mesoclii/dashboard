@@ -4,11 +4,19 @@ export type DashboardNavItem = {
   creatorOnly?: boolean;
 };
 
+export type DashboardNavTopLink = DashboardNavItem;
+
 export type DashboardNavSection = {
   label: string;
   defaultOpen?: boolean;
   items: DashboardNavItem[];
 };
+
+export function getDashboardNavTopLinks(isMasterOwner = false): DashboardNavTopLink[] {
+  return [{ href: "/dashboard/system-health", label: "System Health" }].filter(
+    (item) => !item.creatorOnly || isMasterOwner
+  );
+}
 
 export function getDashboardNavSections(isMasterOwner = false): DashboardNavSection[] {
   const sections: DashboardNavSection[] = [
@@ -20,7 +28,7 @@ export function getDashboardNavSections(isMasterOwner = false): DashboardNavSect
         { href: "/dashboard/bot-masters", label: "Bot Masters" },
         { href: "/dashboard/channels", label: "Channels" },
         { href: "/dashboard/ai/learning", label: "Possum AI" },
-        { href: "/dashboard/panels", label: "Panel Hub" },
+        { href: "/dashboard/panels", label: "Master Panels" },
         { href: "/dashboard/giveaways", label: "Giveaways" },
         { href: "/dashboard/jed", label: "Jed" },
         { href: "/dashboard/music", label: "Music" },
@@ -93,10 +101,6 @@ export function getDashboardNavSections(isMasterOwner = false): DashboardNavSect
         { href: "/dashboard/pokemon-battle", label: "Pokemon Battle" },
         { href: "/dashboard/pokemon-trade", label: "Pokemon Trade" },
       ],
-    },
-    {
-      label: "Operations",
-      items: [{ href: "/dashboard/system-health", label: "System Health" }],
     },
     {
       label: "Premium",

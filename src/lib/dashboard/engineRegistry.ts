@@ -4,7 +4,6 @@ export type EngineGroup =
   | "Automation"
   | "Economy"
   | "Fun"
-  | "Operations"
   | "Premium";
 
 export type EngineDef = {
@@ -24,7 +23,7 @@ export const ENGINE_REGISTRY: EngineDef[] = [
   { id: "bot-masters", label: "Bot Masters", description: "Dashboard role/user access per guild", group: "Guild Control", route: "/dashboard/bot-masters" },
   { id: "channels", label: "Channels", description: "Centralized guild routing and channel assignment surface", group: "Guild Control", route: "/dashboard/channels" },
   { id: "possum-ai", label: "Possum AI", description: "Homemade adaptive AI, memory, and runtime reply routing", group: "Guild Control", route: "/dashboard/ai/learning" },
-  { id: "panel-hub", label: "Panel Hub", description: "Panel-backed engine launch and shared deploy controls", group: "Guild Control", route: "/dashboard/panels" },
+  { id: "panel-hub", label: "Master Panels", description: "Panel-backed engine launch and shared deploy controls", group: "Guild Control", route: "/dashboard/panels" },
   { id: "giveaways", label: "Giveaways", description: "Giveaway lifecycle, entrants, rerolls, and controls", group: "Guild Control", route: "/dashboard/giveaways", notes: "Engine-config controlled" },
   { id: "jed", label: "Jed", description: "Sticker, emoji, gif, and asset steal/deploy controls", group: "Guild Control", route: "/dashboard/jed" },
   { id: "music", label: "Music", description: "Always-free multi-route music playback and queue control", group: "Guild Control", route: "/dashboard/music", featureKey: "musicEnabled" },
@@ -70,7 +69,7 @@ export const ENGINE_REGISTRY: EngineDef[] = [
   { id: "range", label: "Range", description: "Range game controls", group: "Fun", route: "/dashboard/range" },
   { id: "truthdare", label: "Truth Dare", description: "Truth/Dare controls", group: "Fun", route: "/dashboard/truthdare" },
 
-  { id: "system-health", label: "System Health", description: "Runtime monitor, drift and health checks", group: "Operations", route: "/dashboard/system-health" },
+  { id: "system-health", label: "System Health", description: "Runtime monitor, drift and health checks", group: "Guild Control", route: "/dashboard/system-health" },
 
   { id: "premium-features", label: "Premium Features", description: "Paid guild add-ons, plan pricing, and owner trial controls", group: "Premium", route: "/dashboard/premium-features" },
   { id: "heist", label: "Heist", description: "Heist signup/session controls", group: "Premium", route: "/dashboard/heist", featureKey: "heistEnabled" },
@@ -84,6 +83,5 @@ export const GROUP_ORDER: EngineGroup[] = [
   "Automation",
   "Economy",
   "Fun",
-  "Operations",
   "Premium",
 ];

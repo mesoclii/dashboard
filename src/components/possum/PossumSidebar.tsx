@@ -1,10 +1,11 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 import { useDashboardSessionState } from "@/components/possum/useDashboardSessionState";
-import { getDashboardNavSections } from "@/lib/dashboard/navigation";
+import { getDashboardNavSections, getDashboardNavTopLinks } from "@/lib/dashboard/navigation";
 
 function itemClass(active: boolean): string {
   return active
@@ -20,7 +21,17 @@ function isItemActive(pathname: string | null, href: string) {
 export default function PossumSidebar() {
   const pathname = usePathname();
   const { isMasterOwner } = useDashboardSessionState();
-  const sections = getDashboardNavSections(isMasterOwner);
+  const topLinks = useMemo(() => getDashboardNavTopLinks(isMasterOwner), [isMasterOwner]);
+  const sections = useMemo(() => getDashboardNavSections(isMasterOwner), [isMasterOwner]);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+
+  function isSectionOpen(label: string, defaultOpen: boolean) {
+    return typeof openSections[label] === "boolean" ? openSections[label] : defaultOpen;
+  }
+
+  function toggleSection(label: string, defaultOpen: boolean) {
+    setOpenSections((prev) => ({ ...prev, [label]: !isSectionOpen(label, defaultOpen) }));
+  }
 
   return (
     <div className="rounded-xl border possum-divider bg-black/55 p-4 possum-border">
@@ -32,34 +43,51 @@ export default function PossumSidebar() {
         >
           Dashboard
         </Link>
+        <div className="mt-3 space-y-1">
+          {topLinks.map((item) => {
+            const active = isItemActive(pathname, item.href);
+            return (
+              <Link key={item.href} href={buildDashboardHref(item.href)} className={itemClass(Boolean(active))}>
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       <nav className="space-y-4">
-        {sections.map((section) => (
-          <details
-            key={section.label}
-            className="rounded-lg border border-red-900/40 bg-black/25"
-            defaultOpen={section.defaultOpen || section.items.some((item) => isItemActive(pathname, item.href))}
-          >
-            <summary className="cursor-pointer list-none px-3 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-red-300/70">
-              {section.label}
-            </summary>
-            <div className="space-y-1 px-2 pb-2">
-              {section.items.map((item) => {
-                const active = isItemActive(pathname, item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={buildDashboardHref(item.href)}
-                    className={itemClass(Boolean(active))}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
+        {sections.map((section) => {
+          const defaultOpen = Boolean(section.defaultOpen || section.items.some((item) => isItemActive(pathname, item.href)));
+          const open = isSectionOpen(section.label, defaultOpen);
+          return (
+            <div key={section.label} className="rounded-lg border border-red-900/40 bg-black/25">
+              <button
+                type="button"
+                onClick={() => toggleSection(section.label, defaultOpen)}
+                className="flex w-full items-center justify-between px-3 py-2 text-left text-[11px] font-black uppercase tracking-[0.18em] text-red-300/70"
+              >
+                {section.label}
+                <span>{open ? "-" : "+"}</span>
+              </button>
+              {open ? (
+                <div className="space-y-1 px-2 pb-2">
+                  {section.items.map((item) => {
+                    const active = isItemActive(pathname, item.href);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={buildDashboardHref(item.href)}
+                        className={itemClass(Boolean(active))}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
-          </details>
-        ))}
+          );
+        })}
       </nav>
     </div>
   );
