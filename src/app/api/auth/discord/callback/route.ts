@@ -14,7 +14,7 @@ import {
   DASHBOARD_SESSION_COOKIE,
   isDashboardSessionConfigured,
   sanitizeDashboardReturnTo,
-  useSecureCookies,
+  shouldUseSecureCookies,
 } from "@/lib/session";
 
 export async function GET(request: NextRequest) {
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
   response.cookies.set(DASHBOARD_SESSION_COOKIE, sessionValue, {
     httpOnly: true,
     sameSite: "lax",
-    secure: useSecureCookies(),
+    secure: shouldUseSecureCookies(),
     path: "/",
     maxAge: Math.max(60, Number(token.expires_in || 604800)),
   });

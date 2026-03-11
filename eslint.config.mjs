@@ -9,10 +9,25 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    ".next.previous/**",
+    ".backup_*/**",
+    ".backup*/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
+    ".next.rollback.json",
   ]),
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
+  {
+    files: ["**/*.js", "**/*.cjs"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

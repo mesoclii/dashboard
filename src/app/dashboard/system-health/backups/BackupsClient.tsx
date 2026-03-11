@@ -14,7 +14,7 @@ function getGuildId() {
 }
 
 export default function BackupsPage() {
-  const [guildId, setGuildId] = useState("");
+  const [guildId] = useState(() => getGuildId());
   const [snapshots, setSnapshots] = useState<any[]>([]);
   const [backupText, setBackupText] = useState("");
   const [msg, setMsg] = useState("");
@@ -26,8 +26,7 @@ export default function BackupsPage() {
   }
 
   useEffect(() => {
-    const g = getGuildId();
-    setGuildId(g);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSnapshots().catch(() => {});
   }, []);
 

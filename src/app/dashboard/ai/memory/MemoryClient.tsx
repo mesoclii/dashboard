@@ -12,16 +12,16 @@ function gid() {
 }
 
 export default function MemoryPage() {
-  const [guildId, setGuildId] = useState("");
+  const [guildId] = useState(() => gid());
   const [cfg, setCfg] = useState<any>(null);
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    const g = gid();
-    setGuildId(g);
-    if (!g) return;
-    fetch(`/api/setup/memory-context-config?guildId=${g}`).then((r) => r.json()).then((j) => setCfg(j.config));
-  }, []);
+    if (!guildId) return;
+    fetch(`/api/setup/memory-context-config?guildId=${guildId}`)
+      .then((r) => r.json())
+      .then((j) => setCfg(j.config));
+  }, [guildId]);
 
   async function save() {
     const r = await fetch("/api/setup/memory-context-config", {

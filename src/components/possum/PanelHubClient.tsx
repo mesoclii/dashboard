@@ -81,20 +81,16 @@ const button: React.CSSProperties = {
 };
 
 export default function PanelHubClient() {
-  const [guildId, setGuildId] = useState("");
-  const [guildName, setGuildName] = useState("");
+  const [guildId] = useState(() => readDashboardGuildId());
+  const [guildName, setGuildName] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return String(localStorage.getItem("activeGuildName") || "").trim();
+  });
 
   useEffect(() => {
-    const activeGuildId = readDashboardGuildId();
-    setGuildId(activeGuildId);
-    if (!activeGuildId) return;
+    if (!guildId) return;
 
-    const cachedName = localStorage.getItem("activeGuildName") || "";
-    if (cachedName.trim()) {
-      setGuildName(cachedName.trim());
-    }
-
-    fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(activeGuildId)}`, { cache: "no-store" })
+    fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" })
       .then((res) => res.json().catch(() => ({} as GuildDataResponse)))
       .then((json: GuildDataResponse) => {
         const nextName = String(json?.guild?.name || "").trim();
@@ -103,7 +99,7 @@ export default function PanelHubClient() {
         localStorage.setItem("activeGuildName", nextName);
       })
       .catch(() => {});
-  }, []);
+  }, [guildId]);
 
   if (!guildId) {
     return <div style={{ ...shell, color: "#ff8080" }}>Missing guildId. Open from /guilds first.</div>;

@@ -2,9 +2,9 @@ import path from "path";
 import type { NextConfig } from "next";
 
 const rootDir = path.resolve(__dirname);
+const isLowMemoryBuild = process.env.NEGAN_LOW_MEMORY_BUILD === "1";
 
 const nextConfig: NextConfig = {
-  eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
   productionBrowserSourceMaps: false,
   poweredByHeader: false,
@@ -13,9 +13,16 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: rootDir,
   experimental: {
     serverMinification: false,
-    webpackBuildWorker: false,
+    webpackBuildWorker: true,
+    webpackMemoryOptimizations: true,
     turbopackFileSystemCacheForBuild: true,
-    workerThreads: false,
+    ...(isLowMemoryBuild
+      ? {
+          staticGenerationMaxConcurrency: 2,
+          staticGenerationMinPagesPerWorker: 28,
+          staticGenerationRetryCount: 1,
+        }
+      : {}),
   },
   turbopack: {
     root: rootDir,

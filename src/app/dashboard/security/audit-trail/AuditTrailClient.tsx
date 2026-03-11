@@ -14,7 +14,7 @@ function getGuildId() {
 }
 
 export default function AuditTrailPage() {
-  const [guildId, setGuildId] = useState("");
+  const [guildId] = useState(() => getGuildId());
   const [cfg, setCfg] = useState<any>(null);
   const [events, setEvents] = useState<any[]>([]);
   const [kind, setKind] = useState("dash-error");
@@ -33,10 +33,9 @@ export default function AuditTrailPage() {
   }
 
   useEffect(() => {
-    const g = getGuildId();
-    setGuildId(g);
-    if (g) loadAll(g).catch(() => setMsg("Failed to load audit data."));
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (guildId) loadAll(guildId).catch(() => setMsg("Failed to load audit data."));
+  }, [guildId]);
 
   async function save() {
     const r = await fetch("/api/setup/audit-trail-config", {

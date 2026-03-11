@@ -432,7 +432,7 @@ export default function AchievementsClient() {
 
                 <div style={{ borderTop: "1px solid rgba(255,0,0,.22)", paddingTop: 10 }}>
                   <div style={{ color: "#fff", fontWeight: 800, marginBottom: 8 }}>Settings</div>
-                  <label style={{ display: "block", marginBottom: 6 }}><input type="checkbox" checked={selected.settings.dontTrackProgress} onChange={(e) => updateSettings(selected.id, { dontTrackProgress: e.target.checked })} /> Don't track progress</label>
+                  <label style={{ display: "block", marginBottom: 6 }}><input type="checkbox" checked={selected.settings.dontTrackProgress} onChange={(e) => updateSettings(selected.id, { dontTrackProgress: e.target.checked })} /> Don&apos;t track progress</label>
                   <label style={{ display: "block", marginBottom: 6 }}><input type="checkbox" checked={selected.settings.sendThread} onChange={(e) => updateSettings(selected.id, { sendThread: e.target.checked })} /> Send thread</label>
                   <input style={input} value={selected.settings.setColor || ""} onChange={(e) => updateSettings(selected.id, { setColor: e.target.value })} placeholder="Card color override (optional)" />
                 </div>

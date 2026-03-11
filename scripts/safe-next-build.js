@@ -12,7 +12,7 @@ const rollbackDir = path.join(rootDir, ".next.previous");
 const rollbackMetaPath = path.join(rootDir, ".next.rollback.json");
 const args = new Set(process.argv.slice(2));
 const vmMode = args.has("--vm");
-const memoryMb = vmMode ? 384 : 448;
+const memoryAttempts = vmMode ? [448, 512] : [448];
 
 function log(message) {
   process.stdout.write(`[safe-next-build] ${message}\n`);
@@ -20,7 +20,7 @@ function log(message) {
 
 function removeDir(targetPath) {
   if (!fs.existsSync(targetPath)) return;
-  fs.rmSync(targetPath, { recursive: true, force: true });
+  fs.rmSync(targetPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 }
 
 function moveDir(fromPath, toPath) {
@@ -40,38 +40,59 @@ if (hadExistingBuild) {
   log(`Moved existing build to ${path.basename(rollbackDir)} for rollback.`);
 }
 
-const nodeOptions = [process.env.NODE_OPTIONS || "", `--max-old-space-size=${memoryMb}`, "--max-semi-space-size=16"]
-  .join(" ")
-  .trim();
+let buildSucceeded = false;
+let finalMemoryMb = memoryAttempts[memoryAttempts.length - 1];
+let lastStatus = 1;
 
-const env = {
-  ...process.env,
-  CI: process.env.CI || "1",
-  NEXT_TELEMETRY_DISABLED: "1",
-  NODE_OPTIONS: nodeOptions,
-};
+for (const memoryMb of memoryAttempts) {
+  finalMemoryMb = memoryMb;
+  const nodeOptions = [process.env.NODE_OPTIONS || "", `--max-old-space-size=${memoryMb}`, "--max-semi-space-size=16"]
+    .join(" ")
+    .trim();
 
-log(`Starting Next build with ${memoryMb} MB heap cap${vmMode ? " (vm mode)" : ""}.`);
-const result = spawnSync(process.execPath, [nextBin, "build", "--webpack"], {
-  cwd: rootDir,
-  stdio: "inherit",
-  env,
-});
+  const env = {
+    ...process.env,
+    CI: process.env.CI || "1",
+    NEXT_TELEMETRY_DISABLED: "1",
+    NEGAN_LOW_MEMORY_BUILD: vmMode ? "1" : "0",
+    NODE_OPTIONS: nodeOptions,
+  };
 
-if (result.status !== 0) {
+  log(`Starting Next build with ${memoryMb} MB heap cap${vmMode ? " (vm mode)" : ""}.`);
+  const result = spawnSync(process.execPath, [nextBin, "build", "--webpack"], {
+    cwd: rootDir,
+    stdio: "inherit",
+    env,
+  });
+
+  if (result.status === 0) {
+    buildSucceeded = true;
+    break;
+  }
+
+  lastStatus = result.status || 1;
+  removeDir(buildDir);
+
+  const moreAttemptsRemain = vmMode && memoryMb !== memoryAttempts[memoryAttempts.length - 1];
+  if (moreAttemptsRemain) {
+    log(`Build failed at ${memoryMb} MB. Retrying with a larger heap cap.`);
+  }
+}
+
+if (!buildSucceeded) {
   log("Build failed.");
   removeDir(buildDir);
   if (hadExistingBuild) {
     moveDir(rollbackDir, buildDir);
     log("Restored previous .next build.");
   }
-  process.exit(result.status || 1);
+  process.exit(lastStatus);
 }
 
 const meta = {
   builtAt: new Date().toISOString(),
   vmMode,
-  memoryMb,
+  memoryMb: finalMemoryMb,
   rollbackAvailable: fs.existsSync(rollbackDir),
 };
 fs.writeFileSync(rollbackMetaPath, JSON.stringify(meta, null, 2));

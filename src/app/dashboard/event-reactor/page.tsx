@@ -61,6 +61,7 @@ export default function EventReactorPage() {
   const [routesJson, setRoutesJson] = useState("[]");
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRoutesJson(JSON.stringify(cfg.customRoutes || [], null, 2));
   }, [cfg.customRoutes]);
 

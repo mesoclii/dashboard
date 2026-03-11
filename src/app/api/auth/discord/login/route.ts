@@ -8,7 +8,7 @@ import {
   createOauthState,
   isDashboardSessionConfigured,
   sanitizeDashboardReturnTo,
-  useSecureCookies,
+  shouldUseSecureCookies,
 } from "@/lib/session";
 
 export async function GET(request: NextRequest) {
@@ -57,14 +57,14 @@ export async function GET(request: NextRequest) {
   response.cookies.set(DASHBOARD_OAUTH_STATE_COOKIE, state, {
     httpOnly: true,
     sameSite: "lax",
-    secure: useSecureCookies(),
+    secure: shouldUseSecureCookies(),
     path: "/",
     maxAge: 60 * 10,
   });
   response.cookies.set(DASHBOARD_RETURN_TO_COOKIE, returnTo, {
     httpOnly: true,
     sameSite: "lax",
-    secure: useSecureCookies(),
+    secure: shouldUseSecureCookies(),
     path: "/",
     maxAge: 60 * 10,
   });

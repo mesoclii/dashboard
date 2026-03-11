@@ -253,6 +253,7 @@ export default function GiveawaysPage() {
 
   useEffect(() => {
     if (!guildId || loading) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBaselineSig(sig(cfg));
   }, [guildId, loading]);
 

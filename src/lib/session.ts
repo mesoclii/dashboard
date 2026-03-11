@@ -154,6 +154,6 @@ export function sanitizeDashboardReturnTo(rawValue: string | undefined | null) {
   return value;
 }
 
-export function useSecureCookies() {
+export function shouldUseSecureCookies() {
   return String(process.env.DISCORD_REDIRECT_URI || "").trim().startsWith("https://");
 }

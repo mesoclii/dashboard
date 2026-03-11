@@ -174,10 +174,10 @@ export default function GamesClient() {
             <div style={{ marginBottom: 8, color: "#ffb5b5", fontSize: 13 }}>
               Catching, battle, and trade share one trainer inventory. Use the dedicated pages for full control of each surface.
             </div>
-            <label><input type="checkbox" checked={cfg.pokemon.guildAllowed} onChange={(e) => setCfg((p) => ({ ...p, pokemon: { ...p.pokemon, guildAllowed: e.target.checked } }))} /> Allow Pokemon in this guild</label>
+              <label><input type="checkbox" checked={cfg.pokemon.guildAllowed} onChange={(e) => setCfg((p) => ({ ...p, pokemon: { ...p.pokemon, guildAllowed: e.target.checked } }))} /> Allow Pokemon in this guild</label>
             {!cfg.pokemon.guildAllowed ? (
               <div style={{ marginTop: 8, color: "#ff9a9a", fontSize: 12, fontWeight: 700 }}>
-                Pokemon is blocked for this guild until you enable "Allow Pokemon in this guild".
+                Pokemon is blocked for this guild until you enable &quot;Allow Pokemon in this guild&quot;.
               </div>
             ) : null}
             <div style={{ marginTop: 8 }}>
