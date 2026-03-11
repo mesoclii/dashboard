@@ -126,17 +126,7 @@ const EXCLUDED_PUBLIC_ROUTE_SET = new Set([
   "/dashboard/system-health",
 ]);
 
-const STANDARD_MANUAL_FEATURES: FeatureCatalogEntry[] = [
-  {
-    id: "possum-ai",
-    label: "Possum AI",
-    route: "/dashboard/ai/learning",
-    summary: "Homemade adaptive AI and bot knowledge base with learned tone, stored knowledge, and runtime reply routing."
-  },
-];
-
 export const STANDARD_FEATURES: FeatureCatalogEntry[] = [
-  ...STANDARD_MANUAL_FEATURES,
   ...ENGINE_REGISTRY
     .filter((engine) => !PREMIUM_ROUTE_SET.has(engine.route))
     .filter((engine) => !PRIVATE_ROUTE_SET.has(engine.route))

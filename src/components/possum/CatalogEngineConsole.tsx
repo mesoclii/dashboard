@@ -17,6 +17,7 @@ type CatalogEngineConsoleProps = {
   description: string;
   commandId?: string;
   links?: QuickLink[];
+  showHeader?: boolean;
 };
 
 type JsonRecord = Record<string, any>;
@@ -726,6 +727,7 @@ export default function CatalogEngineConsole({
   description,
   commandId = "",
   links = [],
+  showHeader = true,
 }: CatalogEngineConsoleProps) {
   const [spec, setSpec] = useState<LiveEngineSpec | null>(null);
   const [fieldSchema, setFieldSchema] = useState<EngineFieldSchema | null>(null);
@@ -783,31 +785,33 @@ export default function CatalogEngineConsole({
 
   return (
     <section style={shell}>
-      <div style={card}>
-        <div style={{ ...label, marginBottom: 8 }}>Live Engine Surface</div>
-        <div style={{ color: "#ff4545", fontSize: 24, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.10em" }}>
-          {title || spec?.displayName || humanize(engineKey)}
+      {showHeader ? (
+        <div style={card}>
+          <div style={{ ...label, marginBottom: 8 }}>Live Engine Surface</div>
+          <div style={{ color: "#ff4545", fontSize: 24, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.10em" }}>
+            {title || spec?.displayName || humanize(engineKey)}
+          </div>
+          <div style={{ color: "#ffabab", marginTop: 8 }}>
+            Guild: <b>{guildName || guildId}</b>
+            {commandId ? (
+              <>
+                {" "}
+                | Commands: <b>{commandId}</b>
+              </>
+            ) : null}
+          </div>
+          <div style={{ color: "#ffd0d0", lineHeight: 1.7, marginTop: 10 }}>
+            {description || spec?.decisionLogic || "This page writes directly into the live engine config for the selected guild."}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+            {links.map((item) => (
+              <Link key={item.href} href={buildDashboardHref(item.href)} style={{ ...button, textDecoration: "none" }}>
+                {item.label}
+              </Link>
+            ))}
+          </div>
         </div>
-        <div style={{ color: "#ffabab", marginTop: 8 }}>
-          Guild: <b>{guildName || guildId}</b>
-          {commandId ? (
-            <>
-              {" "}
-              | Commands: <b>{commandId}</b>
-            </>
-          ) : null}
-        </div>
-        <div style={{ color: "#ffd0d0", lineHeight: 1.7, marginTop: 10 }}>
-          {description || spec?.decisionLogic || "This page writes directly into the live engine config for the selected guild."}
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-          {links.map((item) => (
-            <Link key={item.href} href={buildDashboardHref(item.href)} style={{ ...button, textDecoration: "none" }}>
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </div>
+      ) : null}
 
       {message ? <div style={{ marginTop: 10, color: "#ffd27a" }}>{message}</div> : null}
 

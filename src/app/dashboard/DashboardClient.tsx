@@ -14,7 +14,6 @@ type Card = {
   href: string;
   title: string;
   description: string;
-  category?: "standard" | "premium";
   toggle?: ToggleController;
   goOnly?: boolean;
   goLabel?: string;
@@ -26,6 +25,27 @@ type ToggleState = {
   saving: boolean;
   error?: string;
 };
+
+type DashboardSection =
+  | "Guild Control"
+  | "AI"
+  | "Automation"
+  | "Security"
+  | "Community"
+  | "Economy"
+  | "Fun + Games"
+  | "Operations";
+
+const SECTION_ORDER: DashboardSection[] = [
+  "Guild Control",
+  "AI",
+  "Automation",
+  "Security",
+  "Community",
+  "Economy",
+  "Fun + Games",
+  "Operations",
+];
 
 function readBoolPath(input: unknown, path: string[], fallback = false): boolean {
   let current: any = input;
@@ -121,6 +141,79 @@ function engineController(engine: string, fieldPath: string[] = ["enabled"]): To
       await saveEngineConfig(guildId, engine, patch);
     },
   };
+}
+
+function getCardSection(card: Card): DashboardSection {
+  const href = card.href.split("?")[0];
+  if (
+    href === "/dashboard/bot-personalizer" ||
+    href === "/dashboard/bot-masters" ||
+    href === "/dashboard/channels" ||
+    href === "/dashboard/premium-features"
+  ) {
+    return "Guild Control";
+  }
+  if (
+    href.startsWith("/dashboard/ai/") ||
+    href === "/dashboard/runtime-router"
+  ) {
+    return "AI";
+  }
+  if (
+    href === "/dashboard/automations/studio" ||
+    href === "/dashboard/commands" ||
+    href === "/dashboard/slash-commands" ||
+    href === "/dashboard/panels" ||
+    href === "/dashboard/event-reactor"
+  ) {
+    return "Automation";
+  }
+  if (
+    href === "/dashboard/security" ||
+    href === "/dashboard/governance" ||
+    href === "/dashboard/security-enforcer"
+  ) {
+    return "Security";
+  }
+  if (
+    href === "/dashboard/moderator" ||
+    href === "/dashboard/tickets" ||
+    href === "/dashboard/selfroles" ||
+    href === "/dashboard/invite-tracker" ||
+    href === "/dashboard/tts" ||
+    href === "/dashboard/vip"
+  ) {
+    return "Community";
+  }
+  if (
+    href === "/dashboard/economy" ||
+    href.startsWith("/dashboard/economy/") ||
+    href === "/dashboard/prestige" ||
+    href === "/dashboard/giveaways" ||
+    href === "/dashboard/profile" ||
+    href === "/dashboard/halloffame" ||
+    href === "/dashboard/achievements" ||
+    href === "/dashboard/loyalty" ||
+    href === "/dashboard/contracts"
+  ) {
+    return "Economy";
+  }
+  if (
+    href === "/dashboard/music" ||
+    href === "/dashboard/jed" ||
+    href === "/dashboard/gta-ops" ||
+    href === "/dashboard/heist" ||
+    href === "/dashboard/crew" ||
+    href === "/dashboard/dominion" ||
+    href === "/dashboard/catdrop" ||
+    href === "/dashboard/rarespawn" ||
+    href === "/dashboard/range" ||
+    href === "/dashboard/truthdare" ||
+    href.startsWith("/dashboard/pokemon-")
+  ) {
+    return "Fun + Games";
+  }
+  return "Operations";
 }
 
 const birthdayController: ToggleController = {
@@ -223,8 +316,8 @@ const CARDS: Card[] = [
   { href: "/dashboard/channels", title: "Channels", description: "Centralized channel routing for engines that rely on per-guild channel setup.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/premium-features", title: "Premium Features", description: "Plan state, paid add-ons, and owner trial controls.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/ai/learning", title: "Possum AI", description: "Homemade adaptive AI, bot knowledge base, learning writes, and synthesis runtime.", goOnly: true, goLabel: "Go" },
-  { href: "/dashboard/ai/persona", title: "Persona AI", description: "Hosted persona runtime, photos, triggers, and roster controls.", goOnly: true, goLabel: "Go", premiumRequired: true, category: "premium" },
-  { href: "/dashboard/ai/openai-platform", title: "Hosted AI Platform", description: "Provider, model, and hosted premium AI platform controls.", goOnly: true, goLabel: "Go", premiumRequired: true, category: "premium" },
+  { href: "/dashboard/ai/persona", title: "Persona AI", description: "Hosted persona runtime, photos, triggers, and roster controls.", goOnly: true, goLabel: "Go", premiumRequired: true },
+  { href: "/dashboard/ai/openai-platform", title: "Hosted AI Platform", description: "Provider, model, and hosted premium AI platform controls.", goOnly: true, goLabel: "Go", premiumRequired: true },
   { href: "/dashboard/automations/studio", title: "Automation Studio", description: "Visual trigger/condition/action flow builder.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/commands", title: "!Command Studio", description: "Custom bang-command engine and editor.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/slash-commands", title: "Slash Commands", description: "Native built-in slash command master per guild.", goOnly: true, goLabel: "Go" },
@@ -232,7 +325,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/tickets", title: "Tickets", description: "Support ticket engine controls.", toggle: engineController("tickets", ["active"]) },
   { href: "/dashboard/selfroles", title: "Selfroles", description: "Self-role panel configuration and role mapping.", toggle: engineController("selfroles", ["active"]) },
   { href: "/dashboard/invite-tracker", title: "Invite Tracker", description: "Invite tracking tiers and command behavior.", toggle: engineController("inviteTracker") },
-  { href: "/dashboard/tts", title: "TTS", description: "Voice route and TTS runtime control.", toggle: engineController("tts", ["enabled"]), premiumRequired: true, category: "premium" },
+  { href: "/dashboard/tts", title: "TTS", description: "Voice route and TTS runtime control.", toggle: engineController("tts", ["enabled"]), premiumRequired: true },
   { href: "/dashboard/economy", title: "Economy", description: "Economy baseline and related systems.", toggle: featureController("economyEnabled") },
   { href: "/dashboard/economy/store", title: "Store", description: "Catalog, prices, stock, and role grants.", toggle: engineController("store", ["active"]) },
   { href: "/dashboard/economy/progression", title: "Progression", description: "XP intake, level formulas, reward ladders, and progression multipliers.", toggle: engineController("progression", ["active"]) },
@@ -240,7 +333,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/economy/radio-birthday", title: "Birthdays", description: "Birthday engine settings and reward flow.", toggle: birthdayController },
   { href: "/dashboard/music", title: "Music", description: "Always-free multi-route music playback, route binding, and live queue control.", toggle: musicController },
   { href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway lifecycle, entrants, rerolls, and controls.", toggle: engineController("giveaways", ["active"]) },
-  { href: "/dashboard/heist", title: "Heist", description: "Heist signup engine controls.", toggle: engineController("heist", ["active"]), premiumRequired: true, category: "premium" },
+  { href: "/dashboard/heist", title: "Heist", description: "Heist signup engine controls.", toggle: engineController("heist", ["active"]), premiumRequired: true },
   { href: "/dashboard/gta-ops", title: "GTA Ops", description: "GTA operations entity, separate from Heist.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/crew", title: "Crew", description: "Crew create/join/leave/vault controls.", toggle: engineController("crew") },
   { href: "/dashboard/dominion", title: "Dominion", description: "Dominion raid/alliance/war settings.", toggle: engineController("dominion") },
@@ -256,8 +349,8 @@ const CARDS: Card[] = [
   { href: "/dashboard/pokemon-catching", title: "Pokemon Catching", description: "Wild spawn lanes, catch rates, reward tuning, and catch logs.", toggle: pokemonCatchingController },
   { href: "/dashboard/pokemon-battle", title: "Pokemon Battle", description: "Battle lane, battle logging, and duel availability.", toggle: pokemonBattleController },
   { href: "/dashboard/pokemon-trade", title: "Pokemon Trade", description: "Trade gate and trade log routing.", toggle: pokemonTradeController },
-  { href: "/dashboard/governance", title: "Governance", description: "Governance state and enforcement controls.", toggle: engineController("security.governance", ["active"]), premiumRequired: true, category: "premium" },
-  { href: "/dashboard/security", title: "Security", description: "Security stack, moderation, and policies.", toggle: engineController("security.governance", ["active"]), premiumRequired: true, category: "premium" },
+  { href: "/dashboard/governance", title: "Governance", description: "Governance state and enforcement controls.", toggle: engineController("security.governance", ["active"]), premiumRequired: true },
+  { href: "/dashboard/security", title: "Security", description: "Security stack, moderation, and policies.", toggle: engineController("security.governance", ["active"]), premiumRequired: true },
   { href: "/dashboard/blacklist", title: "Blacklist", description: "Blacklist add/remove/show control.", toggle: engineController("blacklist") },
   { href: "/dashboard/failsafe", title: "Failsafe", description: "Emergency pause and safety switches.", toggle: engineController("failsafe") },
   { href: "/dashboard/panels", title: "Panel Hub", description: "Jump to the engine tabs that own their own panel layouts and run shared deploys.", goOnly: true, goLabel: "Go" },
@@ -371,8 +464,14 @@ export default function DashboardClient() {
   );
 
   const premiumUnlocked = Boolean(subscription?.active || subscription?.developerBypass);
-  const standardCards = cards.filter((card) => !card.premiumRequired);
-  const premiumCards = cards.filter((card) => card.premiumRequired);
+  const groupedCards = useMemo(
+    () =>
+      SECTION_ORDER.map((section) => ({
+        section,
+        cards: cards.filter((card) => getCardSection(card) === section),
+      })).filter((group) => group.cards.length > 0),
+    [cards]
+  );
 
   return (
     <section className="space-y-5">
@@ -382,129 +481,81 @@ export default function DashboardClient() {
         <p className="mt-2 text-sm text-red-200/80">
           {guildId === SAVIORS_GUILD_ID
             ? "Saviors baseline stays intact until you explicitly toggle something."
-            : "Use the card toggles here to turn engines on or off for the active guild without leaving the dashboard. Studio/editor pages open directly with Go."}
+            : "Cards are grouped by live engine category. Use toggles here to turn engines on or off for the active guild without leaving the dashboard. Studio/editor pages open directly with Go."}
+        </p>
+        <p className="mt-2 text-xs uppercase tracking-[0.14em] text-red-300/70">
+          Premium access: {subscription?.developerBypass ? "Developer Override" : subscription?.plan || "Free"}
         </p>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {standardCards.map((card) => {
-          const state = card.state;
-          const toggleBusy = state.saving || loadingStates;
-          const statusLabel = state.value === null ? "..." : state.value ? "ON" : "OFF";
+      <div className="space-y-4">
+        {groupedCards.map((group) => (
+          <section key={group.section} className="space-y-3">
+            <header className="rounded-xl border possum-divider bg-black/45 p-4 possum-border">
+              <p className="text-xs uppercase tracking-[0.22em] possum-soft">{group.section}</p>
+              <h3 className="mt-1 text-xl font-black uppercase tracking-[0.08em] possum-red">{group.section}</h3>
+            </header>
 
-          return (
-            <div
-              key={card.href}
-              className="rounded-xl border possum-divider bg-black/45 p-4 transition hover:bg-black/65 possum-border"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <Link href={card.href} className="min-w-0 flex-1">
-                  <h3 className="text-base font-extrabold uppercase tracking-[0.06em] possum-red">{card.title}</h3>
-                  <p className="mt-1 text-sm text-red-200/75">{card.description}</p>
-                </Link>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {group.cards.map((card) => {
+                const state = card.state;
+                const toggleBusy = state.saving || loadingStates;
+                const statusLabel = state.value === null ? "..." : state.value ? "ON" : "OFF";
+                const lockedPremium = Boolean(card.premiumRequired && !premiumUnlocked);
 
-                <div className="flex shrink-0 flex-col items-end gap-2">
-                  {card.goOnly ? (
-                    <>
-                      <span className="rounded-full border border-red-600/40 px-2 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-red-200/75">
-                        Editor
-                      </span>
-                      <Link
-                        href={card.href}
-                        className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200"
-                      >
-                        {card.goLabel || "Go"}
+                return (
+                  <div
+                    key={card.href}
+                    className="rounded-xl border possum-divider bg-black/45 p-4 transition hover:bg-black/65 possum-border"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <Link href={card.href} className="min-w-0 flex-1">
+                        <h3 className="text-base font-extrabold uppercase tracking-[0.06em] possum-red">{card.title}</h3>
+                        <p className="mt-1 text-sm text-red-200/75">{card.description}</p>
                       </Link>
-                    </>
-                  ) : (
-                    <>
-                      <span className={pillClass(state.value)}>
-                        {statusLabel}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => toggleCard(card)}
-                        disabled={!guildId || !card.toggle || toggleBusy}
-                        className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {toggleBusy ? "Saving" : state.value ? "Turn Off" : "Turn On"}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
 
-              {state.error ? <p className="mt-2 text-xs text-red-300/90">{state.error}</p> : null}
-            </div>
-          );
-        })}
-      </div>
-
-      {premiumUnlocked ? (
-        <div className="space-y-3">
-          <header className="rounded-xl border possum-divider bg-black/45 p-4 possum-border">
-            <p className="text-xs uppercase tracking-[0.22em] possum-soft">Premium Category</p>
-            <h3 className="mt-1 text-xl font-black uppercase tracking-[0.08em] possum-red">
-              Premium Features
-            </h3>
-            <p className="mt-2 text-sm text-red-200/80">
-              Paid add-ons are separated from the standard stack. Current access: {subscription?.developerBypass ? "developer override" : subscription?.plan || "FREE"}.
-            </p>
-          </header>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {premiumCards.map((card) => {
-              const state = card.state;
-              const toggleBusy = state.saving || loadingStates;
-              const statusLabel = state.value === null ? "..." : state.value ? "ON" : "OFF";
-
-              return (
-                <div
-                  key={card.href}
-                  className="rounded-xl border possum-divider bg-black/45 p-4 transition hover:bg-black/65 possum-border"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <Link href={card.href} className="min-w-0 flex-1">
-                      <h3 className="text-base font-extrabold uppercase tracking-[0.06em] possum-red">{card.title}</h3>
-                      <p className="mt-1 text-sm text-red-200/75">{card.description}</p>
-                    </Link>
-
-                    <div className="flex shrink-0 flex-col items-end gap-2">
-                      {card.goOnly ? (
-                        <>
-                          <span className="rounded-full border border-amber-500/40 bg-amber-950/30 px-2 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-amber-300">
-                            Premium
-                          </span>
-                          <Link
-                            href={card.href}
-                            className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200"
-                          >
-                            {card.goLabel || "Go"}
-                          </Link>
-                        </>
-                      ) : (
-                        <>
-                          <span className={pillClass(state.value)}>{statusLabel}</span>
-                          <button
-                            type="button"
-                            onClick={() => toggleCard(card)}
-                            disabled={!guildId || !card.toggle || toggleBusy}
-                            className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {toggleBusy ? "Saving" : state.value ? "Turn Off" : "Turn On"}
-                          </button>
-                        </>
-                      )}
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        {card.goOnly ? (
+                          <>
+                            <span className={lockedPremium ? "rounded-full border border-amber-500/40 bg-amber-950/30 px-2 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-amber-300" : "rounded-full border border-red-600/40 px-2 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-red-200/75"}>
+                              {lockedPremium ? "Premium" : "Editor"}
+                            </span>
+                            <Link
+                              href={card.href}
+                              className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200"
+                            >
+                              {card.goLabel || "Go"}
+                            </Link>
+                          </>
+                        ) : (
+                          <>
+                            <span className={pillClass(state.value)}>{statusLabel}</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleCard(card)}
+                              disabled={!guildId || !card.toggle || toggleBusy || lockedPremium}
+                              className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {toggleBusy ? "Saving" : lockedPremium ? "Premium" : state.value ? "Turn Off" : "Turn On"}
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {state.error ? <p className="mt-2 text-xs text-red-300/90">{state.error}</p> : null}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
+                    {card.premiumRequired ? (
+                      <p className="mt-2 text-xs text-amber-300/85">
+                        {premiumUnlocked ? "Premium-unlocked for this guild." : "Premium feature. Unlock required for live toggles."}
+                      </p>
+                    ) : null}
+                    {state.error ? <p className="mt-2 text-xs text-red-300/90">{state.error}</p> : null}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
     </section>
   );
 }

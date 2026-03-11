@@ -1,42 +1,26 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import { fetchDashboardConfig, fetchRuntimeEngine, resolveGuildContext, saveDashboardConfig, saveRuntimeEngine } from "@/lib/liveRuntime";
 
+type ProfileId = "chill" | "balanced" | "strict" | "siege";
 
-import { useEffect, useState } from "react";
+type JsonObject = Record<string, unknown>;
 
-type ProfilesConfig = {
-  selectedProfile: "custom" | "chill" | "balanced" | "strict" | "siege";
-  lastAppliedAt: string;
-  notes: string;
-  lastBackup: string | null;
+type ProfileDefinition = {
+  title: string;
+  subtitle: string;
+  dashboardPatch: JsonObject;
+  lockdownPatch: JsonObject;
+  raidPatch: JsonObject;
 };
 
-const DEFAULT_CONFIG: ProfilesConfig = {
-  selectedProfile: "custom",
-  lastAppliedAt: "",
-  notes: "",
-  lastBackup: null
-};
-
-const PROFILES: Record<
-  "chill" | "balanced" | "strict" | "siege",
-  {
-    title: string;
-    subtitle: string;
-    dashboardPatch: any;
-    lockdownPatch: any;
-    raidPatch: any;
-  }
-> = {
+const PROFILES: Record<ProfileId, ProfileDefinition> = {
   chill: {
     title: "Chill",
     subtitle: "Low friction, light guardrails",
     dashboardPatch: {
       features: { securityEnabled: true, lockdownEnabled: false, raidEnabled: true },
-      security: {
-        lockdown: { enabled: false, mentionThreshold: 999, linkThreshold: 999, actionPreset: "soft" },
-        raid: { enabled: true, joinBurstThreshold: 20, windowSeconds: 30, actionPreset: "observe", autoEscalate: false }
-      }
     },
     lockdownPatch: {
       enabled: false,
@@ -44,7 +28,7 @@ const PROFILES: Record<
       mentionThresholdPerMinute: 999,
       autoEscalation: false,
       exemptRoleIds: [],
-      exemptChannelIds: []
+      exemptChannelIds: [],
     },
     raidPatch: {
       enabled: true,
@@ -53,18 +37,14 @@ const PROFILES: Record<
       actionPreset: "observe",
       exemptRoleIds: [],
       exemptChannelIds: [],
-      autoEscalate: false
-    }
+      autoEscalate: false,
+    },
   },
   balanced: {
     title: "Balanced",
     subtitle: "Recommended default for most servers",
     dashboardPatch: {
       features: { securityEnabled: true, lockdownEnabled: true, raidEnabled: true },
-      security: {
-        lockdown: { enabled: true, mentionThreshold: 12, linkThreshold: 6, actionPreset: "strict" },
-        raid: { enabled: true, joinBurstThreshold: 8, windowSeconds: 30, actionPreset: "contain", autoEscalate: true }
-      }
     },
     lockdownPatch: {
       enabled: true,
@@ -72,7 +52,7 @@ const PROFILES: Record<
       mentionThresholdPerMinute: 18,
       autoEscalation: true,
       exemptRoleIds: [],
-      exemptChannelIds: []
+      exemptChannelIds: [],
     },
     raidPatch: {
       enabled: true,
@@ -81,18 +61,14 @@ const PROFILES: Record<
       actionPreset: "contain",
       exemptRoleIds: [],
       exemptChannelIds: [],
-      autoEscalate: true
-    }
+      autoEscalate: true,
+    },
   },
   strict: {
     title: "Strict",
     subtitle: "High moderation posture",
     dashboardPatch: {
       features: { securityEnabled: true, lockdownEnabled: true, raidEnabled: true },
-      security: {
-        lockdown: { enabled: true, mentionThreshold: 8, linkThreshold: 4, actionPreset: "strict" },
-        raid: { enabled: true, joinBurstThreshold: 6, windowSeconds: 30, actionPreset: "contain", autoEscalate: true }
-      }
     },
     lockdownPatch: {
       enabled: true,
@@ -100,7 +76,7 @@ const PROFILES: Record<
       mentionThresholdPerMinute: 12,
       autoEscalation: true,
       exemptRoleIds: [],
-      exemptChannelIds: []
+      exemptChannelIds: [],
     },
     raidPatch: {
       enabled: true,
@@ -109,18 +85,14 @@ const PROFILES: Record<
       actionPreset: "contain",
       exemptRoleIds: [],
       exemptChannelIds: [],
-      autoEscalate: true
-    }
+      autoEscalate: true,
+    },
   },
   siege: {
     title: "Siege",
     subtitle: "Emergency mode",
     dashboardPatch: {
       features: { securityEnabled: true, lockdownEnabled: true, raidEnabled: true },
-      security: {
-        lockdown: { enabled: true, mentionThreshold: 4, linkThreshold: 2, actionPreset: "hard" },
-        raid: { enabled: true, joinBurstThreshold: 3, windowSeconds: 20, actionPreset: "lock", autoEscalate: true }
-      }
     },
     lockdownPatch: {
       enabled: true,
@@ -128,7 +100,7 @@ const PROFILES: Record<
       mentionThresholdPerMinute: 6,
       autoEscalation: true,
       exemptRoleIds: [],
-      exemptChannelIds: []
+      exemptChannelIds: [],
     },
     raidPatch: {
       enabled: true,
@@ -137,16 +109,16 @@ const PROFILES: Record<
       actionPreset: "lock",
       exemptRoleIds: [],
       exemptChannelIds: [],
-      autoEscalate: true
-    }
-  }
+      autoEscalate: true,
+    },
+  },
 };
 
 const card: React.CSSProperties = {
   border: "1px solid #5f0000",
   borderRadius: 12,
   padding: 14,
-  background: "rgba(120,0,0,0.09)"
+  background: "rgba(120,0,0,0.09)",
 };
 
 const btn: React.CSSProperties = {
@@ -156,121 +128,162 @@ const btn: React.CSSProperties = {
   color: "#ffcccc",
   padding: "8px 12px",
   cursor: "pointer",
-  fontWeight: 700
+  fontWeight: 700,
 };
 
-const input: React.CSSProperties = {
-  width: "100%",
-  background: "#0c0c0c",
-  color: "#ffd6d6",
-  border: "1px solid #7f0000",
-  borderRadius: 8,
-  padding: "9px 10px"
-};
+function isObject(value: unknown): value is JsonObject {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
 
-function getGuildId() {
-  if (typeof window === "undefined") return "";
-  const fromUrl = new URLSearchParams(window.location.search).get("guildId") || "";
-  const fromStore = localStorage.getItem("activeGuildId") || "";
-  const gid = (fromUrl || fromStore).trim();
-  if (gid) localStorage.setItem("activeGuildId", gid);
-  return gid;
+function getAtPath(input: unknown, path: string[]) {
+  return path.reduce<unknown>((current, part) => {
+    if (!current || typeof current !== "object") return undefined;
+    return (current as JsonObject)[part];
+  }, input);
+}
+
+function sameValue(left: unknown, right: unknown) {
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+  return left === right;
+}
+
+function patchMatchesLive(live: unknown, patch: unknown): boolean {
+  if (Array.isArray(patch)) {
+    return Array.isArray(live) && JSON.stringify(live) === JSON.stringify(patch);
+  }
+  if (isObject(patch)) {
+    if (!isObject(live)) return false;
+    return Object.entries(patch).every(([key, value]) => patchMatchesLive(live[key], value));
+  }
+  return sameValue(live, patch);
+}
+
+function countDifferences(live: unknown, patch: unknown): number {
+  if (Array.isArray(patch)) {
+    return Array.isArray(live) && JSON.stringify(live) === JSON.stringify(patch) ? 0 : 1;
+  }
+  if (isObject(patch)) {
+    if (!isObject(live)) return Object.keys(patch).length;
+    return Object.entries(patch).reduce((total, [key, value]) => total + countDifferences(live[key], value), 0);
+  }
+  return sameValue(live, patch) ? 0 : 1;
+}
+
+function detectProfile(dashboardConfig: JsonObject, lockdownConfig: JsonObject, raidConfig: JsonObject) {
+  const found = (Object.keys(PROFILES) as ProfileId[]).find((profileId) => {
+    const profile = PROFILES[profileId];
+    return (
+      patchMatchesLive(dashboardConfig, profile.dashboardPatch) &&
+      patchMatchesLive(lockdownConfig, profile.lockdownPatch) &&
+      patchMatchesLive(raidConfig, profile.raidPatch)
+    );
+  });
+  return found || "custom";
+}
+
+function describePosture(dashboardConfig: JsonObject, lockdownConfig: JsonObject, raidConfig: JsonObject) {
+  return [
+    {
+      label: "Security Feature Gate",
+      value: getAtPath(dashboardConfig, ["features", "securityEnabled"]) === false ? "Blocked" : "Open",
+    },
+    {
+      label: "Lockdown",
+      value: getAtPath(lockdownConfig, ["enabled"]) === false ? "Disabled" : "Enabled",
+    },
+    {
+      label: "Raid",
+      value: getAtPath(raidConfig, ["enabled"]) === false ? "Disabled" : "Enabled",
+    },
+    {
+      label: "Lockdown Mention Threshold",
+      value: String(getAtPath(lockdownConfig, ["mentionThresholdPerMinute"]) ?? "n/a"),
+    },
+    {
+      label: "Raid Join Burst Threshold",
+      value: String(getAtPath(raidConfig, ["joinBurstThreshold"]) ?? "n/a"),
+    },
+    {
+      label: "Raid Preset",
+      value: String(getAtPath(raidConfig, ["actionPreset"]) || "n/a"),
+    },
+  ];
 }
 
 export default function SecurityProfilesPage() {
   const [guildId, setGuildId] = useState("");
-  const [cfg, setCfg] = useState<ProfilesConfig>(DEFAULT_CONFIG);
+  const [guildName, setGuildName] = useState("");
+  const [dashboardConfig, setDashboardConfig] = useState<JsonObject>({});
+  const [lockdownConfig, setLockdownConfig] = useState<JsonObject>({});
+  const [raidConfig, setRaidConfig] = useState<JsonObject>({});
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState("");
-  const [savingNotes, setSavingNotes] = useState(false);
   const [msg, setMsg] = useState("");
 
-  useEffect(() => setGuildId(getGuildId()), []);
-
   useEffect(() => {
-    if (!guildId) {
+    const context = resolveGuildContext();
+    setGuildId(context.guildId);
+    setGuildName(context.guildName);
+  }, []);
+
+  async function reload(targetGuildId: string) {
+    if (!targetGuildId) {
       setLoading(false);
       return;
     }
-    (async () => {
-      try {
-        setLoading(true);
-        const r = await fetch(`/api/setup/security-profiles?guildId=${encodeURIComponent(guildId)}`);
-        const j = await r.json();
-        setCfg({ ...DEFAULT_CONFIG, ...(j?.config || {}) });
-      } catch (e: any) {
-        setMsg(e?.message || "Failed to load profiles");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [guildId]);
 
-  async function saveProfileState(patch: Partial<ProfilesConfig>) {
-    const r = await fetch("/api/setup/security-profiles", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ guildId, patch })
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok || j?.success === false) throw new Error(j?.error || "State save failed");
-    setCfg({ ...cfg, ...patch });
+    try {
+      setLoading(true);
+      setMsg("");
+      const [dashboard, lockdown, raid] = await Promise.all([
+        fetchDashboardConfig(targetGuildId),
+        fetchRuntimeEngine(targetGuildId, "lockdown"),
+        fetchRuntimeEngine(targetGuildId, "raid"),
+      ]);
+
+      setDashboardConfig((dashboard && typeof dashboard === "object" ? dashboard : {}) as JsonObject);
+      setLockdownConfig((lockdown?.config && typeof lockdown.config === "object" ? lockdown.config : {}) as JsonObject);
+      setRaidConfig((raid?.config && typeof raid.config === "object" ? raid.config : {}) as JsonObject);
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "Failed to load live security posture.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function applyProfile(profileId: "chill" | "balanced" | "strict" | "siege") {
+  useEffect(() => {
+    void reload(guildId);
+  }, [guildId]);
+
+  const currentProfile = useMemo(
+    () => detectProfile(dashboardConfig, lockdownConfig, raidConfig),
+    [dashboardConfig, lockdownConfig, raidConfig]
+  );
+  const postureRows = useMemo(
+    () => describePosture(dashboardConfig, lockdownConfig, raidConfig),
+    [dashboardConfig, lockdownConfig, raidConfig]
+  );
+
+  async function applyProfile(profileId: ProfileId) {
     if (!guildId) return;
-    const p = PROFILES[profileId];
+    const profile = PROFILES[profileId];
     setApplying(profileId);
     setMsg("");
 
     try {
-      const requests = [
-        fetch("/api/bot/dashboard-config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ guildId, patch: p.dashboardPatch })
-        }),
-        fetch("/api/bot/engine-config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ guildId, engine: "lockdown", patch: p.lockdownPatch })
-        }),
-        fetch("/api/bot/engine-config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ guildId, engine: "raid", patch: p.raidPatch })
-        })
-      ];
-
-      const rs = await Promise.all(requests);
-      const js = await Promise.all(rs.map((r) => r.json().catch(() => ({}))));
-      for (let i = 0; i < rs.length; i += 1) {
-        if (!rs[i].ok || js[i]?.success === false) {
-          throw new Error(js[i]?.error || "Profile apply failed");
-        }
-      }
-
-      const now = new Date().toISOString();
-      await saveProfileState({ selectedProfile: profileId, lastAppliedAt: now });
-      setMsg(`Applied profile: ${p.title}`);
-    } catch (e: any) {
-      setMsg(e?.message || "Apply failed");
+      await Promise.all([
+        saveDashboardConfig(guildId, profile.dashboardPatch),
+        saveRuntimeEngine(guildId, "lockdown", profile.lockdownPatch),
+        saveRuntimeEngine(guildId, "raid", profile.raidPatch),
+      ]);
+      await reload(guildId);
+      setMsg(`Applied live posture: ${profile.title}`);
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "Profile apply failed.");
     } finally {
       setApplying("");
-    }
-  }
-
-  async function saveNotes() {
-    if (!guildId) return;
-    setSavingNotes(true);
-    setMsg("");
-    try {
-      await saveProfileState({ notes: cfg.notes });
-      setMsg("Saved notes.");
-    } catch (e: any) {
-      setMsg(e?.message || "Save notes failed");
-    } finally {
-      setSavingNotes(false);
     }
   }
 
@@ -284,7 +297,7 @@ export default function SecurityProfilesPage() {
         Security Profiles
       </h1>
       <div style={{ marginBottom: 12 }}>
-        Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId} {msg ? `• ${msg}` : ""}
+        Guild: {guildName || guildId} {msg ? `| ${msg}` : ""}
       </div>
 
       {loading ? (
@@ -293,38 +306,57 @@ export default function SecurityProfilesPage() {
         <>
           <div style={{ ...card, marginBottom: 14 }}>
             <div style={{ marginBottom: 6 }}>
-              Current profile: <b>{cfg.selectedProfile}</b>
+              Current live posture: <b>{currentProfile === "custom" ? "Custom" : PROFILES[currentProfile].title}</b>
             </div>
-            <div style={{ marginBottom: 6 }}>
-              Last applied: {cfg.lastAppliedAt ? new Date(cfg.lastAppliedAt).toLocaleString() : "never"}
+            <div style={{ color: "#ffbcbc", fontSize: 13, lineHeight: 1.6 }}>
+              This page no longer stores a separate dashboard profile state. It compares the live dashboard feature flags plus the live lockdown and raid engines,
+              then applies profile patches directly to those bot paths.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginTop: 12 }}>
+              {postureRows.map((row) => (
+                <div key={row.label} style={{ border: "1px solid #4a0000", borderRadius: 10, padding: 12, background: "#100000" }}>
+                  <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>{row.label}</div>
+                  <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>{row.value}</div>
+                </div>
+              ))}
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(280px,1fr))", gap: 12, marginBottom: 14 }}>
-            {(Object.keys(PROFILES) as Array<"chill" | "balanced" | "strict" | "siege">).map((k) => (
-              <div key={k} style={card}>
-                <h3 style={{ marginTop: 0, color: "#ff4444" }}>{PROFILES[k].title}</h3>
-                <div style={{ marginBottom: 10 }}>{PROFILES[k].subtitle}</div>
-                <button style={btn} onClick={() => applyProfile(k)} disabled={applying.length > 0}>
-                  {applying === k ? "Applying..." : `Apply ${PROFILES[k].title}`}
-                </button>
-              </div>
-            ))}
+            {(Object.keys(PROFILES) as ProfileId[]).map((profileId) => {
+              const profile = PROFILES[profileId];
+              const differenceCount =
+                countDifferences(dashboardConfig, profile.dashboardPatch) +
+                countDifferences(lockdownConfig, profile.lockdownPatch) +
+                countDifferences(raidConfig, profile.raidPatch);
+
+              return (
+                <div key={profileId} style={card}>
+                  <h3 style={{ marginTop: 0, color: "#ff4444" }}>{profile.title}</h3>
+                  <div style={{ marginBottom: 8 }}>{profile.subtitle}</div>
+                  <div style={{ color: "#ffbcbc", fontSize: 13, lineHeight: 1.6, marginBottom: 10 }}>
+                    {differenceCount === 0 ? "Already matches the live guild posture." : `${differenceCount} live setting differences from the current posture.`}
+                  </div>
+                  <div style={{ color: "#ffbcbc", fontSize: 13, lineHeight: 1.6, marginBottom: 12 }}>
+                    Lockdown mentions: {String(profile.lockdownPatch.mentionThresholdPerMinute)} | Raid burst:{" "}
+                    {String(profile.raidPatch.joinBurstThreshold)} | Raid preset: {String(profile.raidPatch.actionPreset)}
+                  </div>
+                  <button style={btn} onClick={() => void applyProfile(profileId)} disabled={applying.length > 0}>
+                    {applying === profileId ? "Applying..." : `Apply ${profile.title}`}
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
           <div style={card}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Notes</h3>
-            <textarea
-              style={{ ...input, minHeight: 90 }}
-              value={cfg.notes || ""}
-              onChange={(e) => setCfg({ ...cfg, notes: e.target.value })}
-              placeholder="Profile notes / runbook"
-            />
-            <div style={{ marginTop: 8 }}>
-              <button style={btn} onClick={saveNotes} disabled={savingNotes}>
-                {savingNotes ? "Saving..." : "Save Notes"}
-              </button>
+            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Refresh Live Posture</h3>
+            <div style={{ color: "#ffbcbc", marginBottom: 10 }}>
+              Use refresh if a different operator changed the live security engines and you want the comparison to update without leaving the page.
             </div>
+            <button style={btn} onClick={() => void reload(guildId)} disabled={loading}>
+              Refresh
+            </button>
           </div>
         </>
       )}

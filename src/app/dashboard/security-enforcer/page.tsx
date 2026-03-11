@@ -1,11 +1,12 @@
-import CatalogEngineConsole from "@/components/possum/CatalogEngineConsole";
+import SecurityEngineOperator from "@/components/possum/SecurityEngineOperator";
 
 export default function Page() {
   return (
-    <CatalogEngineConsole
+    <SecurityEngineOperator
       engineKey="security.enforcer"
       title="Security Enforcer"
-      description="Live enforcement queue and execution surface for security decisions. This page now maps directly to the security enforcer engine instead of a dashboard-only compatibility store."
+      description="Live enforcement queue and execution surface for security decisions."
+      featureFlagKey="governanceEnabled"
       links={[
         { href: "/dashboard/security", label: "Security" },
         { href: "/dashboard/governance", label: "Governance" },

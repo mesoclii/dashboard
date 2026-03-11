@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CONTROL_OWNER_USER_IDS } from "@/lib/dashboardOwner";
 
 type Role = { id: string; name: string; position?: number };
@@ -13,6 +13,23 @@ type AccessControlConfig = {
   allowedUserIds: string[];
   deniedUserIds: string[];
   notes: string;
+};
+
+type SessionUser = {
+  id?: string;
+  username?: string;
+  globalName?: string;
+};
+
+type SessionPayload = {
+  user?: SessionUser | null;
+  isMasterOwner?: boolean;
+  loggedIn?: boolean;
+};
+
+type AccessSnapshot = {
+  access: boolean;
+  reason: string;
 };
 
 const DEFAULT_CFG: AccessControlConfig = {
@@ -37,7 +54,7 @@ function getGuildId() {
 function csvToIds(input: string): string[] {
   return input
     .split(",")
-    .map((x) => x.trim())
+    .map((value) => value.trim())
     .filter(Boolean);
 }
 
@@ -46,7 +63,34 @@ function idsToCsv(ids: string[]) {
 }
 
 function toggleId(ids: string[], id: string): string[] {
-  return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
+  return ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id];
+}
+
+function accessReasonLabel(reason: string) {
+  switch (reason) {
+    case "ok_global_owner":
+      return "Global owner override";
+    case "explicit_user_allowed":
+      return "Explicit allowlist match";
+    case "explicit_user_denied":
+      return "Explicit denylist match";
+    case "ok_dashboard_policy_role":
+      return "Dashboard policy role match";
+    case "ok_native_admin":
+      return "Guild owner / native admin";
+    case "ok_dashboard_access_role":
+      return "Configured dashboard access role";
+    case "ok_role_level":
+      return "Minimum role level match";
+    case "member_not_found":
+      return "Member not found in guild";
+    default:
+      return reason || "Unknown";
+  }
+}
+
+function roleNameMap(roles: Role[]) {
+  return new Map(roles.map((role) => [role.id, role.name]));
 }
 
 const card: React.CSSProperties = {
@@ -66,10 +110,22 @@ const input: React.CSSProperties = {
   padding: "10px 12px",
 };
 
+const pill: React.CSSProperties = {
+  display: "inline-block",
+  padding: "4px 10px",
+  borderRadius: 999,
+  fontWeight: 800,
+  fontSize: 12,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+};
+
 export default function AccessControlClient() {
   const [guildId, setGuildId] = useState("");
   const [cfg, setCfg] = useState<AccessControlConfig>(DEFAULT_CFG);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [session, setSession] = useState<SessionPayload>({});
+  const [access, setAccess] = useState<AccessSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -82,30 +138,69 @@ export default function AccessControlClient() {
       return;
     }
 
+    let cancelled = false;
+
     (async () => {
       try {
         setLoading(true);
         setMsg("");
-        const [cfgRes, gdRes] = await Promise.all([
-          fetch(`/api/setup/access-control-config?guildId=${encodeURIComponent(guildId)}`),
-          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`),
+        const [cfgRes, guildRes, sessionRes] = await Promise.all([
+          fetch(`/api/bot/dashboard-access-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
+          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
+          fetch("/api/auth/session", { cache: "no-store" }),
         ]);
 
-        const cfgJson = await cfgRes.json().catch(() => ({}));
-        const gdJson = await gdRes.json().catch(() => ({}));
+        const cfgJson = (await cfgRes.json().catch(() => ({}))) as { config?: Partial<AccessControlConfig> };
+        const guildJson = (await guildRes.json().catch(() => ({}))) as {
+          roles?: Array<{ id?: string; name?: string; position?: number }>;
+        };
+        const sessionJson = (await sessionRes.json().catch(() => ({}))) as SessionPayload;
+
+        if (cancelled) return;
 
         setCfg({ ...DEFAULT_CFG, ...(cfgJson?.config || {}) });
         setRoles(
-          (Array.isArray(gdJson?.roles) ? gdJson.roles : [])
-            .map((r: any) => ({ id: String(r.id), name: String(r.name), position: Number(r.position || 0) }))
-            .sort((a: Role, b: Role) => b.position! - a.position!)
+          (Array.isArray(guildJson?.roles) ? guildJson.roles : [])
+            .map((role) => ({
+              id: String(role.id || ""),
+              name: String(role.name || "Unknown Role"),
+              position: Number(role.position || 0),
+            }))
+            .filter((role) => role.id)
+            .sort((a, b) => Number(b.position || 0) - Number(a.position || 0))
         );
-      } catch (e: any) {
-        setMsg(e?.message || "Failed to load access policy.");
+        setSession(sessionJson || {});
+
+        const sessionUserId = String(sessionJson?.user?.id || "").trim();
+        if (sessionUserId) {
+          const accessRes = await fetch(
+            `/api/bot/guild-access?guildId=${encodeURIComponent(guildId)}&userId=${encodeURIComponent(sessionUserId)}`,
+            { cache: "no-store" }
+          );
+          const accessJson = (await accessRes.json().catch(() => ({}))) as { access?: boolean; reason?: string };
+          if (!cancelled) {
+            setAccess({
+              access: Boolean(accessJson?.access),
+              reason: String(accessJson?.reason || ""),
+            });
+          }
+        } else {
+          setAccess(null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setMsg(error instanceof Error ? error.message : "Failed to load access policy.");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [guildId]);
 
   async function save() {
@@ -113,21 +208,30 @@ export default function AccessControlClient() {
     setSaving(true);
     setMsg("");
     try {
-      const res = await fetch("/api/setup/access-control-config", {
+      const res = await fetch("/api/bot/dashboard-access-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guildId, patch: cfg }),
       });
-      const json = await res.json().catch(() => ({}));
+      const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string; config?: Partial<AccessControlConfig> };
       if (!res.ok || json?.success === false) throw new Error(json?.error || "Save failed");
       setCfg({ ...DEFAULT_CFG, ...(json?.config || cfg) });
       setMsg("Saved bot masters policy.");
-    } catch (e: any) {
-      setMsg(e?.message || "Save failed.");
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "Save failed.");
     } finally {
       setSaving(false);
     }
   }
+
+  const roleLookup = useMemo(() => roleNameMap(roles), [roles]);
+  const viewerName = session?.user?.globalName || session?.user?.username || session?.user?.id || "Unknown";
+  const counts = [
+    { label: "Bot Master Roles", value: cfg.adminRoleIds.length },
+    { label: "Staff Roles", value: cfg.staffRoleIds.length },
+    { label: "Allowed Users", value: cfg.allowedUserIds.length },
+    { label: "Denied Users", value: cfg.deniedUserIds.length },
+  ];
 
   if (!guildId) return <div style={{ color: "#ff8585", padding: 20 }}>Missing guildId. Open from /guilds first.</div>;
 
@@ -137,9 +241,11 @@ export default function AccessControlClient() {
         <h1 style={{ marginTop: 0, color: "#ff4a4a", letterSpacing: "0.12em", textTransform: "uppercase" }}>
           Bot Masters
         </h1>
-        <div style={{ color: "#ff9f9f", marginBottom: 8 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
-        <div style={{ color: "#ffb5b5", fontSize: 12 }}>
-          Set which roles and users can manage the dashboard for this guild. The master owner override stays above everything.
+        <div style={{ color: "#ff9f9f", marginBottom: 8 }}>
+          Guild: {typeof window !== "undefined" ? localStorage.getItem("activeGuildName") || guildId : guildId}
+        </div>
+        <div style={{ color: "#ffb5b5", fontSize: 12, lineHeight: 1.6 }}>
+          This is the live dashboard access policy. It writes directly to the bot access policy path used during guild dashboard authorization.
         </div>
         <div style={{ color: "#ffd27a", fontSize: 12, marginTop: 8 }}>
           Control owner override: {CONTROL_OWNER_USER_IDS.join(", ")}
@@ -150,6 +256,44 @@ export default function AccessControlClient() {
 
       {!loading ? (
         <>
+          <section style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+            <div>
+              <div style={{ color: "#ffb3b3", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em" }}>Viewer Access</div>
+              <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <span
+                  style={{
+                    ...pill,
+                    border: `1px solid ${access?.access ? "#1f8a3f" : "#8a2f2f"}`,
+                    background: access?.access ? "rgba(0,80,20,.24)" : "rgba(120,0,0,.18)",
+                    color: access?.access ? "#98ffc0" : "#ffaaaa",
+                  }}
+                >
+                  {access?.access ? "Allowed" : "Denied"}
+                </span>
+                {session?.isMasterOwner ? (
+                  <span style={{ ...pill, border: "1px solid #a36f00", background: "rgba(120,70,0,.18)", color: "#ffd27a" }}>
+                    Master Owner
+                  </span>
+                ) : null}
+              </div>
+              <div style={{ marginTop: 8, color: "#ffdcdc", fontWeight: 700 }}>{viewerName}</div>
+              <div style={{ color: "#ffbcbc", fontSize: 12, marginTop: 4 }}>{accessReasonLabel(access?.reason || "")}</div>
+            </div>
+            <div>
+              <div style={{ color: "#ffb3b3", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em" }}>Policy State</div>
+              <div style={{ marginTop: 8, color: "#ffdcdc", fontWeight: 700 }}>{cfg.active ? "Active" : "Disabled"}</div>
+              <div style={{ color: "#ffbcbc", fontSize: 12, marginTop: 4 }}>
+                Guild owner bypass: {cfg.ownerBypass ? "Enabled" : "Disabled"}
+              </div>
+            </div>
+            {counts.map((count) => (
+              <div key={count.label}>
+                <div style={{ color: "#ffb3b3", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em" }}>{count.label}</div>
+                <div style={{ marginTop: 8, color: "#ffdcdc", fontWeight: 700, fontSize: 22 }}>{count.value}</div>
+              </div>
+            ))}
+          </section>
+
           <section style={card}>
             <h3 style={{ marginTop: 0, color: "#ff6666", letterSpacing: "0.08em", textTransform: "uppercase" }}>
               Policy State
@@ -157,16 +301,16 @@ export default function AccessControlClient() {
             <label style={{ marginRight: 16 }}>
               <input
                 type="checkbox"
-                checked={!!cfg.active}
-                onChange={(e) => setCfg((p) => ({ ...p, active: e.target.checked }))}
+                checked={Boolean(cfg.active)}
+                onChange={(event) => setCfg((prev) => ({ ...prev, active: event.target.checked }))}
               />{" "}
               Policy active
             </label>
             <label>
               <input
                 type="checkbox"
-                checked={!!cfg.ownerBypass}
-                onChange={(e) => setCfg((p) => ({ ...p, ownerBypass: e.target.checked }))}
+                checked={Boolean(cfg.ownerBypass)}
+                onChange={(event) => setCfg((prev) => ({ ...prev, ownerBypass: event.target.checked }))}
               />{" "}
               Guild owner bypass
             </label>
@@ -181,13 +325,13 @@ export default function AccessControlClient() {
               <div>
                 <div style={{ marginBottom: 6, color: "#ffb3b3", fontSize: 12 }}>Bot master roles</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, maxHeight: 180, overflowY: "auto", padding: 8, border: "1px solid rgba(255,0,0,.28)", borderRadius: 8 }}>
-                  {roles.map((r) => {
-                    const selected = cfg.adminRoleIds.includes(r.id);
+                  {roles.map((role) => {
+                    const selected = cfg.adminRoleIds.includes(role.id);
                     return (
                       <button
                         type="button"
-                        key={`admin-${r.id}`}
-                        onClick={() => setCfg((p) => ({ ...p, adminRoleIds: toggleId(p.adminRoleIds, r.id) }))}
+                        key={`admin-${role.id}`}
+                        onClick={() => setCfg((prev) => ({ ...prev, adminRoleIds: toggleId(prev.adminRoleIds, role.id) }))}
                         style={{
                           borderRadius: 999,
                           border: selected ? "1px solid #ff5555" : "1px solid #553030",
@@ -198,7 +342,7 @@ export default function AccessControlClient() {
                           fontSize: 12,
                         }}
                       >
-                        {r.name}
+                        {role.name}
                       </button>
                     );
                   })}
@@ -207,7 +351,7 @@ export default function AccessControlClient() {
                   <input
                     style={input}
                     value={idsToCsv(cfg.adminRoleIds)}
-                    onChange={(e) => setCfg((p) => ({ ...p, adminRoleIds: csvToIds(e.target.value) }))}
+                    onChange={(event) => setCfg((prev) => ({ ...prev, adminRoleIds: csvToIds(event.target.value) }))}
                     placeholder="Bot master role IDs (csv)"
                   />
                 </div>
@@ -216,13 +360,13 @@ export default function AccessControlClient() {
               <div>
                 <div style={{ marginBottom: 6, color: "#ffb3b3", fontSize: 12 }}>Staff dashboard roles</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, maxHeight: 180, overflowY: "auto", padding: 8, border: "1px solid rgba(255,0,0,.28)", borderRadius: 8 }}>
-                  {roles.map((r) => {
-                    const selected = cfg.staffRoleIds.includes(r.id);
+                  {roles.map((role) => {
+                    const selected = cfg.staffRoleIds.includes(role.id);
                     return (
                       <button
                         type="button"
-                        key={`staff-${r.id}`}
-                        onClick={() => setCfg((p) => ({ ...p, staffRoleIds: toggleId(p.staffRoleIds, r.id) }))}
+                        key={`staff-${role.id}`}
+                        onClick={() => setCfg((prev) => ({ ...prev, staffRoleIds: toggleId(prev.staffRoleIds, role.id) }))}
                         style={{
                           borderRadius: 999,
                           border: selected ? "1px solid #ff5555" : "1px solid #553030",
@@ -233,7 +377,7 @@ export default function AccessControlClient() {
                           fontSize: 12,
                         }}
                       >
-                        {r.name}
+                        {role.name}
                       </button>
                     );
                   })}
@@ -242,9 +386,33 @@ export default function AccessControlClient() {
                   <input
                     style={input}
                     value={idsToCsv(cfg.staffRoleIds)}
-                    onChange={(e) => setCfg((p) => ({ ...p, staffRoleIds: csvToIds(e.target.value) }))}
+                    onChange={(event) => setCfg((prev) => ({ ...prev, staffRoleIds: csvToIds(event.target.value) }))}
                     placeholder="Support access role IDs (csv)"
                   />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section style={card}>
+            <h3 style={{ marginTop: 0, color: "#ff6666", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              Policy Coverage
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <div style={{ color: "#ffb3b3", marginBottom: 8 }}>Configured bot master roles</div>
+                <div style={{ color: "#ffbcbc", lineHeight: 1.7 }}>
+                  {cfg.adminRoleIds.length
+                    ? cfg.adminRoleIds.map((roleId) => roleLookup.get(roleId) || roleId).join(", ")
+                    : "No admin roles configured."}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: "#ffb3b3", marginBottom: 8 }}>Configured staff roles</div>
+                <div style={{ color: "#ffbcbc", lineHeight: 1.7 }}>
+                  {cfg.staffRoleIds.length
+                    ? cfg.staffRoleIds.map((roleId) => roleLookup.get(roleId) || roleId).join(", ")
+                    : "No staff roles configured."}
                 </div>
               </div>
             </div>
@@ -260,7 +428,7 @@ export default function AccessControlClient() {
                 <textarea
                   style={{ ...input, minHeight: 100 }}
                   value={idsToCsv(cfg.allowedUserIds)}
-                  onChange={(e) => setCfg((p) => ({ ...p, allowedUserIds: csvToIds(e.target.value) }))}
+                  onChange={(event) => setCfg((prev) => ({ ...prev, allowedUserIds: csvToIds(event.target.value) }))}
                   placeholder="111, 222, 333"
                 />
               </div>
@@ -269,7 +437,7 @@ export default function AccessControlClient() {
                 <textarea
                   style={{ ...input, minHeight: 100 }}
                   value={idsToCsv(cfg.deniedUserIds)}
-                  onChange={(e) => setCfg((p) => ({ ...p, deniedUserIds: csvToIds(e.target.value) }))}
+                  onChange={(event) => setCfg((prev) => ({ ...prev, deniedUserIds: csvToIds(event.target.value) }))}
                   placeholder="444, 555"
                 />
               </div>
@@ -279,16 +447,16 @@ export default function AccessControlClient() {
               <textarea
                 style={{ ...input, minHeight: 80 }}
                 value={cfg.notes || ""}
-                onChange={(e) => setCfg((p) => ({ ...p, notes: e.target.value }))}
+                onChange={(event) => setCfg((prev) => ({ ...prev, notes: event.target.value }))}
               />
             </div>
           </section>
 
           <section style={{ ...card, position: "sticky", bottom: 8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <div style={{ color: "#ffb3b3", fontSize: 12 }}>Save to apply role-based dashboard access policy.</div>
+              <div style={{ color: "#ffb3b3", fontSize: 12 }}>Save to apply the live role-based dashboard access policy.</div>
               <button
-                onClick={save}
+                onClick={() => void save()}
                 disabled={saving}
                 style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}
               >
