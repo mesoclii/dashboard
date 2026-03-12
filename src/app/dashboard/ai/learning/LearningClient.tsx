@@ -7,6 +7,16 @@ import EngineInsights from "@/components/possum/EngineInsights";
 import type { EngineDetails, EngineSummaryItem, GuildChannel } from "@/components/possum/useGuildEngineEditor";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 
+type KnowledgeBankInputs = {
+  authorityResponses: string;
+  ambientChatter: string;
+  gtaOpsTopics: string;
+  techModerationTopics: string;
+  regionalReplyVariants: string;
+  monologueEscalation: string;
+  rockstarCommunityPacks: string;
+};
+
 type PossumSettings = {
   mode: string;
   autoReplies: boolean;
@@ -24,6 +34,7 @@ type PossumSettings = {
   personalityLabel: string;
   toneBank: string;
   backstory: string;
+  knowledgeBanks: KnowledgeBankInputs;
 };
 
 type ChannelModeRow = {
@@ -32,6 +43,103 @@ type ChannelModeRow = {
 };
 
 const RUNTIME_ENGINE_KEY = "aiRuntime";
+
+const KNOWLEDGE_BANK_FIELDS: Array<{
+  key: keyof KnowledgeBankInputs;
+  label: string;
+  description: string;
+  placeholder: string;
+}> = [
+  {
+    key: "authorityResponses",
+    label: "Authority response bank",
+    description: "Lines Possum AI should reach for when it needs to sound firm, corrective, or moderator-minded in this guild.",
+    placeholder: "Keep the tone controlled.\nRespect the rules or expect the response."
+  },
+  {
+    key: "ambientChatter",
+    label: "Ambient chatter bank",
+    description: "General chatter, openers, and low-pressure guild flavor for normal Possum AI replies.",
+    placeholder: "You called, I'm here.\nKeep moving and keep it clean."
+  },
+  {
+    key: "gtaOpsTopics",
+    label: "GTA / ops topic bank",
+    description: "Crew, heist, contract, and ops-specific guidance for this guild's GTA-style conversations.",
+    placeholder: "If the route isn't clean, the payout isn't real.\nStage the exit before the hit starts."
+  },
+  {
+    key: "techModerationTopics",
+    label: "Tech / moderation topic bank",
+    description: "Server tech, tuning, moderation, and bot operations language the free Possum AI should know for this guild.",
+    placeholder: "Baseline first, tweak second.\nModeration starts with clean logs and clear action."
+  },
+  {
+    key: "regionalReplyVariants",
+    label: "Regional reply variants",
+    description: "Regional slang, cadence, or guild-local phrasing the adaptive route can mix into replies here.",
+    placeholder: "Keep it tight around here.\nThat move is solid for this server."
+  },
+  {
+    key: "monologueEscalation",
+    label: "Monologue / escalation lines",
+    description: "Longer pressure lines, escalation phrases, and authority monologues for heated moments.",
+    placeholder: "Dial it back before this turns into a problem.\nYou're pushing toward the line right now."
+  },
+  {
+    key: "rockstarCommunityPacks",
+    label: "Rockstar / community topic packs",
+    description: "Community culture, Rockstar references, and guild-specific world knowledge for shared chatter.",
+    placeholder: "Rockstar always rewards the cleaner move.\nCommunity runs smoother when people stop making noise."
+  }
+];
+
+function createEmptyKnowledgeBanks(): KnowledgeBankInputs {
+  return {
+    authorityResponses: "",
+    ambientChatter: "",
+    gtaOpsTopics: "",
+    techModerationTopics: "",
+    regionalReplyVariants: "",
+    monologueEscalation: "",
+    rockstarCommunityPacks: "",
+  };
+}
+
+function normalizeKnowledgeBankValue(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => String(entry || "").trim())
+      .filter(Boolean)
+      .join("\n");
+  }
+  return String(value || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
+}
+
+function normalizeKnowledgeBanks(value: unknown): KnowledgeBankInputs {
+  const source = value && typeof value === "object" ? value as Partial<Record<keyof KnowledgeBankInputs, unknown>> : {};
+  const defaults = createEmptyKnowledgeBanks();
+  return {
+    authorityResponses: normalizeKnowledgeBankValue(source.authorityResponses ?? defaults.authorityResponses),
+    ambientChatter: normalizeKnowledgeBankValue(source.ambientChatter ?? defaults.ambientChatter),
+    gtaOpsTopics: normalizeKnowledgeBankValue(source.gtaOpsTopics ?? defaults.gtaOpsTopics),
+    techModerationTopics: normalizeKnowledgeBankValue(source.techModerationTopics ?? defaults.techModerationTopics),
+    regionalReplyVariants: normalizeKnowledgeBankValue(source.regionalReplyVariants ?? defaults.regionalReplyVariants),
+    monologueEscalation: normalizeKnowledgeBankValue(source.monologueEscalation ?? defaults.monologueEscalation),
+    rockstarCommunityPacks: normalizeKnowledgeBankValue(source.rockstarCommunityPacks ?? defaults.rockstarCommunityPacks),
+  };
+}
+
+function createSettingsState(raw: unknown): PossumSettings {
+  const source = raw && typeof raw === "object" ? raw as Partial<PossumSettings> : {};
+  return {
+    ...DEFAULT_SETTINGS,
+    ...source,
+    knowledgeBanks: normalizeKnowledgeBanks(source.knowledgeBanks),
+  };
+}
 
 const DEFAULT_SETTINGS: PossumSettings = {
   mode: "savage",
@@ -50,6 +158,7 @@ const DEFAULT_SETTINGS: PossumSettings = {
   personalityLabel: "saviors",
   toneBank: "saviors",
   backstory: "",
+  knowledgeBanks: createEmptyKnowledgeBanks(),
 };
 
 const wrap: CSSProperties = { color: "#ffd0d0", maxWidth: 1360 };
@@ -127,19 +236,10 @@ const ACTIVE_MODULES = [
   "core/possum/possumSynthesisEngine.js",
 ];
 
-const DATA_ASSETS = [
-  "Authority response bank",
-  "Ambient chatter bank",
-  "GTA / ops topic bank",
-  "Tech / moderation topic bank",
-  "Regional reply variants",
-  "Monologue / escalation lines",
-  "Rockstar / community topic packs",
-];
-
 const PERSISTENCE_MODELS = [
   "Possum guild config (Prisma-backed live runtime settings)",
   "Possum adaptive settings (guild-level runtime router config)",
+  "Possum guild knowledge banks (guild-scoped adaptive knowledge assets)",
   "Possum user profile (learned per-user adaptive profile)",
   "Possum channel profile (learned per-channel adaptive profile)",
   "Possum knowledge store (stored topical knowledge snippets)",
@@ -252,10 +352,7 @@ export default function LearningClient() {
               .sort((a: GuildChannel, b: GuildChannel) => a.name.localeCompare(b.name))
           : []
       );
-      setSettings({
-        ...DEFAULT_SETTINGS,
-        ...(settingsJson?.config || {}),
-      });
+      setSettings(createSettingsState(settingsJson?.config));
       setChannelModes(
         Array.isArray(settingsJson?.channelModes)
           ? settingsJson.channelModes
@@ -321,10 +418,7 @@ export default function LearningClient() {
         }),
       });
       const json = await readJsonOrThrow(res);
-      setSettings({
-        ...DEFAULT_SETTINGS,
-        ...(json?.config || {}),
-      });
+      setSettings(createSettingsState(json?.config));
       setMessage("Saved Possum AI guild settings.");
       await loadAll(guildId, guildName);
     } catch (err: any) {
@@ -348,10 +442,7 @@ export default function LearningClient() {
         }),
       });
       const json = await readJsonOrThrow(res);
-      setSettings({
-        ...DEFAULT_SETTINGS,
-        ...(json?.config || {}),
-      });
+      setSettings(createSettingsState(json?.config));
       setMessage("Reset Possum AI guild settings to defaults.");
       await loadAll(guildId, guildName);
     } catch (err: any) {
@@ -374,7 +465,11 @@ export default function LearningClient() {
           engine: "runtimeRouter",
           action: actionName,
           payload: actionName === "seedKnowledge"
-            ? { toneBank: settings.toneBank, personalityLabel: settings.personalityLabel }
+            ? {
+                toneBank: settings.toneBank,
+                personalityLabel: settings.personalityLabel,
+                knowledgeBanks: settings.knowledgeBanks,
+              }
             : undefined,
         }),
       });
@@ -406,6 +501,23 @@ export default function LearningClient() {
 
   function removeChannelMode(index: number) {
     setChannelModes((current) => current.filter((_, rowIndex) => rowIndex !== index));
+  }
+
+  function updateKnowledgeBank(key: keyof KnowledgeBankInputs, value: string) {
+    setSettings((current) => ({
+      ...current,
+      knowledgeBanks: {
+        ...current.knowledgeBanks,
+        [key]: value,
+      },
+    }));
+  }
+
+  function countKnowledgeLines(value: string) {
+    return String(value || "")
+      .split(/\r?\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean).length;
   }
 
   if (!guildId) {
@@ -745,7 +857,7 @@ export default function LearningClient() {
                   Knowledge Base Operations
                 </div>
                 <div style={{ color: "#ffbdbd", fontSize: 12, maxWidth: 900 }}>
-                  These actions hit the live adaptive runtime for this guild. Use them when you need to clear reply memory, reset learned profiles, or wipe the Possum AI knowledge base before retesting.
+                  These actions hit the live adaptive runtime for this guild. Use them when you need to clear reply memory, reset learned profiles, or seed the knowledge store from the guild-owned Possum AI banks before retesting.
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -878,12 +990,34 @@ export default function LearningClient() {
               <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
                 Data Assets + Memory
               </div>
-              <div style={{ display: "grid", gap: 6 }}>
-                {DATA_ASSETS.map((item) => (
-                  <div key={item} style={{ color: "#ffdcdc", fontSize: 12 }}>
-                    {item}
-                  </div>
-                ))}
+              <div style={{ color: "#ffbdbd", fontSize: 12, lineHeight: 1.7, marginBottom: 12 }}>
+                These banks are per guild. Possum AI uses them as server-specific knowledge before it falls back to generic tone-bank lines or learned database snippets.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
+                {KNOWLEDGE_BANK_FIELDS.map((field) => {
+                  const value = settings.knowledgeBanks[field.key];
+                  const lineCount = countKnowledgeLines(value);
+                  return (
+                    <div key={field.key} style={{ borderTop: "1px solid #330000", paddingTop: 10 }}>
+                      <div style={{ color: "#ffdcdc", fontWeight: 800 }}>{field.label}</div>
+                      <div style={{ color: "#ffbdbd", fontSize: 12, lineHeight: 1.6, marginTop: 4 }}>{field.description}</div>
+                      <textarea
+                        style={{ ...input, minHeight: 150, marginTop: 10 }}
+                        value={value}
+                        onChange={(e) => updateKnowledgeBank(field.key, e.target.value)}
+                        placeholder={field.placeholder}
+                      />
+                      <div style={{ color: "#ff9c9c", fontSize: 11, marginTop: 6 }}>
+                        {lineCount} configured line{lineCount === 1 ? "" : "s"} for this guild.
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+                <button type="button" onClick={() => void saveSettings()} disabled={saving} style={action}>
+                  {saving ? "Saving..." : "Save Knowledge Banks"}
+                </button>
               </div>
             </div>
           </section>
