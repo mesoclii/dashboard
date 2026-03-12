@@ -1,17 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { MouseEvent } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 import { useDashboardSessionState } from "@/components/possum/useDashboardSessionState";
 import { getDashboardNavSections, getDashboardNavTopLinks } from "@/lib/dashboard/navigation";
 
 function itemClass(active: boolean): string {
   return active
-    ? "block rounded-md border border-red-500/60 bg-red-900/20 px-3 py-2 text-sm font-extrabold uppercase tracking-[0.05em] text-red-200 possum-glow-soft"
-    : "block rounded-md border border-transparent px-3 py-2 text-sm font-bold uppercase tracking-[0.04em] text-red-300/85 hover:border-red-500/40 hover:bg-red-950/40 hover:text-red-200";
+    ? "block w-full rounded-md border border-red-500/60 bg-red-900/20 px-3 py-2 text-left text-sm font-extrabold uppercase tracking-[0.05em] text-red-200 possum-glow-soft"
+    : "block w-full rounded-md border border-transparent px-3 py-2 text-left text-sm font-bold uppercase tracking-[0.04em] text-red-300/85 hover:border-red-500/40 hover:bg-red-950/40 hover:text-red-200";
 }
 
 function isItemActive(pathname: string | null, href: string) {
@@ -19,15 +17,9 @@ function isItemActive(pathname: string | null, href: string) {
   return pathname === baseHref || pathname?.startsWith(`${baseHref}/`);
 }
 
-function handleDashboardNavClick(event: MouseEvent<HTMLAnchorElement>, href: string) {
-  event.preventDefault();
-  event.stopPropagation();
-  if (typeof window === "undefined") return;
-  window.location.assign(buildDashboardHref(href));
-}
-
 export default function PossumSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { isMasterOwner } = useDashboardSessionState();
   const topLinks = useMemo(() => getDashboardNavTopLinks(isMasterOwner), [isMasterOwner]);
   const sections = useMemo(() => getDashboardNavSections(isMasterOwner), [isMasterOwner]);
@@ -41,28 +33,33 @@ export default function PossumSidebar() {
     setOpenSections((prev) => ({ ...prev, [label]: !isSectionOpen(label, defaultOpen) }));
   }
 
+  function navigateTo(href: string) {
+    router.push(buildDashboardHref(href));
+  }
+
   return (
     <div className="rounded-xl border possum-divider bg-black/55 p-4 possum-border">
       <div className="mb-4 border-b possum-divider pb-3">
         <p className="text-[11px] uppercase tracking-[0.24em] possum-soft">Possum Bot</p>
-        <Link
-          href={buildDashboardHref("/dashboard")}
-          className="mt-1 block text-lg font-black uppercase tracking-[0.08em] possum-red possum-glow-soft hover:text-red-200"
+        <button
+          type="button"
+          onClick={() => navigateTo("/dashboard")}
+          className="mt-1 block text-left text-lg font-black uppercase tracking-[0.08em] possum-red possum-glow-soft hover:text-red-200"
         >
           Dashboard
-        </Link>
+        </button>
         <div className="mt-3 space-y-1">
           {topLinks.map((item) => {
             const active = isItemActive(pathname, item.href);
             return (
-              <a
+              <button
                 key={item.href}
-                href={buildDashboardHref(item.href)}
-                onClick={(event) => handleDashboardNavClick(event, item.href)}
+                type="button"
+                onClick={() => navigateTo(item.href)}
                 className={`${itemClass(Boolean(active))} relative z-10 cursor-pointer`}
               >
                 {item.label}
-              </a>
+              </button>
             );
           })}
         </div>
@@ -87,14 +84,14 @@ export default function PossumSidebar() {
                   {section.items.map((item) => {
                     const active = isItemActive(pathname, item.href);
                     return (
-                      <a
+                      <button
                         key={item.href}
-                        href={buildDashboardHref(item.href)}
-                        onClick={(event) => handleDashboardNavClick(event, item.href)}
+                        type="button"
+                        onClick={() => navigateTo(item.href)}
                         className={`${itemClass(Boolean(active))} relative z-10 cursor-pointer`}
                       >
                         {item.label}
-                      </a>
+                      </button>
                     );
                   })}
                 </div>

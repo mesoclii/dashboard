@@ -23,7 +23,6 @@ export const ENGINE_REGISTRY: EngineDef[] = [
   { id: "bot-masters", label: "Bot Masters", description: "Dashboard role/user access per guild", group: "Guild Control", route: "/dashboard/bot-masters" },
   { id: "channels", label: "Channels", description: "Centralized guild routing and channel assignment surface", group: "Guild Control", route: "/dashboard/channels" },
   { id: "possum-ai", label: "Possum AI", description: "Homemade adaptive AI, memory, and runtime reply routing", group: "Guild Control", route: "/dashboard/ai/learning" },
-  { id: "panel-hub", label: "Master Panels", description: "Panel-backed engine launch and shared deploy controls", group: "Guild Control", route: "/dashboard/panels" },
   { id: "giveaways", label: "Giveaways", description: "Giveaway lifecycle, entrants, rerolls, and controls", group: "Guild Control", route: "/dashboard/giveaways", notes: "Engine-config controlled" },
   { id: "jed", label: "Jed", description: "Sticker, emoji, gif, and asset steal/deploy controls", group: "Guild Control", route: "/dashboard/jed" },
   { id: "music", label: "Music", description: "Always-free multi-route music playback and queue control", group: "Guild Control", route: "/dashboard/music", featureKey: "musicEnabled" },

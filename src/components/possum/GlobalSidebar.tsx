@@ -1,9 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { MouseEvent } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 import { useDashboardSessionState } from "@/components/possum/useDashboardSessionState";
 import { getDashboardNavSections, getDashboardNavTopLinks } from "@/lib/dashboard/navigation";
@@ -13,15 +11,9 @@ function isItemActive(pathname: string | null, href: string) {
   return pathname === baseHref || pathname?.startsWith(`${baseHref}/`);
 }
 
-function handleDashboardNavClick(event: MouseEvent<HTMLAnchorElement>, href: string) {
-  event.preventDefault();
-  event.stopPropagation();
-  if (typeof window === "undefined") return;
-  window.location.assign(buildDashboardHref(href));
-}
-
 export default function GlobalSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { isMasterOwner } = useDashboardSessionState();
   const topLinks = useMemo(() => getDashboardNavTopLinks(isMasterOwner), [isMasterOwner]);
   const sections = useMemo(() => getDashboardNavSections(isMasterOwner), [isMasterOwner]);
@@ -35,35 +27,40 @@ export default function GlobalSidebar() {
     setOpenSections((prev) => ({ ...prev, [label]: !isSectionOpen(label, defaultOpen) }));
   }
 
+  function navigateTo(href: string) {
+    router.push(buildDashboardHref(href));
+  }
+
   return (
     <aside className="w-full rounded-xl border border-zinc-800 bg-zinc-950 p-4">
       <p className="mb-3 text-sm font-semibold text-white">Navigation</p>
       <div className="mb-4 space-y-1">
-        <Link
-          href={buildDashboardHref("/dashboard")}
+        <button
+          type="button"
+          onClick={() => navigateTo("/dashboard")}
           className={
             isItemActive(pathname, "/dashboard")
-              ? "block rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm font-medium text-white"
-              : "block rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
+              ? "block w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-left text-sm font-medium text-white"
+              : "block w-full rounded-md px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
           }
         >
           Dashboard
-        </Link>
+        </button>
         {topLinks.map((item) => {
           const active = isItemActive(pathname, item.href);
           return (
-            <a
+            <button
               key={item.href}
-              href={buildDashboardHref(item.href)}
-              onClick={(event) => handleDashboardNavClick(event, item.href)}
+              type="button"
+              onClick={() => navigateTo(item.href)}
               className={
                 active
-                  ? "relative z-10 block cursor-pointer rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm font-medium text-white"
-                  : "relative z-10 block cursor-pointer rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                  ? "relative z-10 block w-full cursor-pointer rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-left text-sm font-medium text-white"
+                  : "relative z-10 block w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
               }
             >
               {item.label}
-            </a>
+            </button>
           );
         })}
       </div>
@@ -86,18 +83,18 @@ export default function GlobalSidebar() {
                   {section.items.map((item) => {
                     const active = isItemActive(pathname, item.href);
                     return (
-                      <a
+                      <button
                         key={item.href}
-                        href={buildDashboardHref(item.href)}
-                        onClick={(event) => handleDashboardNavClick(event, item.href)}
+                        type="button"
+                        onClick={() => navigateTo(item.href)}
                         className={
                           active
-                            ? "relative z-10 block cursor-pointer rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm font-medium text-white"
-                            : "relative z-10 block cursor-pointer rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                            ? "relative z-10 block w-full cursor-pointer rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-left text-sm font-medium text-white"
+                            : "relative z-10 block w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
                         }
                       >
                         {item.label}
-                      </a>
+                      </button>
                     );
                   })}
                 </div>

@@ -250,6 +250,7 @@ export default function GiveawaysPage() {
   const [newImgUrl, setNewImgUrl] = useState("");
   const [newImgLabel, setNewImgLabel] = useState("");
   const [localMsg, setLocalMsg] = useState("");
+  const cfgSignature = sig(cfg);
 
   useEffect(() => {
     if (!guildId || loading) return;
@@ -261,7 +262,6 @@ export default function GiveawaysPage() {
     () => (channels as Channel[]).filter((channel) => Number(channel.type) === 0 || Number(channel.type) === 5),
     [channels]
   );
-  const cfgSignature = sig(cfg);
   const dirty = cfgSignature !== baselineSig;
   const visibleMessage = localMsg || message;
 

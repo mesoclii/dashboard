@@ -9,6 +9,7 @@ const rootDir = path.resolve(__dirname, "..");
 const nextBin = path.join(rootDir, "node_modules", "next", "dist", "bin", "next");
 const buildDir = path.join(rootDir, ".next");
 const rollbackDir = path.join(rootDir, ".next.previous");
+const cacheHoldDir = path.join(rootDir, ".next.cache.hold");
 const rollbackMetaPath = path.join(rootDir, ".next.rollback.json");
 const args = new Set(process.argv.slice(2));
 const vmMode = args.has("--vm");
@@ -30,9 +31,28 @@ function moveDir(fromPath, toPath) {
   return true;
 }
 
+function stashBuildCache(fromBuildDir) {
+  const cacheDir = path.join(fromBuildDir, "cache");
+  if (!fs.existsSync(cacheDir)) return false;
+  moveDir(cacheDir, cacheHoldDir);
+  return true;
+}
+
+function restoreBuildCache() {
+  if (!fs.existsSync(cacheHoldDir)) return false;
+  const targetCacheDir = path.join(buildDir, "cache");
+  fs.mkdirSync(buildDir, { recursive: true });
+  return moveDir(cacheHoldDir, targetCacheDir);
+}
+
 if (!fs.existsSync(nextBin)) {
   log("Next.js build binary is missing. Run install before building.");
   process.exit(1);
+}
+
+const hadCachedBuildData = stashBuildCache(buildDir);
+if (hadCachedBuildData) {
+  log("Captured existing Next build cache for reuse.");
 }
 
 const hadExistingBuild = moveDir(buildDir, rollbackDir);
@@ -59,6 +79,9 @@ for (const memoryMb of memoryAttempts) {
   };
 
   log(`Starting Next build with ${memoryMb} MB heap cap${vmMode ? " (vm mode)" : ""}.`);
+  if (restoreBuildCache()) {
+    log("Restored Next build cache.");
+  }
   const result = spawnSync(process.execPath, [nextBin, "build", "--webpack"], {
     cwd: rootDir,
     stdio: "inherit",
@@ -71,6 +94,7 @@ for (const memoryMb of memoryAttempts) {
   }
 
   lastStatus = result.status || 1;
+  stashBuildCache(buildDir);
   removeDir(buildDir);
 
   const moreAttemptsRemain = vmMode && memoryMb !== memoryAttempts[memoryAttempts.length - 1];
@@ -86,6 +110,7 @@ if (!buildSucceeded) {
     moveDir(rollbackDir, buildDir);
     log("Restored previous .next build.");
   }
+  removeDir(cacheHoldDir);
   process.exit(lastStatus);
 }
 
@@ -100,3 +125,4 @@ log("Build completed successfully.");
 if (meta.rollbackAvailable) {
   log("Previous build kept at .next.previous for rollback.");
 }
+removeDir(cacheHoldDir);

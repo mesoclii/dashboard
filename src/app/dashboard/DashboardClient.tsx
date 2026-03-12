@@ -150,7 +150,6 @@ function getCardSection(card: Card): DashboardSection {
     href === "/dashboard/bot-masters" ||
     href === "/dashboard/channels" ||
     href === "/dashboard/ai/learning" ||
-    href === "/dashboard/panels" ||
     href === "/dashboard/giveaways" ||
     href === "/dashboard/jed" ||
     href === "/dashboard/music" ||
@@ -314,7 +313,6 @@ const CARDS: Card[] = [
   { href: "/dashboard/bot-masters", title: "Bot Masters", description: "Set which guild roles and users can manage the dashboard.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/channels", title: "Channels", description: "Centralized channel routing for engines that rely on per-guild channel setup.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/ai/learning", title: "Possum AI", description: "Homemade adaptive AI, bot knowledge base, learning writes, and synthesis runtime.", goOnly: true, goLabel: "Go" },
-  { href: "/dashboard/panels", title: "Master Panels", description: "Edit live panel-backed engines and shared deploy actions from one page.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway lifecycle, entrants, rerolls, and controls.", toggle: engineController("giveaways", ["active"]) },
   { href: "/dashboard/jed", title: "Jed", description: "Sticker/emote/gif steal and deploy engine.", toggle: engineController("jed") },
   { href: "/dashboard/music", title: "Music", description: "Always-free multi-route music playback, route binding, and live queue control.", toggle: musicController },

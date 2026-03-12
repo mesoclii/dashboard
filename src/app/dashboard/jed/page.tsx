@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import EngineContractPanel from "@/components/possum/EngineContractPanel";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 import { buildDashboardHref } from "@/lib/dashboardContext";
@@ -60,6 +59,12 @@ const label: CSSProperties = {
   textTransform: "uppercase",
   marginBottom: 6,
 };
+const miniCard: CSSProperties = {
+  border: "1px solid #5f0000",
+  borderRadius: 12,
+  padding: 14,
+  background: "rgba(255,0,0,0.07)",
+};
 
 function lines(value: string) {
   return value
@@ -80,21 +85,38 @@ export default function JedPage() {
 
   return (
     <section style={shell}>
-      <h1 style={{ margin: 0, color: "#ff4f4f", letterSpacing: "0.10em", textTransform: "uppercase" }}>Jed Engine</h1>
+      <h1 style={{ margin: 0, color: "#ff4f4f", letterSpacing: "0.10em", textTransform: "uppercase" }}>JED Sticker + Emoji + GIF Theft</h1>
       <div style={{ color: "#ff9999", marginTop: 6, marginBottom: 12 }}>Guild: {guildName || guildId}</div>
       <div style={{ color: "#ffbcbc", lineHeight: 1.7, maxWidth: 1120 }}>
-        Jed is the asset conversion and deploy engine. This page now edits the live guild-level batch limits, source allowlist, file-size guardrails,
-        public message TTL, cleanup retention, and operator notes while exposing recent usage and top operators from the live bot runtime.
+        This is the live control surface for <strong>/jed grab</strong>. JED steals approved sticker, emoji, and GIF/media URLs, converts them when needed,
+        and deploys the result into the guild. This page only tunes the live guild-level grab rules layered on top of your existing bot logic.
       </div>
 
-      <EngineContractPanel
-        engineKey="jed"
-        intro="Sticker, emoji, and media conversion controls with direct domain allowlisting, temporary-file cleanup, and guild-level throughput limits."
-        related={[
-          { label: "System Health", route: "/dashboard/system-health", reason: "check resource pressure before large media runs" },
-          { label: "Runtime Router", route: "/dashboard/runtime-router", reason: "separate runtime operations surface" },
-        ]}
-      />
+      <section style={box}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
+          <div style={miniCard}>
+            <div style={label}>What JED Does</div>
+            <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
+              Pulls approved asset URLs, converts them into guild-ready emojis or stickers, and handles public or private delivery without changing the
+              existing slash command runtime.
+            </div>
+          </div>
+          <div style={miniCard}>
+            <div style={label}>Slash Flow</div>
+            <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
+              <strong>/jed grab</strong> accepts source URLs, target type, and visibility. Target stays <strong>emoji</strong> or <strong>sticker</strong>;
+              GIF/media handling still runs through the same deployed conversion path.
+            </div>
+          </div>
+          <div style={miniCard}>
+            <div style={label}>Guild Tuning Only</div>
+            <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
+              Batch size, TTL, file-size guardrails, allowed steal sources, audit routing, and temp cleanup are adjustable here. Core JED command logic is
+              not being rewritten.
+            </div>
+          </div>
+        </div>
+      </section>
 
       {message ? <div style={{ marginTop: 12, color: "#ffd27a" }}>{message}</div> : null}
 
@@ -107,9 +129,9 @@ export default function JedPage() {
           <section style={box}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
               <div>
-                <div style={label}>Live JED Actions</div>
+                <div style={label}>Live Theft Actions</div>
                 <div style={{ color: "#ffbcbc", lineHeight: 1.7 }}>
-                  Refresh the merged live config from the bot runtime or clear temp conversion files for this guild without leaving the dashboard.
+                  Refresh the merged runtime rules from the bot or clear this guild&apos;s temporary JED conversion files without leaving the dashboard.
                 </div>
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -117,20 +139,21 @@ export default function JedPage() {
                   Refresh Runtime Config
                 </button>
                 <button style={button} disabled={saving} onClick={() => void runAction("cleanupTemp")}>
-                  Cleanup Temp Files
+                  Delete Grab Temp Files
                 </button>
               </div>
             </div>
           </section>
 
           <section style={box}>
+            <div style={label}>Grab Limits + Deployment Rules</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>
               <label style={{ display: "inline-flex", gap: 8, alignItems: "center", color: "#ffdcdc", fontWeight: 700 }}>
                 <input type="checkbox" checked={config.enabled} onChange={(e) => setConfig((prev) => ({ ...prev, enabled: e.target.checked }))} />
-                Engine Enabled
+                JED Enabled
               </label>
               <div>
-                <div style={label}>Batch Limit</div>
+                <div style={label}>Items Per Grab</div>
                 <input
                   style={input}
                   type="number"
@@ -141,7 +164,7 @@ export default function JedPage() {
                 />
               </div>
               <div>
-                <div style={label}>Public Result TTL (sec)</div>
+                <div style={label}>Public Result Lifetime (sec)</div>
                 <input
                   style={input}
                   type="number"
@@ -152,7 +175,7 @@ export default function JedPage() {
                 />
               </div>
               <div>
-                <div style={label}>Temp Cleanup TTL (sec)</div>
+                <div style={label}>Temp File Cleanup (sec)</div>
                 <input
                   style={input}
                   type="number"
@@ -163,7 +186,7 @@ export default function JedPage() {
                 />
               </div>
               <div>
-                <div style={label}>Max File Size (MB)</div>
+                <div style={label}>Max Download Size (MB)</div>
                 <input
                   style={input}
                   type="number"
@@ -188,18 +211,42 @@ export default function JedPage() {
           </section>
 
           <section style={box}>
-            <div style={label}>Allowed Source Domains</div>
+            <div style={label}>Approved Steal Sources</div>
             <textarea
               style={{ ...input, minHeight: 120 }}
               value={config.allowedDomains.join("\n")}
               onChange={(e) => setConfig((prev) => ({ ...prev, allowedDomains: lines(e.target.value) }))}
             />
             <div style={{ marginTop: 10, color: "#ffbcbc", lineHeight: 1.7 }}>
-              Only these hostnames can be converted by JED. This is the per-guild live allowlist used by the runtime now, not a placeholder list.
+              Only these hostnames can be grabbed by JED in this guild. If a source is not on this list, the live slash runtime will reject it.
             </div>
           </section>
 
           <section style={box}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12, marginBottom: 16 }}>
+              <div style={miniCard}>
+                <div style={label}>Target Modes</div>
+                <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
+                  <strong>Emoji</strong> creates server emoji entries.
+                  <br />
+                  <strong>Sticker</strong> creates guild sticker entries.
+                  <br />
+                  GIF/media URLs still flow through the same conversion path before deploy.
+                </div>
+              </div>
+              <div style={miniCard}>
+                <div style={label}>Visibility</div>
+                <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
+                  Public results respect the public TTL above. Private result handling still follows the already-built JED command logic and cooldown model.
+                </div>
+              </div>
+              <div style={miniCard}>
+                <div style={label}>Tier Behavior</div>
+                <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
+                  Global tier rules still apply for cooldowns and capability limits. The batch limit on this page is the guild-level cap layered on top.
+                </div>
+              </div>
+            </div>
             <div style={label}>Operator Notes</div>
             <textarea
               style={{ ...input, minHeight: 140 }}
@@ -223,7 +270,7 @@ export default function JedPage() {
               </span>
             </div>
             <button style={button} disabled={saving} onClick={() => void save()}>
-              {saving ? "Saving..." : "Save JED"}
+              {saving ? "Saving..." : "Save JED Theft Controls"}
             </button>
           </section>
         </>

@@ -3,6 +3,14 @@
 import { useEffect, useState } from "react";
 import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
 
+const ACCESS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type AccessCacheEntry = {
+  allowed: boolean;
+  reason: string;
+  checkedAt: number;
+};
+
 function getContext() {
   if (typeof window === "undefined") {
     return { guildId: "", userId: "" };
@@ -46,6 +54,68 @@ function accessReasonLabel(reason: string) {
   }
 }
 
+function accessCacheKey(guildId: string, userId: string) {
+  return `dashboard-access:${guildId}:${userId}`;
+}
+
+function readAccessCache(guildId: string, userId: string): AccessCacheEntry | null {
+  if (typeof window === "undefined" || !guildId || !userId) {
+    return null;
+  }
+
+  try {
+    const raw = sessionStorage.getItem(accessCacheKey(guildId, userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AccessCacheEntry;
+    if (!parsed || typeof parsed !== "object") return null;
+    if (Date.now() - Number(parsed.checkedAt || 0) > ACCESS_CACHE_TTL_MS) {
+      sessionStorage.removeItem(accessCacheKey(guildId, userId));
+      return null;
+    }
+    return {
+      allowed: Boolean(parsed.allowed),
+      reason: String(parsed.reason || ""),
+      checkedAt: Number(parsed.checkedAt || 0),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeAccessCache(guildId: string, userId: string, entry: Omit<AccessCacheEntry, "checkedAt">) {
+  if (typeof window === "undefined" || !guildId || !userId) {
+    return;
+  }
+
+  try {
+    sessionStorage.setItem(
+      accessCacheKey(guildId, userId),
+      JSON.stringify({
+        allowed: Boolean(entry.allowed),
+        reason: String(entry.reason || ""),
+        checkedAt: Date.now(),
+      })
+    );
+  } catch {
+    // Ignore sessionStorage quota or privacy failures.
+  }
+}
+
+async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    const json = await res.json().catch(() => ({}));
+    return { res, json };
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 export default function DashboardAccessGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [allowed, setAllowed] = useState(true);
@@ -58,10 +128,16 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
     (async () => {
       const context = getContext();
       let userId = context.userId;
+      const cachedAccess = readAccessCache(context.guildId, userId);
+
+      if (cachedAccess && mounted) {
+        setAllowed(cachedAccess.allowed);
+        setReason(cachedAccess.reason);
+        setReady(true);
+      }
 
       try {
-        const sessionRes = await fetch("/api/auth/session", { cache: "no-store" });
-        const sessionJson = await sessionRes.json().catch(() => ({}));
+        const { json: sessionJson } = await fetchJsonWithTimeout("/api/auth/session", 3500);
         if (!sessionJson?.loggedIn) {
           if (!mounted) return;
           setAllowed(false);
@@ -76,8 +152,13 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
         }
       } catch {
         if (!mounted) return;
-        setAllowed(false);
-        setReason("Login session check failed. Please reload and log in again.");
+        if (context.guildId && userId) {
+          setAllowed(true);
+          setWarning("Login session check timed out. Continuing in safe-open mode for this page load.");
+        } else {
+          setAllowed(false);
+          setReason("Login session check failed. Please reload and log in again.");
+        }
         setReady(true);
         return;
       }
@@ -92,11 +173,10 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
       }
 
       try {
-        const accessRes = await fetch(
+        const { res: accessRes, json: accessJson } = await fetchJsonWithTimeout(
           `/api/bot/guild-access?guildId=${encodeURIComponent(context.guildId)}&userId=${encodeURIComponent(userId)}`,
-          { cache: "no-store" }
+          4500
         );
-        const accessJson = await accessRes.json().catch(() => ({}));
 
         if (!mounted) return;
 
@@ -104,13 +184,16 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
           throw new Error(accessJson?.error || "Live guild access check failed.");
         }
 
-        setAllowed(Boolean(accessJson?.access));
-        setReason(accessReasonLabel(String(accessJson?.reason || "")));
+        const nextAllowed = Boolean(accessJson?.access);
+        const nextReason = accessReasonLabel(String(accessJson?.reason || ""));
+        setAllowed(nextAllowed);
+        setReason(nextReason);
+        writeAccessCache(context.guildId, userId, { allowed: nextAllowed, reason: nextReason });
         setReady(true);
       } catch {
         if (!mounted) return;
         setAllowed(true);
-        setWarning("Live access policy check failed. Continuing in safe-open mode for this session.");
+        setWarning("Live access policy check timed out. Continuing in safe-open mode for this page load.");
         setReady(true);
       }
     })();
