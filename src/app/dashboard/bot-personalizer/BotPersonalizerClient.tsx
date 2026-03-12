@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 import { buildDashboardHref } from "@/lib/dashboardContext";
@@ -101,6 +101,10 @@ export default function BotPersonalizerClient() {
   const previewAvatar = String(cfg.webhookAvatarUrl || "").trim();
   const previewBanner = String(cfg.profileBannerUrl || "").trim();
   const previewBotName = previewName(cfg);
+  const [avatarPreviewFailedFor, setAvatarPreviewFailedFor] = useState("");
+  const [bannerPreviewFailedFor, setBannerPreviewFailedFor] = useState("");
+  const avatarPreviewFailed = Boolean(previewAvatar && avatarPreviewFailedFor === previewAvatar);
+  const bannerPreviewFailed = Boolean(previewBanner && bannerPreviewFailedFor === previewBanner);
 
   function updateCfg(patch: Partial<PersonaConfig>) {
     setCfg((prev) => sanitizeConfig({ ...(prev || {}), ...patch }));
@@ -216,11 +220,29 @@ export default function BotPersonalizerClient() {
                 <div
                   style={{
                     height: 84,
-                    background: previewBanner
-                      ? `center / cover no-repeat url(${previewBanner})`
-                      : "linear-gradient(135deg, #3b0f0f 0%, #1a1a1a 100%)",
+                    position: "relative",
+                    background: "linear-gradient(135deg, #3b0f0f 0%, #1a1a1a 100%)",
                   }}
-                />
+                >
+                  {previewBanner && !bannerPreviewFailed ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={previewBanner}
+                      src={previewBanner}
+                      alt="Banner preview"
+                      referrerPolicy="no-referrer"
+                      onError={() => setBannerPreviewFailedFor(previewBanner)}
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
+                  ) : null}
+                </div>
                 <div style={{ padding: 16, position: "relative" }}>
                   <div
                     style={{
@@ -231,11 +253,27 @@ export default function BotPersonalizerClient() {
                       height: 76,
                       borderRadius: 999,
                       border: "3px solid #140909",
-                      background: previewAvatar
-                        ? `center / cover no-repeat url(${previewAvatar})`
-                        : "linear-gradient(135deg, #661111 0%, #240000 100%)",
+                      overflow: "hidden",
+                      background: "linear-gradient(135deg, #661111 0%, #240000 100%)",
                     }}
-                  />
+                  >
+                    {previewAvatar && !avatarPreviewFailed ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={previewAvatar}
+                        src={previewAvatar}
+                        alt="Avatar preview"
+                        referrerPolicy="no-referrer"
+                        onError={() => setAvatarPreviewFailedFor(previewAvatar)}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                      />
+                    ) : null}
+                  </div>
                   <div style={{ paddingTop: 42 }}>
                     <div style={{ fontSize: 22, fontWeight: 900 }}>{previewBotName}</div>
                     <div style={{ color: "#ffb7b7", fontSize: 13, marginTop: 4 }}>
@@ -244,6 +282,11 @@ export default function BotPersonalizerClient() {
                     <div style={{ color: "#ff9797", fontSize: 12, marginTop: 8 }}>
                       {cfg.useWebhookPersona ? "Webhook identity will be used for Possum AI replies where supported." : "Default bot identity remains active until webhook mode is enabled."}
                     </div>
+                    {(avatarPreviewFailed || bannerPreviewFailed) ? (
+                      <div style={{ color: "#ffb0b0", fontSize: 11, marginTop: 8 }}>
+                        One or more preview images could not be loaded from the configured URL.
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
