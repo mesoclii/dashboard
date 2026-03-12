@@ -147,7 +147,7 @@ export default function AccessControlClient() {
         const [cfgRes, guildRes, sessionRes] = await Promise.all([
           fetch(`/api/bot/dashboard-access-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
           fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
-          fetch("/api/auth/session", { cache: "no-store" }),
+          fetch("/api/auth/session?brief=1", { cache: "no-store" }),
         ]);
 
         const cfgJson = (await cfgRes.json().catch(() => ({}))) as { config?: Partial<AccessControlConfig> };

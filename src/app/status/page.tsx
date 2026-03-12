@@ -55,7 +55,7 @@ export default function StatusPage() {
     (async () => {
       const [statusRes, sessionRes] = await Promise.all([
         fetch("/api/status", { cache: "no-store" }).catch(() => null),
-        fetch("/api/auth/session", { cache: "no-store" }).catch(() => null),
+        fetch("/api/auth/session?brief=1", { cache: "no-store" }).catch(() => null),
       ]);
       const statusJson = await statusRes?.json().catch(() => ({}));
       const sessionJson = await sessionRes?.json().catch(() => ({}));

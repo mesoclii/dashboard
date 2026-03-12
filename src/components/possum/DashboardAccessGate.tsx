@@ -137,7 +137,7 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
       }
 
       try {
-        const { json: sessionJson } = await fetchJsonWithTimeout("/api/auth/session", 3500);
+        const { json: sessionJson } = await fetchJsonWithTimeout("/api/auth/session?brief=1", 5500);
         if (!sessionJson?.loggedIn) {
           if (!mounted) return;
           setAllowed(false);
@@ -154,7 +154,9 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
         if (!mounted) return;
         if (context.guildId && userId) {
           setAllowed(true);
-          setWarning("Login session check timed out. Continuing in safe-open mode for this page load.");
+          if (!cachedAccess) {
+            setWarning("Login session check timed out. Continuing in safe-open mode for this page load.");
+          }
         } else {
           setAllowed(false);
           setReason("Login session check failed. Please reload and log in again.");

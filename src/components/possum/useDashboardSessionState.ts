@@ -44,7 +44,7 @@ async function loadDashboardSessionState(): Promise<DashboardSessionState> {
     const timeout = window.setTimeout(() => controller.abort(), 3500);
 
     try {
-      const res = await fetch("/api/auth/session", {
+      const res = await fetch("/api/auth/session?brief=1", {
         cache: "no-store",
         signal: controller.signal,
       });

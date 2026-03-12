@@ -64,7 +64,7 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       const [sessionRes, buildRes] = await Promise.all([
-        fetch("/api/auth/session", { cache: "no-store" }).catch(() => null),
+        fetch("/api/auth/session?brief=1", { cache: "no-store" }).catch(() => null),
         fetch("/api/build-info", { cache: "no-store" }).catch(() => null),
       ]);
       const json = await sessionRes?.json().catch(() => ({}));

@@ -45,7 +45,7 @@ export default function FeaturesPage() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/auth/session", { cache: "no-store" }).catch(() => null);
+      const res = await fetch("/api/auth/session?brief=1", { cache: "no-store" }).catch(() => null);
       const json = await res?.json().catch(() => ({}));
       setSession({
         loggedIn: Boolean(json?.loggedIn),

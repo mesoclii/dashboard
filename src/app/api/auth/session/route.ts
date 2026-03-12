@@ -7,6 +7,7 @@ import { fetchDiscordGuilds, hasGuildManageAccess, isDiscordOauthConfigured } fr
 export async function GET(request: NextRequest) {
   const oauthConfigured = isDiscordOauthConfigured();
   const session = await readDashboardSessionValue(request.cookies.get(DASHBOARD_SESSION_COOKIE)?.value);
+  const brief = request.nextUrl.searchParams.get("brief") === "1";
 
   if (!session) {
     return NextResponse.json({
@@ -22,6 +23,19 @@ export async function GET(request: NextRequest) {
 
   const actorUserId = String(session.user.id || MASTER_OWNER_USER_ID).trim() || MASTER_OWNER_USER_ID;
   const isMasterOwner = isDashboardControlOwner(actorUserId);
+
+  if (brief) {
+    return NextResponse.json({
+      success: true,
+      oauthConfigured,
+      loggedIn: true,
+      isMasterOwner,
+      canEnterDashboard: true,
+      accessibleGuildCount: null,
+      counts: null,
+      user: session.user,
+    });
+  }
 
   let adminGuildCount = 0;
   let installedGuildCount = 0;
