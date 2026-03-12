@@ -54,6 +54,7 @@ export default function Home() {
     user: null,
   });
   const [now, setNow] = useState(() => new Date());
+  const [lastUpdatedAt, setLastUpdatedAt] = useState("");
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -62,14 +63,20 @@ export default function Home() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/auth/session", { cache: "no-store" }).catch(() => null);
-      const json = await res?.json().catch(() => ({}));
+      const [sessionRes, statusRes] = await Promise.all([
+        fetch("/api/auth/session", { cache: "no-store" }).catch(() => null),
+        fetch("/api/status", { cache: "no-store" }).catch(() => null),
+      ]);
+      const json = await sessionRes?.json().catch(() => ({}));
+      const statusJson = await statusRes?.json().catch(() => ({}));
       setSession({
         loggedIn: Boolean(json?.loggedIn),
         oauthConfigured: Boolean(json?.oauthConfigured),
         canEnterDashboard: Boolean(json?.canEnterDashboard),
         user: json?.user || null,
       });
+      const statusUpdatedAt = String(statusJson?.status?.updatedAt || "").trim();
+      setLastUpdatedAt(statusUpdatedAt || new Date(document.lastModified || Date.now()).toISOString());
     })();
   }, []);
 
@@ -97,6 +104,26 @@ export default function Home() {
       }),
     [now]
   );
+
+  const lastUpdatedLine = useMemo(() => {
+    if (!lastUpdatedAt) return "Last Updated: Not available";
+    const stamp = new Date(lastUpdatedAt);
+    if (Number.isNaN(stamp.getTime())) return "Last Updated: Not available";
+    const date = stamp.toLocaleDateString("en-US", {
+      month: "long",
+      day: "2-digit",
+      year: "numeric",
+      timeZone: "America/Los_Angeles",
+    });
+    const time = stamp.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "America/Los_Angeles",
+      timeZoneName: "short",
+    });
+    return `Last Updated: ${date} | ${time}`;
+  }, [lastUpdatedAt]);
 
   const entryHref = session.loggedIn && session.canEnterDashboard ? "/guilds" : "/api/auth/discord/login?returnTo=%2Fguilds";
   const entryLabel = session.loggedIn && session.canEnterDashboard ? "Select Guild" : "Login To Discord";
@@ -146,9 +173,6 @@ export default function Home() {
               </a>
               <a href="/features" style={secondaryButton}>
                 Features
-              </a>
-              <a href={buildSupportServerUrl()} style={secondaryButton} target="_blank" rel="noreferrer">
-                Join Support Server
               </a>
               <a href={entryHref} style={primaryButton}>
                 {entryLabel}
@@ -215,6 +239,9 @@ export default function Home() {
           </div>
           <div style={{ color: "#ffd7d7", fontSize: 22, letterSpacing: "0.18em", textTransform: "uppercase", marginTop: 10 }}>
             {timeLine}
+          </div>
+          <div style={{ color: "#ffb0b0", fontSize: 14, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 10 }}>
+            {lastUpdatedLine}
           </div>
           <div
             style={{
