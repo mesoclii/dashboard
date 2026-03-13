@@ -1,11 +1,17 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ChangeEvent } from "react";
 import { useMemo, useState } from "react";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 import { buildDashboardHref } from "@/lib/dashboardContext";
+
+type AvatarPreset = {
+  url: string;
+  label?: string;
+};
 
 type PersonaConfig = {
   enabled: boolean;
@@ -13,6 +19,7 @@ type PersonaConfig = {
   botName: string;
   webhookName: string;
   webhookAvatarUrl: string;
+  avatarLibrary: AvatarPreset[];
   useWebhookPersona: boolean;
   profileBannerUrl: string;
   activityType: string;
@@ -26,12 +33,45 @@ const DEFAULT_CFG: PersonaConfig = {
   botName: "",
   webhookName: "",
   webhookAvatarUrl: "",
+  avatarLibrary: [],
   useWebhookPersona: false,
   profileBannerUrl: "",
   activityType: "LISTENING",
   activityText: "/help",
   status: "online",
 };
+
+const MAX_AVATAR_UPLOAD_BYTES = 2_000_000;
+
+function isImageSource(value: unknown) {
+  const text = String(value || "").trim();
+  return /^https?:\/\//i.test(text) || /^data:image\/[a-z0-9.+-]+;base64,/i.test(text);
+}
+
+function safePreviewUrl(value: unknown) {
+  const text = String(value || "").trim();
+  return isImageSource(text) ? text : "";
+}
+
+function normalizeAvatarLibrary(raw: unknown): AvatarPreset[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const output: AvatarPreset[] = [];
+  for (const entry of raw) {
+    const row = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
+    const url = safePreviewUrl(row.url || row.imageUrl || "");
+    if (!url) continue;
+    const key = url.slice(0, 512).toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push({
+      url,
+      label: String(row.label || row.name || "").trim().slice(0, 120),
+    });
+    if (output.length >= 24) break;
+  }
+  return output;
+}
 
 function sanitizeConfig(rawCfg: Partial<PersonaConfig> | null | undefined): PersonaConfig {
   const src = rawCfg && typeof rawCfg === "object" ? rawCfg : {};
@@ -41,12 +81,22 @@ function sanitizeConfig(rawCfg: Partial<PersonaConfig> | null | undefined): Pers
     botName: String(src.botName || ""),
     webhookName: String(src.webhookName || ""),
     webhookAvatarUrl: String(src.webhookAvatarUrl || ""),
+    avatarLibrary: normalizeAvatarLibrary(src.avatarLibrary),
     useWebhookPersona: Boolean(src.useWebhookPersona),
     profileBannerUrl: String(src.profileBannerUrl || ""),
     activityType: String(src.activityType || "LISTENING"),
     activityText: String(src.activityText || "/help"),
     status: String(src.status || "online"),
   };
+}
+
+async function fileToDataUrl(file: File) {
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Image load failed."));
+    reader.readAsDataURL(file);
+  });
 }
 
 const wrap: CSSProperties = { color: "#ffd0d0", maxWidth: 1320 };
@@ -76,9 +126,26 @@ const action: CSSProperties = {
   textTransform: "uppercase",
   cursor: "pointer",
 };
+const subAction: CSSProperties = {
+  ...action,
+  padding: "8px 10px",
+  fontSize: 12,
+};
+const hint: CSSProperties = {
+  color: "#ffb5b5",
+  fontSize: 12,
+  lineHeight: 1.7,
+};
 
-function previewName(cfg: PersonaConfig) {
-  return String(cfg.guildNickname || cfg.botName || cfg.webhookName || "Possum").trim();
+function previewName(cfg: PersonaConfig, botUser?: { globalName?: string; username?: string } | null) {
+  return String(
+    cfg.guildNickname ||
+    cfg.botName ||
+    cfg.webhookName ||
+    botUser?.globalName ||
+    botUser?.username ||
+    "Possum"
+  ).trim();
 }
 
 export default function BotPersonalizerClient() {
@@ -87,6 +154,7 @@ export default function BotPersonalizerClient() {
     guildName,
     config: rawCfg,
     setConfig: setCfg,
+    botUser,
     summary,
     details,
     loading,
@@ -98,16 +166,85 @@ export default function BotPersonalizerClient() {
 
   const cfg = useMemo(() => sanitizeConfig(rawCfg), [rawCfg]);
   const possumAiHref = buildDashboardHref("/dashboard/ai/learning");
-  const previewAvatar = String(cfg.webhookAvatarUrl || "").trim();
-  const previewBanner = String(cfg.profileBannerUrl || "").trim();
-  const previewBotName = previewName(cfg);
+  const previewAvatar = safePreviewUrl(cfg.webhookAvatarUrl);
+  const previewBanner = safePreviewUrl(cfg.profileBannerUrl);
+  const liveBotAvatar = safePreviewUrl(botUser?.avatarUrl);
+  const previewBotName = previewName(cfg, botUser);
   const [avatarPreviewFailedFor, setAvatarPreviewFailedFor] = useState("");
   const [bannerPreviewFailedFor, setBannerPreviewFailedFor] = useState("");
+  const [avatarLibraryLabel, setAvatarLibraryLabel] = useState("");
+  const [avatarLibraryMessage, setAvatarLibraryMessage] = useState("");
   const avatarPreviewFailed = Boolean(previewAvatar && avatarPreviewFailedFor === previewAvatar);
   const bannerPreviewFailed = Boolean(previewBanner && bannerPreviewFailedFor === previewBanner);
+  const effectivePreviewAvatar = avatarPreviewFailed ? "" : previewAvatar;
+  const displayedAvatar = effectivePreviewAvatar || liveBotAvatar;
+  const usingLiveBotAvatarFallback = !effectivePreviewAvatar && Boolean(liveBotAvatar);
 
   function updateCfg(patch: Partial<PersonaConfig>) {
     setCfg((prev) => sanitizeConfig({ ...(prev || {}), ...patch }));
+  }
+
+  function setAvatarSource(url: string, notice: string) {
+    updateCfg({ webhookAvatarUrl: url });
+    setAvatarPreviewFailedFor("");
+    setAvatarLibraryMessage(notice);
+  }
+
+  function saveAvatarToLibrary(url: string, preferredLabel = "") {
+    const source = safePreviewUrl(url);
+    if (!source) {
+      setAvatarLibraryMessage("Chat avatar source must be an image URL or an uploaded image.");
+      return;
+    }
+    setCfg((prev) => {
+      const current = sanitizeConfig(prev);
+      const existing = current.avatarLibrary.find((entry) => entry.url === source);
+      const label = String(preferredLabel || avatarLibraryLabel || existing?.label || "").trim().slice(0, 120);
+      return sanitizeConfig({
+        ...current,
+        webhookAvatarUrl: source,
+        avatarLibrary: normalizeAvatarLibrary([
+          { url: source, label },
+          ...current.avatarLibrary.filter((entry) => entry.url !== source),
+        ]),
+      });
+    });
+    setAvatarLibraryLabel("");
+    setAvatarPreviewFailedFor("");
+    setAvatarLibraryMessage("Saved avatar added for this guild and selected for webhook replies.");
+  }
+
+  function removeSavedAvatar(url: string) {
+    setCfg((prev) => {
+      const current = sanitizeConfig(prev);
+      return sanitizeConfig({
+        ...current,
+        webhookAvatarUrl: current.webhookAvatarUrl === url ? "" : current.webhookAvatarUrl,
+        avatarLibrary: current.avatarLibrary.filter((entry) => entry.url !== url),
+      });
+    });
+    setAvatarLibraryMessage("Saved avatar removed.");
+  }
+
+  async function handleAvatarUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!String(file.type || "").toLowerCase().startsWith("image/")) {
+      setAvatarLibraryMessage("Please upload an image file.");
+      return;
+    }
+    if (file.size > MAX_AVATAR_UPLOAD_BYTES) {
+      setAvatarLibraryMessage("Saved avatar upload is too large. Keep it under 2 MB.");
+      return;
+    }
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const fileLabel = String(file.name || "").replace(/\.[^.]+$/, "");
+      saveAvatarToLibrary(dataUrl, avatarLibraryLabel || fileLabel);
+    } catch (err: any) {
+      setAvatarLibraryMessage(err?.message || "Avatar upload failed.");
+    }
   }
 
   async function applyLiveNow() {
@@ -135,15 +272,15 @@ export default function BotPersonalizerClient() {
             </h1>
             <div style={{ color: "#ff9f9f", marginBottom: 8 }}>Guild: {guildName || guildId}</div>
             <div style={{ color: "#ffb5b5", fontSize: 12, maxWidth: 760 }}>
-              Guild nickname applies live in this guild. Presence applies live across the bot account. Avatar, banner,
-              webhook chat name, and webhook identity stay on the free Bot Personalizer layer for Possum AI replies where supported.
+              Guild nickname applies live in this guild. Presence applies live across the bot account. Chat avatar can now use a direct image link,
+              the live bot avatar fallback, or a saved guild image library for webhook-backed Possum replies.
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={() => void applyLiveNow()} disabled={saving} style={action}>
+            <button type="button" onClick={() => void applyLiveNow()} disabled={saving} style={action}>
               {saving ? "Applying..." : "Apply Live Now"}
             </button>
-            <button onClick={() => void saveAndApply()} disabled={saving} style={action}>
+            <button type="button" onClick={() => void saveAndApply()} disabled={saving} style={action}>
               {saving ? "Saving..." : "Save + Apply Live"}
             </button>
           </div>
@@ -196,12 +333,12 @@ export default function BotPersonalizerClient() {
                   />
                 </div>
                 <div>
-                  <label>Chat avatar URL</label>
+                  <label>Chat avatar source</label>
                   <input
                     style={input}
                     value={cfg.webhookAvatarUrl || ""}
                     onChange={(e) => updateCfg({ webhookAvatarUrl: e.target.value })}
-                    placeholder="https://..."
+                    placeholder="https://... or leave blank to use the live bot avatar"
                   />
                 </div>
                 <div style={{ gridColumn: "1 / -1" }}>
@@ -212,6 +349,119 @@ export default function BotPersonalizerClient() {
                     onChange={(e) => updateCfg({ profileBannerUrl: e.target.value })}
                     placeholder="https://..."
                   />
+                </div>
+              </div>
+
+              <div style={{ ...card, marginBottom: 0, marginTop: 12, background: "rgba(25, 0, 0, 0.45)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: 900, color: "#ff8b8b", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                      Saved Avatar Library
+                    </div>
+                    <div style={hint}>
+                      Save per-guild avatar art here and reuse it instead of pasting links every time. Webhook replies can use these saved avatars per guild.
+                      Applying the real bot account avatar still affects the whole bot globally.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    style={subAction}
+                    onClick={() => {
+                      updateCfg({ webhookAvatarUrl: "" });
+                      setAvatarPreviewFailedFor("");
+                      setAvatarLibraryMessage("Webhook replies will use the live bot avatar until you choose a custom source again.");
+                    }}
+                  >
+                    Use Live Bot Avatar
+                  </button>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(220px,1fr) auto", gap: 12, marginTop: 12, alignItems: "end" }}>
+                  <div>
+                    <label>Saved avatar label</label>
+                    <input
+                      style={input}
+                      value={avatarLibraryLabel}
+                      onChange={(e) => setAvatarLibraryLabel(e.target.value)}
+                      placeholder="Server default, Halloween, VIP, ..."
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    style={subAction}
+                    onClick={() => saveAvatarToLibrary(cfg.webhookAvatarUrl)}
+                  >
+                    Save Current Source
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 12 }}>
+                  <label>Upload saved avatar</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => void handleAvatarUpload(event)}
+                    style={{ ...input, padding: 8 }}
+                  />
+                </div>
+
+                {avatarLibraryMessage ? <div style={{ color: "#ffd27a", marginTop: 10 }}>{avatarLibraryMessage}</div> : null}
+
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontWeight: 800, marginBottom: 8, color: "#ffb5b5" }}>
+                    Saved avatars for {guildName || guildId}
+                  </div>
+                  {cfg.avatarLibrary.length ? (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
+                      {cfg.avatarLibrary.map((entry, index) => {
+                        const selected = String(entry.url || "").trim() === String(cfg.webhookAvatarUrl || "").trim();
+                        const src = safePreviewUrl(entry.url);
+                        return (
+                          <div
+                            key={`${index}-${entry.label || "avatar"}`}
+                            style={{
+                              border: `1px solid ${selected ? "#ff7a7a" : "rgba(255,0,0,.28)"}`,
+                              borderRadius: 12,
+                              overflow: "hidden",
+                              background: "rgba(18, 0, 0, 0.72)",
+                            }}
+                          >
+                            <div style={{ aspectRatio: "1 / 1", background: "linear-gradient(135deg, #511111 0%, #160808 100%)" }}>
+                              {src ? (
+                                <img
+                                  src={src}
+                                  alt={entry.label || `Saved avatar ${index + 1}`}
+                                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                                />
+                              ) : null}
+                            </div>
+                            <div style={{ padding: 10 }}>
+                              <div style={{ fontWeight: 800, color: "#ffe2e2" }}>{entry.label || `Saved Avatar ${index + 1}`}</div>
+                              <div style={hint}>{selected ? "Selected for webhook replies in this guild." : "Saved and ready to reuse."}</div>
+                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                                <button
+                                  type="button"
+                                  style={subAction}
+                                  onClick={() => setAvatarSource(entry.url, "Saved avatar selected for webhook replies.")}
+                                >
+                                  {selected ? "Selected" : "Use This"}
+                                </button>
+                                <button
+                                  type="button"
+                                  style={subAction}
+                                  onClick={() => removeSavedAvatar(entry.url)}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div style={hint}>No saved avatars yet. Upload one or save the current chat avatar source.</div>
+                  )}
                 </div>
               </div>
             </section>
@@ -229,9 +479,7 @@ export default function BotPersonalizerClient() {
                   }}
                 >
                   {previewBanner && !bannerPreviewFailed ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      key={previewBanner}
                       src={previewBanner}
                       alt="Banner preview"
                       referrerPolicy="no-referrer"
@@ -259,16 +507,20 @@ export default function BotPersonalizerClient() {
                       border: "3px solid #140909",
                       overflow: "hidden",
                       background: "linear-gradient(135deg, #661111 0%, #240000 100%)",
+                      display: "grid",
+                      placeItems: "center",
                     }}
                   >
-                    {previewAvatar && !avatarPreviewFailed ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                    {displayedAvatar ? (
                       <img
-                        key={previewAvatar}
-                        src={previewAvatar}
+                        src={displayedAvatar}
                         alt="Avatar preview"
                         referrerPolicy="no-referrer"
-                        onError={() => setAvatarPreviewFailedFor(previewAvatar)}
+                        onError={() => {
+                          if (previewAvatar && displayedAvatar === previewAvatar) {
+                            setAvatarPreviewFailedFor(previewAvatar);
+                          }
+                        }}
                         style={{
                           width: "100%",
                           height: "100%",
@@ -276,7 +528,11 @@ export default function BotPersonalizerClient() {
                           display: "block",
                         }}
                       />
-                    ) : null}
+                    ) : (
+                      <span style={{ fontSize: 26, fontWeight: 900, color: "#ffd2d2" }}>
+                        {(previewBotName || "P").slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
                   </div>
                   <div style={{ paddingTop: 42 }}>
                     <div style={{ fontSize: 22, fontWeight: 900 }}>{previewBotName}</div>
@@ -284,11 +540,15 @@ export default function BotPersonalizerClient() {
                       {String(cfg.status || "online").toUpperCase()} | {String(cfg.activityType || "LISTENING").toUpperCase()} {String(cfg.activityText || "/help")}
                     </div>
                     <div style={{ color: "#ff9797", fontSize: 12, marginTop: 8 }}>
-                      {cfg.useWebhookPersona ? "Webhook identity will be used for Possum AI replies where supported." : "Default bot identity remains active until webhook mode is enabled."}
+                      {cfg.useWebhookPersona
+                        ? usingLiveBotAvatarFallback
+                          ? "Webhook identity is using the live bot avatar fallback until a custom guild avatar source is selected."
+                          : "Webhook identity will use the selected custom avatar for Possum AI replies where supported."
+                        : "Default bot identity remains active until webhook mode is enabled."}
                     </div>
                     {(avatarPreviewFailed || bannerPreviewFailed) ? (
                       <div style={{ color: "#ffb0b0", fontSize: 11, marginTop: 8 }}>
-                        One or more preview images could not be loaded from the configured URL.
+                        One or more preview images could not be loaded. The runtime will fall back to the live bot avatar if the chat avatar link is dead.
                       </div>
                     ) : null}
                   </div>
@@ -333,7 +593,7 @@ export default function BotPersonalizerClient() {
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
               <div style={{ color: "#ffb5b5", fontSize: 12, maxWidth: 760 }}>
-                This page controls naming, presence, and webhook identity only. Possum AI now owns the guild backstory and adaptive identity notes.
+                This page controls naming, presence, avatar source selection, and webhook identity. Possum AI still owns the guild backstory and adaptive identity notes.
               </div>
               <Link href={possumAiHref} style={{ ...action, textDecoration: "none" }}>
                 Open Possum AI

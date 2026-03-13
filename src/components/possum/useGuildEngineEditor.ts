@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type GuildRole = { id: string; name: string; position?: number; color?: string };
 export type GuildChannel = { id: string; name: string; type?: number | string; parentId?: string | null };
+export type GuildBotUser = { id?: string; username?: string; globalName?: string; avatarUrl?: string };
 export type EngineSummaryItem = { label: string; value: string };
 export type EngineDetailItem = { rank?: number; name?: string; title?: string; value: string };
 export type EngineDetails = Record<string, EngineDetailItem[] | { title: string; value: string } | null | undefined>;
@@ -24,6 +25,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
   const [config, setConfig] = useState<T>(defaults);
   const [channels, setChannels] = useState<GuildChannel[]>([]);
   const [roles, setRoles] = useState<GuildRole[]>([]);
+  const [botUser, setBotUser] = useState<GuildBotUser | null>(null);
   const [summary, setSummary] = useState<EngineSummaryItem[]>([]);
   const [details, setDetails] = useState<EngineDetails>({});
   const [loading, setLoading] = useState(true);
@@ -68,6 +70,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
 
       const nextChannels: GuildChannel[] = Array.isArray(guildJson?.channels) ? guildJson.channels : [];
       const nextRoles: GuildRole[] = Array.isArray(guildJson?.roles) ? guildJson.roles : [];
+      setBotUser((guildJson?.botUser && typeof guildJson.botUser === "object") ? guildJson.botUser : null);
       nextRoles.sort((a, b) => (Number(b.position || 0) - Number(a.position || 0)) || a.name.localeCompare(b.name));
       setChannels(nextChannels);
       setRoles(nextRoles);
@@ -189,6 +192,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
     setConfig,
     channels,
     roles,
+    botUser,
     summary,
     details,
     loading,
