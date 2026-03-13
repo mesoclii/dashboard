@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FALLBACK_GUILD_NAMES, MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
+import { FALLBACK_GUILD_NAMES } from "@/lib/dashboardOwner";
 import { buildPublicInviteUrl } from "@/lib/publicLinks";
 
 type Guild = {
@@ -120,7 +120,7 @@ export default function GuildsPage() {
         params.get("userId") ||
           params.get("uid") ||
           localStorage.getItem("dashboardUserId") ||
-          MASTER_OWNER_USER_ID
+          ""
       ).trim();
       const roleIds = String(
         params.get("roleIds") ||

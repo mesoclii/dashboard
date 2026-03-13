@@ -77,10 +77,36 @@ async function readJsonOrThrow(res: Response) {
   return json;
 }
 
+const DASHBOARD_CONFIG_TTL_MS = 10_000;
+const ENGINE_CONFIG_TTL_MS = 10_000;
+
+const dashboardConfigCache = new Map<string, { value: any; expiresAt: number }>();
+const engineConfigCache = new Map<string, { value: any; expiresAt: number }>();
+const dashboardConfigInflight = new Map<string, Promise<any>>();
+const engineConfigInflight = new Map<string, Promise<any>>();
+
 async function getDashboardConfig(guildId: string) {
-  const res = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" });
-  const json = await readJsonOrThrow(res);
-  return json?.config || {};
+  const cacheKey = String(guildId || "").trim();
+  const cached = dashboardConfigCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+  if (dashboardConfigInflight.has(cacheKey)) {
+    return dashboardConfigInflight.get(cacheKey);
+  }
+  const request = (async () => {
+    const res = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" });
+    const json = await readJsonOrThrow(res);
+    const value = json?.config || {};
+    dashboardConfigCache.set(cacheKey, { value, expiresAt: Date.now() + DASHBOARD_CONFIG_TTL_MS });
+    dashboardConfigInflight.delete(cacheKey);
+    return value;
+  })().catch((error) => {
+    dashboardConfigInflight.delete(cacheKey);
+    throw error;
+  });
+  dashboardConfigInflight.set(cacheKey, request);
+  return request;
 }
 
 async function saveDashboardFeature(guildId: string, key: string, value: boolean) {
@@ -90,15 +116,34 @@ async function saveDashboardFeature(guildId: string, key: string, value: boolean
     body: JSON.stringify({ guildId, patch: { features: { [key]: value } } }),
   });
   await readJsonOrThrow(res);
+  dashboardConfigCache.delete(String(guildId || "").trim());
 }
 
 async function getEngineConfig(guildId: string, engine: string) {
-  const res = await fetch(
-    `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
-    { cache: "no-store" }
-  );
-  const json = await readJsonOrThrow(res);
-  return json?.config || {};
+  const cacheKey = `${String(guildId || "").trim()}:${String(engine || "").trim()}`;
+  const cached = engineConfigCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+  if (engineConfigInflight.has(cacheKey)) {
+    return engineConfigInflight.get(cacheKey);
+  }
+  const request = (async () => {
+    const res = await fetch(
+      `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
+      { cache: "no-store" }
+    );
+    const json = await readJsonOrThrow(res);
+    const value = json?.config || {};
+    engineConfigCache.set(cacheKey, { value, expiresAt: Date.now() + ENGINE_CONFIG_TTL_MS });
+    engineConfigInflight.delete(cacheKey);
+    return value;
+  })().catch((error) => {
+    engineConfigInflight.delete(cacheKey);
+    throw error;
+  });
+  engineConfigInflight.set(cacheKey, request);
+  return request;
 }
 
 async function saveEngineConfig(guildId: string, engine: string, patch: Record<string, unknown>) {
@@ -108,6 +153,7 @@ async function saveEngineConfig(guildId: string, engine: string, patch: Record<s
     body: JSON.stringify({ guildId, engine, patch }),
   });
   await readJsonOrThrow(res);
+  engineConfigCache.delete(`${String(guildId || "").trim()}:${String(engine || "").trim()}`);
 }
 
 function featureController(key: string): ToggleController {

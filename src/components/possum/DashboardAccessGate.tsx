@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
 
 const ACCESS_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -24,7 +23,7 @@ function getContext() {
     params.get("userId") ||
       params.get("uid") ||
       localStorage.getItem("dashboardUserId") ||
-      MASTER_OWNER_USER_ID
+      ""
   ).trim();
   if (userId) localStorage.setItem("dashboardUserId", userId);
 
@@ -117,7 +116,6 @@ async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
 }
 
 export default function DashboardAccessGate({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(false);
   const [allowed, setAllowed] = useState(true);
   const [reason, setReason] = useState("");
   const [warning, setWarning] = useState("");
@@ -133,16 +131,14 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
       if (cachedAccess && mounted) {
         setAllowed(cachedAccess.allowed);
         setReason(cachedAccess.reason);
-        setReady(true);
       }
 
       try {
-        const { json: sessionJson } = await fetchJsonWithTimeout("/api/auth/session?brief=1", 5500);
+        const { json: sessionJson } = await fetchJsonWithTimeout("/api/auth/session?brief=1", 1800);
         if (!sessionJson?.loggedIn) {
           if (!mounted) return;
           setAllowed(false);
           setReason("Login required. Please connect Discord before entering the dashboard.");
-          setReady(true);
           return;
         }
 
@@ -152,7 +148,7 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
         }
       } catch {
         if (!mounted) return;
-        if (context.guildId && userId) {
+        if (context.guildId) {
           setAllowed(true);
           if (!cachedAccess) {
             setWarning("Login session check timed out. Continuing in safe-open mode for this page load.");
@@ -161,13 +157,11 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
           setAllowed(false);
           setReason("Login session check failed. Please reload and log in again.");
         }
-        setReady(true);
         return;
       }
 
       if (!context.guildId || !userId) {
         if (!mounted) return;
-        setReady(true);
         setAllowed(Boolean(!context.guildId));
         if (!context.guildId) return;
         setReason("Dashboard identity context missing. Please log in again.");
@@ -177,7 +171,7 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
       try {
         const { res: accessRes, json: accessJson } = await fetchJsonWithTimeout(
           `/api/bot/guild-access?guildId=${encodeURIComponent(context.guildId)}&userId=${encodeURIComponent(userId)}`,
-          4500
+          1800
         );
 
         if (!mounted) return;
@@ -190,13 +184,12 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
         const nextReason = accessReasonLabel(String(accessJson?.reason || ""));
         setAllowed(nextAllowed);
         setReason(nextReason);
+        setWarning("");
         writeAccessCache(context.guildId, userId, { allowed: nextAllowed, reason: nextReason });
-        setReady(true);
       } catch {
         if (!mounted) return;
         setAllowed(true);
         setWarning("Live access policy check timed out. Continuing in safe-open mode for this page load.");
-        setReady(true);
       }
     })();
 
@@ -204,22 +197,6 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
       mounted = false;
     };
   }, []);
-
-  if (!ready) {
-    return (
-      <div
-        style={{
-          border: "1px solid #6f0000",
-          borderRadius: 12,
-          padding: 12,
-          background: "rgba(120,0,0,0.10)",
-          color: "#ffd3d3",
-        }}
-      >
-        Checking dashboard access policy...
-      </div>
-    );
-  }
 
   if (!allowed) {
     return (

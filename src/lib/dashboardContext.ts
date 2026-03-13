@@ -1,5 +1,3 @@
-import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
-
 function readSearchParam(name: string): string {
   if (typeof window === "undefined") return "";
   return String(new URLSearchParams(window.location.search).get(name) || "").trim();
@@ -22,12 +20,12 @@ export function readDashboardGuildId(): string {
 }
 
 export function readDashboardUserId(): string {
-  if (typeof window === "undefined") return MASTER_OWNER_USER_ID;
+  if (typeof window === "undefined") return "";
   const userId = String(
     readSearchParam("userId") ||
       readSearchParam("uid") ||
       localStorage.getItem("dashboardUserId") ||
-      MASTER_OWNER_USER_ID
+      ""
   ).trim();
   if (userId) {
     localStorage.setItem("dashboardUserId", userId);
